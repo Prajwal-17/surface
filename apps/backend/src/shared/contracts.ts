@@ -117,3 +117,39 @@ export const updateJobStatusSchema = z.object({
 });
 
 export type UpdateJobStatusInput = z.infer<typeof updateJobStatusSchema>;
+
+export const jobPreferencesInputSchema = z.object({
+  targetRoles: z
+    .string()
+    .trim()
+    .min(2, "Enter at least one target role.")
+    .max(1_000, "Keep target roles under 1,000 characters."),
+  preferredSkills: z
+    .string()
+    .trim()
+    .max(2_000, "Keep preferred skills under 2,000 characters."),
+  locationPreferences: z
+    .string()
+    .trim()
+    .max(1_000, "Keep location preferences under 1,000 characters."),
+  dealBreakers: z
+    .string()
+    .trim()
+    .max(2_000, "Keep deal-breakers under 2,000 characters."),
+});
+
+export type JobPreferencesInput = z.infer<typeof jobPreferencesInputSchema>;
+
+export const jobPreferencesSchema = jobPreferencesInputSchema.extend({
+  updatedAt: z.string(),
+});
+
+export type JobPreferences = z.infer<typeof jobPreferencesSchema>;
+
+export const jobPreferencesResponseSchema = z.object({
+  preferences: jobPreferencesSchema.nullable(),
+});
+
+export type JobPreferencesResponse = z.infer<
+  typeof jobPreferencesResponseSchema
+>;

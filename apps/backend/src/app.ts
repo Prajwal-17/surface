@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { sqlite } from "./infrastructure/database/client";
 import { discoveryRoutes } from "./modules/discovery";
 import { jobsRoutes } from "./modules/jobs";
+import { profileRoutes } from "./modules/profile";
 import { handleError } from "./shared/http/error-handler";
 import { requestLogger } from "./shared/http/request-logger";
 
@@ -13,7 +14,7 @@ app.use(
   "/api/*",
   cors({
     origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
-    allowMethods: ["GET", "POST", "PATCH", "OPTIONS"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "OPTIONS"],
   }),
 );
 
@@ -28,6 +29,7 @@ app.get("/api/health", (context) => {
 
 app.route("/api/discovery", discoveryRoutes);
 app.route("/api/jobs", jobsRoutes);
+app.route("/api/profile", profileRoutes);
 
 app.notFound((context) =>
   context.json({ error: "The requested endpoint does not exist." }, 404),
