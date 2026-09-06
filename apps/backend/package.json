@@ -1,12 +1,30 @@
 {
   "name": "backend",
-  "module": "index.ts",
+  "module": "src/index.ts",
   "type": "module",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "check-types": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun run src/db/migrate.ts",
+    "db:studio": "drizzle-kit studio"
   },
-  "peerDependencies": {
-    "typescript": "^5"
+  "dependencies": {
+    "@hono/zod-validator": "latest",
+    "@repo/contracts": "*",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "latest",
+    "fast-xml-parser": "latest",
+    "hono": "^4.13.5",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "26.3.0",
+    "drizzle-kit": "latest",
+    "typescript": "npm:typescript@6.0.2"
   }
 }

@@ -1,15 +1,23 @@
-# backend
+# Fieldwork backend
 
-To install dependencies:
+The backend is a Bun/Hono API with domain modules for discovery and jobs.
 
 ```bash
 bun install
+bun run db:migrate
+bun run dev
 ```
 
-To run:
+Environment variables:
 
-```bash
-bun run index.ts
-```
+- `PORT` — API port, defaults to `4000`
+- `DB_FILE_NAME` — SQLite file path, defaults to the repository `data/` folder
+- `SOURCE_TIMEOUT_MS` — timeout per upstream feed, defaults to `12000`
 
-This project was created using `bun init` in bun v1.3.5. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+Routes:
+
+- `POST /api/discovery/search`
+- `GET /api/jobs`
+- `GET /api/jobs/:id`
+- `PATCH /api/jobs/:id/status`
+- `GET /api/health`

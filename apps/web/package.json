@@ -11,18 +11,27 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@hookform/resolvers": "latest",
+    "@repo/contracts": "*",
     "@repo/ui": "*",
+    "@tanstack/react-query": "latest",
+    "lucide-react": "latest",
     "next": "16.3.2",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "react-hook-form": "latest",
+    "sonner": "latest",
+    "zod": "latest"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
+    "@tailwindcss/postcss": "latest",
     "@types/node": "26.3.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
     "eslint": "10.9.1",
-    "typescript": "7.0.2"
+    "tailwindcss": "latest",
+    "typescript": "npm:typescript@6.0.2"
   }
 }

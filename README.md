@@ -1,159 +1,64 @@
-# Turborepo starter
+# Fieldwork
 
-This Turborepo starter is maintained by the Turborepo core team.
+Fieldwork is a local-first job-discovery inbox. The V1 searches five public job
+feeds, normalizes and deduplicates their listings, and lets you save or dismiss
+roles without creating an account.
 
-## Using this example
+## Stack
 
-Run the following command:
+- Next.js App Router, Tailwind CSS, shadcn-style UI, and TanStack Query
+- Hono on Bun with module-oriented backend boundaries
+- SQLite with Drizzle ORM and committed migrations
+- Turborepo workspaces with shared UI and Zod API contracts
 
-```sh
-npx create-turbo@latest
+## Start locally
+
+Requirements: Bun 1.3+.
+
+```bash
+bun install
+bun run db:migrate
+bun run dev
 ```
 
-## What's inside?
+Open [http://localhost:3000](http://localhost:3000). The backend listens on
+[http://localhost:4000](http://localhost:4000), and Next.js proxies browser API
+requests to it.
 
-This Turborepo includes the following packages/apps:
+The SQLite database is created at `data/job-search.sqlite` and is ignored by
+Git.
 
-### Apps and Packages
+## Useful commands
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `@next/eslint-plugin-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```bash
+bun run dev          # Start web and backend
+bun run build        # Production build
+bun run check-types  # TypeScript validation
+bun run lint         # ESLint validation
+bun run db:generate  # Generate a migration after schema changes
+bun run db:migrate   # Apply committed migrations
+bun run db:studio    # Open Drizzle Studio
 ```
 
-Without global `turbo`, use your package manager:
+## V1 sources
 
-```sh
-cd my-turborepo
-npx turbo build
-bun exec turbo build
-bun exec turbo build
+- Remotive
+- Jobicy
+- Arbeitnow
+- RemoteOK
+- We Work Remotely
+
+Each source is isolated behind an adapter. A failed feed is reported without
+discarding results from the other feeds.
+
+## Workspace layout
+
+```text
+apps/
+  web/       Next.js interface organized by product feature
+  backend/   Hono API organized by backend domain module
+packages/
+  contracts/ Shared Zod schemas and API types
+  ui/        Shared shadcn-style primitives
+data/        Local SQLite runtime data
 ```
-
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo build --filter=docs
-bun exec turbo build --filter=docs
-bun exec turbo build --filter=docs
-```
-
-### Develop
-
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-bun exec turbo dev
-bun exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-bun exec turbo dev --filter=web
-bun exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-bun exec turbo login
-bun exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-bun exec turbo link
-bun exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)

@@ -1,27 +1,21 @@
-import { type JSX } from "react";
+import type * as React from "react";
+import { cn } from "./lib/utils";
 
-export function Card({
-  className,
-  title,
-  children,
-  href,
-}: {
-  className?: string;
-  title: string;
-  children: React.ReactNode;
-  href: string;
-}): JSX.Element {
+export function Card({ className, ...props }: React.ComponentProps<"article">) {
   return (
-    <a
-      className={className}
-      href={`${href}?utm_source=create-turbo&utm_medium=basic&utm_campaign=create-turbo"`}
-      rel="noopener noreferrer"
-      target="_blank"
-    >
-      <h2>
-        {title} <span>-&gt;</span>
-      </h2>
-      <p>{children}</p>
-    </a>
+    <article
+      className={cn(
+        "rounded-md border border-border bg-card text-card-foreground",
+        className,
+      )}
+      {...props}
+    />
   );
+}
+
+export function CardContent({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return <div className={cn("p-4", className)} {...props} />;
 }

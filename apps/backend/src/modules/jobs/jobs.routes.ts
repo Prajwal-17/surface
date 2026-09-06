@@ -1,0 +1,27 @@
+import {
+  jobsListQuerySchema,
+  updateJobStatusSchema,
+} from "@repo/contracts";
+import { zValidator } from "@hono/zod-validator";
+import { Hono } from "hono";
+import { getJob, getJobs, updateJobStatus } from "./jobs.service";
+
+export const jobsRoutes = new Hono();
+
+jobsRoutes.get("/", (context) => {
+  const input = jobsListQuerySchema.parse(context.req.query());
+  return context.json(getJobs(input));
+});
+
+jobsRoutes.get("/:id", (context) => {
+  return context.json(getJob(context.req.param("id")));
+});
+
+jobsRoutes.patch(
+  "/:id/status",
+  zValidator("json", updateJobStatusSchema),
+  (context) => {
+    const input = context.req.valid("json");
+    return context.json(updateJobStatus(context.req.param("id"), input.status));
+  },
+);
