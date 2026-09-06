@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { HttpError } from "../shared/errors/http-error";
+import { HttpError } from "../errors/http-error";
 
 export function handleError(error: Error, context: Context) {
   if (error instanceof HttpError) {

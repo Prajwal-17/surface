@@ -4,7 +4,7 @@ import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { db, sqlite } from "./client";
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
-const migrationsFolder = join(currentDirectory, "../../drizzle");
+const migrationsFolder = join(currentDirectory, "../../../drizzle");
 
 export function runMigrations(): void {
   migrate(db, { migrationsFolder });

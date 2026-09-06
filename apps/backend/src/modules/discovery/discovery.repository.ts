@@ -4,11 +4,8 @@ import type {
   SourceRunSummary,
 } from "@repo/contracts";
 import { eq } from "drizzle-orm";
-import { db } from "../../db/client";
-import {
-  discoveryRuns,
-  discoverySourceRuns,
-} from "./discovery.tables";
+import { db } from "../../infrastructure/database/client";
+import { discoveryRuns, discoverySourceRuns } from "./discovery.tables";
 
 export interface DiscoveryRunRecord {
   id: string;
@@ -30,10 +27,7 @@ export function createDiscoveryRun(
   return { id: run.id, startedAt: run.startedAt };
 }
 
-export function saveSourceRun(
-  runId: string,
-  summary: SourceRunSummary,
-): void {
+export function saveSourceRun(runId: string, summary: SourceRunSummary): void {
   db.insert(discoverySourceRuns)
     .values({
       id: crypto.randomUUID(),

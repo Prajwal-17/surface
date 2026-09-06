@@ -5,17 +5,8 @@ import type {
   JobStatus,
   SourceKey,
 } from "@repo/contracts";
-import {
-  and,
-  count,
-  desc,
-  eq,
-  inArray,
-  like,
-  or,
-  type SQL,
-} from "drizzle-orm";
-import { db } from "../../db/client";
+import { and, count, desc, eq, inArray, like, or, type SQL } from "drizzle-orm";
+import { db } from "../../infrastructure/database/client";
 import {
   canonicalizeUrl,
   createJobFingerprint,
@@ -144,10 +135,7 @@ export function upsertCandidates(candidates: JobCandidate[]): UpsertResult {
   return { insertedCount, updatedCount };
 }
 
-function mapJob(
-  row: typeof jobs.$inferSelect,
-  sources: SourceKey[],
-): Job {
+function mapJob(row: typeof jobs.$inferSelect, sources: SourceKey[]): Job {
   return {
     id: row.id,
     title: row.title,
@@ -202,11 +190,7 @@ export function listJobs(input: JobsListQuery): JobsListResponse {
     .all();
 
   const total =
-    db
-      .select({ total: count() })
-      .from(jobs)
-      .where(where)
-      .get()?.total ?? 0;
+    db.select({ total: count() }).from(jobs).where(where).get()?.total ?? 0;
 
   const sourceRows = rows.length
     ? db
@@ -252,7 +236,11 @@ export function findJobById(id: string): Job | null {
 }
 
 export function setJobStatus(id: string, status: JobStatus): Job | null {
-  const existing = db.select({ id: jobs.id }).from(jobs).where(eq(jobs.id, id)).get();
+  const existing = db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .where(eq(jobs.id, id))
+    .get();
   if (!existing) return null;
 
   db.update(jobs)

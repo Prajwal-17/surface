@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { sqlite } from "./db/client";
-import { handleError } from "./middleware/error-handler";
-import { requestLogger } from "./middleware/request-logger";
-import { discoveryRoutes } from "./modules/discovery/discovery.routes";
-import { jobsRoutes } from "./modules/jobs/jobs.routes";
+import { sqlite } from "./infrastructure/database/client";
+import { discoveryRoutes } from "./modules/discovery";
+import { jobsRoutes } from "./modules/jobs";
+import { handleError } from "./shared/http/error-handler";
+import { requestLogger } from "./shared/http/request-logger";
 
 export const app = new Hono();
 

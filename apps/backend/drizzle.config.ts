@@ -3,7 +3,7 @@ import { env } from "./src/config/env";
 
 export default defineConfig({
   dialect: "sqlite",
-  schema: "./src/db/schema.ts",
+  schema: "./src/infrastructure/database/schema.ts",
   out: "./drizzle",
   dbCredentials: {
     url: env.DB_FILE_NAME,

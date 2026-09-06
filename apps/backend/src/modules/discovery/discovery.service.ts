@@ -10,7 +10,7 @@ import {
   normalizeCandidate,
   type JobCandidate,
 } from "../../shared/normalization/job-normalization";
-import { upsertCandidates } from "../jobs/jobs.repository";
+import { upsertCandidates } from "../jobs";
 import {
   completeDiscoveryRun,
   createDiscoveryRun,
@@ -106,7 +106,8 @@ export async function runDiscovery(
       fetchedCount: 0,
       acceptedCount: 0,
       durationMs: Math.round(
-        performance.now() - (startedTimes.get(adapter.key) ?? performance.now()),
+        performance.now() -
+          (startedTimes.get(adapter.key) ?? performance.now()),
       ),
       error: safeError(result.reason),
     });

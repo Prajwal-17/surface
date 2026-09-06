@@ -9,7 +9,7 @@
     "build": "bun build src/index.ts --outdir dist --target bun",
     "check-types": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "bun run src/db/migrate.ts",
+    "db:migrate": "bun run src/infrastructure/database/migrate.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

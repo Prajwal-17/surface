@@ -1,6 +1,6 @@
 import { app } from "./app";
 import { env } from "./config/env";
-import { runMigrations } from "./db/migrate";
+import { runMigrations } from "./infrastructure/database/migrate";
 
 runMigrations();
 
