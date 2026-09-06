@@ -15,6 +15,13 @@
       "when": 1788704732673,
       "tag": "0001_daily_captain_universe",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788704898974,
+      "tag": "0002_past_mongoose",
+      "breakpoints": true
     }
   ]
 }

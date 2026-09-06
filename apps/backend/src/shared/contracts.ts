@@ -74,6 +74,22 @@ export type DiscoverySearchResponse = z.infer<
   typeof discoverySearchResponseSchema
 >;
 
+export const jobFitVerdicts = ["strong", "possible", "weak"] as const;
+export const jobFitVerdictSchema = z.enum(jobFitVerdicts);
+export type JobFitVerdict = z.infer<typeof jobFitVerdictSchema>;
+
+export const jobFitSchema = z.object({
+  score: z.number().int().min(0).max(100),
+  verdict: jobFitVerdictSchema,
+  summary: z.string(),
+  strengths: z.array(z.string()),
+  concerns: z.array(z.string()),
+  model: z.string(),
+  analyzedAt: z.string(),
+});
+
+export type JobFit = z.infer<typeof jobFitSchema>;
+
 export const jobSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -88,6 +104,7 @@ export const jobSchema = z.object({
   sources: z.array(sourceKeySchema),
   firstSeenAt: z.string(),
   lastSeenAt: z.string(),
+  fit: jobFitSchema.nullable(),
 });
 
 export type Job = z.infer<typeof jobSchema>;
@@ -117,6 +134,14 @@ export const updateJobStatusSchema = z.object({
 });
 
 export type UpdateJobStatusInput = z.infer<typeof updateJobStatusSchema>;
+
+export const analyzeJobsResponseSchema = z.object({
+  analyzedCount: z.number().int().nonnegative(),
+  failedCount: z.number().int().nonnegative(),
+  remainingCount: z.number().int().nonnegative(),
+});
+
+export type AnalyzeJobsResponse = z.infer<typeof analyzeJobsResponseSchema>;
 
 export const jobPreferencesInputSchema = z.object({
   targetRoles: z

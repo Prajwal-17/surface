@@ -1,11 +1,23 @@
 import type {
   Job,
+  JobFit,
   JobsListQuery,
   JobsListResponse,
   JobStatus,
   SourceKey,
 } from "../../shared/contracts";
-import { and, count, desc, eq, inArray, like, or, type SQL } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  like,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import {
   canonicalizeUrl,
@@ -18,6 +30,16 @@ import { jobSources, jobs } from "./jobs.tables";
 interface UpsertResult {
   insertedCount: number;
   updatedCount: number;
+}
+
+export interface JobForAnalysis {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  isRemote: boolean;
+  employmentType: string | null;
+  description: string;
 }
 
 export function upsertCandidates(candidates: JobCandidate[]): UpsertResult {
@@ -136,6 +158,23 @@ export function upsertCandidates(candidates: JobCandidate[]): UpsertResult {
 }
 
 function mapJob(row: typeof jobs.$inferSelect, sources: SourceKey[]): Job {
+  const fit =
+    row.fitScore !== null &&
+    row.fitVerdict !== null &&
+    row.fitSummary !== null &&
+    row.fitModel !== null &&
+    row.fitAnalyzedAt !== null
+      ? {
+          score: row.fitScore,
+          verdict: row.fitVerdict,
+          summary: row.fitSummary,
+          strengths: row.fitStrengths ?? [],
+          concerns: row.fitConcerns ?? [],
+          model: row.fitModel,
+          analyzedAt: row.fitAnalyzedAt,
+        }
+      : null;
+
   return {
     id: row.id,
     title: row.title,
@@ -150,6 +189,7 @@ function mapJob(row: typeof jobs.$inferSelect, sources: SourceKey[]): Job {
     sources,
     firstSeenAt: row.firstSeenAt,
     lastSeenAt: row.lastSeenAt,
+    fit,
   };
 }
 
@@ -180,11 +220,17 @@ export function listJobs(input: JobsListQuery): JobsListResponse {
 
   const where = and(...conditions);
   const offset = (input.page - 1) * input.limit;
-  const rows = db
-    .select()
-    .from(jobs)
-    .where(where)
-    .orderBy(desc(jobs.postedAt), desc(jobs.firstSeenAt))
+  const query = db.select().from(jobs).where(where);
+  const rows = (
+    input.status === "inbox"
+      ? query.orderBy(
+          sql`${jobs.fitScore} is null`,
+          desc(jobs.fitScore),
+          desc(jobs.postedAt),
+          desc(jobs.firstSeenAt),
+        )
+      : query.orderBy(desc(jobs.postedAt), desc(jobs.firstSeenAt))
+  )
     .limit(input.limit)
     .offset(offset)
     .all();
@@ -249,4 +295,47 @@ export function setJobStatus(id: string, status: JobStatus): Job | null {
     .run();
 
   return findJobById(id);
+}
+
+export function listJobsForAnalysis(limit: number): JobForAnalysis[] {
+  return db
+    .select({
+      id: jobs.id,
+      title: jobs.title,
+      company: jobs.company,
+      location: jobs.location,
+      isRemote: jobs.isRemote,
+      employmentType: jobs.employmentType,
+      description: jobs.description,
+    })
+    .from(jobs)
+    .where(and(eq(jobs.status, "inbox"), isNull(jobs.fitScore)))
+    .orderBy(desc(jobs.postedAt), desc(jobs.firstSeenAt))
+    .limit(limit)
+    .all();
+}
+
+export function saveJobFit(id: string, fit: JobFit): void {
+  db.update(jobs)
+    .set({
+      fitScore: fit.score,
+      fitVerdict: fit.verdict,
+      fitSummary: fit.summary,
+      fitStrengths: fit.strengths,
+      fitConcerns: fit.concerns,
+      fitModel: fit.model,
+      fitAnalyzedAt: fit.analyzedAt,
+    })
+    .where(eq(jobs.id, id))
+    .run();
+}
+
+export function countJobsForAnalysis(): number {
+  return (
+    db
+      .select({ total: count() })
+      .from(jobs)
+      .where(and(eq(jobs.status, "inbox"), isNull(jobs.fitScore)))
+      .get()?.total ?? 0
+  );
 }

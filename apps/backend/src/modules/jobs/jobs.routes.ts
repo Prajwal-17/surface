@@ -4,9 +4,18 @@ import {
 } from "../../shared/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { getJob, getJobs, updateJobStatus } from "./jobs.service";
+import {
+  analyzeInboxJobs,
+  getJob,
+  getJobs,
+  updateJobStatus,
+} from "./jobs.service";
 
 export const jobsRoutes = new Hono();
+
+jobsRoutes.post("/analyze", async (context) => {
+  return context.json(await analyzeInboxJobs());
+});
 
 jobsRoutes.get("/", zValidator("query", jobsListQuerySchema), (context) => {
   const input = context.req.valid("query");

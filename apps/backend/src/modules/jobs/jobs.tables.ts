@@ -28,6 +28,15 @@ export const jobs = sqliteTable(
     lastSeenAt: text("last_seen_at").notNull(),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
+    fitScore: integer("fit_score"),
+    fitVerdict: text("fit_verdict").$type<
+      "strong" | "possible" | "weak"
+    >(),
+    fitSummary: text("fit_summary"),
+    fitStrengths: text("fit_strengths", { mode: "json" }).$type<string[]>(),
+    fitConcerns: text("fit_concerns", { mode: "json" }).$type<string[]>(),
+    fitModel: text("fit_model"),
+    fitAnalyzedAt: text("fit_analyzed_at"),
   },
   (table) => [
     uniqueIndex("jobs_dedupe_key_unique").on(table.dedupeKey),
