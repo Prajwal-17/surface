@@ -32,11 +32,11 @@ export function SearchForm({ onSubmit, isSearching }: SearchFormProps) {
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="rounded-md border border-border bg-accent p-3 sm:p-4"
+      className="rounded-lg border border-[#314454] bg-accent p-3 sm:p-4"
     >
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.8fr)_auto] lg:items-end">
         <label className="block">
-          <span className="mb-2 block font-mono text-xs uppercase tracking-[0.1em] text-accent-foreground/70">
+          <span className="mb-2 block font-mono text-xs uppercase tracking-[0.08em] text-accent-foreground/75">
             Role or keywords
           </span>
           <span className="relative block">
@@ -44,13 +44,13 @@ export function SearchForm({ onSubmit, isSearching }: SearchFormProps) {
             <Input
               {...register("query")}
               placeholder="e.g. frontend engineer"
-              className="border-white/15 bg-background pl-10"
+              className="border-[#435362] bg-background pl-10"
             />
           </span>
         </label>
 
         <label className="block">
-          <span className="mb-2 block font-mono text-xs uppercase tracking-[0.1em] text-accent-foreground/70">
+          <span className="mb-2 block font-mono text-xs uppercase tracking-[0.08em] text-accent-foreground/75">
             Location
           </span>
           <span className="relative block">
@@ -58,7 +58,7 @@ export function SearchForm({ onSubmit, isSearching }: SearchFormProps) {
             <Input
               {...register("location")}
               placeholder="Anywhere"
-              className="border-white/15 bg-background pl-10"
+              className="border-[#435362] bg-background pl-10"
             />
           </span>
         </label>

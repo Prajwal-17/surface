@@ -15,7 +15,7 @@ export function JobStatusTabs({ value, onChange }: JobStatusTabsProps) {
   return (
     <div
       aria-label="Job status"
-      className="inline-flex rounded-md border border-border bg-secondary p-0.5"
+      className="inline-flex rounded-md border border-input bg-secondary p-0.5"
     >
       {jobStatuses.map((status) => (
         <button

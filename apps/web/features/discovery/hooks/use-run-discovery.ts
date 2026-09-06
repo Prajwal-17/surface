@@ -12,21 +12,25 @@ export function useRunDiscovery() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
 
       if (response.run.status === "failed") {
-        toast.error("None of the job sources could be reached.");
+        toast.error("Search failed", {
+          description: "None of the job sources could be reached.",
+        });
         return;
       }
 
       const total = response.insertedCount + response.updatedCount;
-      toast.success(
-        total > 0
-          ? `Search complete — ${total} jobs added or refreshed.`
-          : "Search complete — no matching jobs this time.",
-      );
+      toast.success("Search complete", {
+        description:
+          total > 0
+            ? `${total} jobs were added or refreshed.`
+            : "No matching jobs were found this time.",
+      });
     },
     onError: (error) => {
-      toast.error(
-        error instanceof Error ? error.message : "The search could not run.",
-      );
+      toast.error("Search failed", {
+        description:
+          error instanceof Error ? error.message : "The search could not run.",
+      });
     },
   });
 }

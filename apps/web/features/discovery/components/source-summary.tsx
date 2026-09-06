@@ -15,10 +15,10 @@ interface SourceSummaryProps {
 
 export function SourceSummary({ result, isSearching }: SourceSummaryProps) {
   return (
-    <Card className="overflow-hidden bg-accent">
+    <Card className="overflow-hidden">
       <CardContent className="p-0">
-        <div className="border-b border-white/10 px-4 py-4">
-          <p className="utility-label text-accent-foreground/60">
+        <div className="border-b border-border bg-accent/65 px-4 py-4">
+          <p className="utility-label text-accent-foreground/70">
             Source check
           </p>
           <div className="mt-2 flex items-end justify-between gap-3">
@@ -28,11 +28,11 @@ export function SourceSummary({ result, isSearching }: SourceSummaryProps) {
             {isSearching ? (
               <LoaderCircle className="mb-0.5 size-4 animate-spin text-brand" />
             ) : result ? (
-              <span className="font-mono text-[11px] text-accent-foreground/65">
+              <span className="font-mono text-xs text-accent-foreground/70">
                 {result.run.resultCount} found
               </span>
             ) : (
-              <span className="font-mono text-[11px] text-accent-foreground/65">
+              <span className="font-mono text-xs text-accent-foreground/70">
                 ready
               </span>
             )}
@@ -48,22 +48,22 @@ export function SourceSummary({ result, isSearching }: SourceSummaryProps) {
             return (
               <div
                 key={source}
-                className="flex min-h-14 items-center justify-between gap-3 border-b border-white/10 px-4 py-2.5 last:border-b-0"
+                className="flex min-h-14 items-center justify-between gap-3 border-b border-border/70 px-4 py-2.5 last:border-b-0"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-[13px] text-accent-foreground">
+                  <p className="truncate text-sm text-foreground">
                     {sourceLabels[source]}
                   </p>
                   {isSearching ? (
-                    <Skeleton className="mt-1.5 h-2 w-16 bg-white/10" />
+                    <Skeleton className="mt-1.5 h-2 w-16" />
                   ) : summary ? (
-                    <p className="mt-0.5 truncate text-[11px] text-accent-foreground/60">
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {summary.status === "success"
                         ? `${summary.acceptedCount} accepted · ${summary.durationMs}ms`
                         : summary.error}
                     </p>
                   ) : (
-                    <p className="mt-0.5 text-[11px] text-accent-foreground/60">
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                       Standing by
                     </p>
                   )}
@@ -91,7 +91,7 @@ export function SourceSummary({ result, isSearching }: SourceSummaryProps) {
                     className={
                       isSearching
                         ? "size-1.5 animate-pulse rounded-full bg-brand"
-                        : "size-1.5 rounded-full bg-white/20"
+                        : "size-1.5 rounded-full bg-muted-foreground/45"
                     }
                   />
                 )}
@@ -100,7 +100,7 @@ export function SourceSummary({ result, isSearching }: SourceSummaryProps) {
           })}
         </div>
 
-        <p className="border-t border-white/10 px-4 py-3 text-[11px] leading-5 text-accent-foreground/60">
+        <p className="border-t border-border bg-secondary/30 px-4 py-3 text-xs leading-5 text-muted-foreground">
           Each feed runs independently, so one failure will not block the rest.
         </p>
       </CardContent>

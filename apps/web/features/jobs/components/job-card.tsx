@@ -23,7 +23,7 @@ export function JobCard({
     : "Open this job to review the original posting.";
 
   return (
-    <Card className="group overflow-hidden transition-colors hover:border-white/30">
+    <Card className="group overflow-hidden transition-colors hover:border-[#475260]">
       <CardContent className="grid gap-0 p-0 sm:grid-cols-[minmax(0,1fr)_auto]">
         <button
           type="button"
@@ -32,7 +32,7 @@ export function JobCard({
           aria-label={`Open details for ${job.title} at ${job.company}`}
         >
           <div className="mb-2.5 flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-brand">
+            <span className="font-mono text-[11px] uppercase tracking-[0.07em] text-brand">
               {job.sources.map((source) => sourceLabels[source]).join(" + ")}
             </span>
             {job.isRemote ? <Badge variant="success">Remote</Badge> : null}
@@ -41,11 +41,11 @@ export function JobCard({
             ) : null}
           </div>
 
-          <h3 className="text-[1.12rem] leading-[1.25] tracking-[-0.02em] text-foreground transition-colors group-hover:text-brand sm:text-[1.2rem]">
+          <h3 className="text-[1.12rem] font-medium leading-[1.25] tracking-[-0.02em] text-foreground transition-colors group-hover:text-brand sm:text-[1.2rem]">
             {job.title}
           </h3>
 
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-[13px] text-muted-foreground">
             <p className="flex items-center gap-2">
               <Building2 className="size-3.5" />
               <span>{job.company}</span>
@@ -60,12 +60,12 @@ export function JobCard({
             </p>
           </div>
 
-          <p className="mt-3 line-clamp-2 text-[13px] leading-5 text-muted-foreground">
+          <p className="mt-3 line-clamp-2 text-sm leading-5 text-muted-foreground">
             {preview}
           </p>
         </button>
 
-        <div className="flex items-center justify-between gap-3 border-t border-border bg-secondary/15 px-4 py-3 sm:w-36 sm:flex-col sm:items-stretch sm:justify-center sm:border-l sm:border-t-0 sm:px-3">
+        <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 sm:w-36 sm:flex-col sm:items-stretch sm:justify-center sm:border-t-0 sm:px-3">
           <JobActions
             job={job}
             compact
