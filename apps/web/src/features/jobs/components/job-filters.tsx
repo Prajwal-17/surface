@@ -1,5 +1,5 @@
-import { sourceKeys, sourceLabels, type SourceKey } from "@repo/contracts";
-import { Input } from "@repo/ui/input";
+import { sourceKeys, sourceLabels, type SourceKey } from "backend/contracts";
+import { Input } from "@/components/ui/input";
 import { ChevronDown, Search } from "lucide-react";
 
 interface JobFiltersProps {
@@ -23,7 +23,7 @@ export function JobFilters({
         <Input
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Filter this inbox"
+          placeholder="Filter by role, company, or keyword"
           className="pl-9"
         />
       </label>
@@ -38,7 +38,7 @@ export function JobFilters({
               (event.target.value || undefined) as SourceKey | undefined,
             )
           }
-          className="h-10 min-w-48 appearance-none rounded-[5px] border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none transition-colors hover:border-white/30 focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+          className="h-10 w-full min-w-48 appearance-none sm:w-auto rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none transition-colors hover:border-border-strong focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
         >
           <option value="">All sources</option>
           {sourceKeys.map((key) => (

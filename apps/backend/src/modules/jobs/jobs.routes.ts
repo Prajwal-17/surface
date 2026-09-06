@@ -1,15 +1,15 @@
 import {
   jobsListQuerySchema,
   updateJobStatusSchema,
-} from "@repo/contracts";
+} from "../../shared/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { getJob, getJobs, updateJobStatus } from "./jobs.service";
 
 export const jobsRoutes = new Hono();
 
-jobsRoutes.get("/", (context) => {
-  const input = jobsListQuerySchema.parse(context.req.query());
+jobsRoutes.get("/", zValidator("query", jobsListQuerySchema), (context) => {
+  const input = context.req.valid("query");
   return context.json(getJobs(input));
 });
 

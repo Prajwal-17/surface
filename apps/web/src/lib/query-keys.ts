@@ -1,4 +1,4 @@
-import type { JobsListQuery } from "@repo/contracts";
+import type { JobsListQuery } from "backend/contracts";
 
 export const queryKeys = {
   jobs: {

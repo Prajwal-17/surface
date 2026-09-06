@@ -1,9 +1,9 @@
 "use client";
 
-import type { DiscoverySearchInput } from "@repo/contracts";
+import type { DiscoverySearchInput } from "backend/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@repo/ui/button";
-import { Input } from "@repo/ui/input";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ArrowRight, LoaderCircle, MapPin, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
@@ -32,11 +32,11 @@ export function SearchForm({ onSubmit, isSearching }: SearchFormProps) {
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="rounded-lg border border-[#314454] bg-accent p-3 sm:p-4"
+      className="search-panel rounded-2xl border p-4 sm:p-6"
     >
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.8fr)_auto] lg:items-end">
         <label className="block">
-          <span className="mb-2 block font-mono text-xs uppercase tracking-[0.08em] text-accent-foreground/75">
+          <span className="mb-2.5 block text-xs font-medium text-muted-foreground">
             Role or keywords
           </span>
           <span className="relative block">
@@ -44,13 +44,15 @@ export function SearchForm({ onSubmit, isSearching }: SearchFormProps) {
             <Input
               {...register("query")}
               placeholder="e.g. frontend engineer"
-              className="border-[#435362] bg-background pl-10"
+              aria-invalid={Boolean(errors.query)}
+              aria-describedby={errors.query ? "query-error" : undefined}
+              className="h-12 bg-background/70 pl-10"
             />
           </span>
         </label>
 
         <label className="block">
-          <span className="mb-2 block font-mono text-xs uppercase tracking-[0.08em] text-accent-foreground/75">
+          <span className="mb-2.5 block text-xs font-medium text-muted-foreground">
             Location
           </span>
           <span className="relative block">
@@ -58,7 +60,7 @@ export function SearchForm({ onSubmit, isSearching }: SearchFormProps) {
             <Input
               {...register("location")}
               placeholder="Anywhere"
-              className="border-[#435362] bg-background pl-10"
+              className="h-12 bg-background/70 pl-10"
             />
           </span>
         </label>
@@ -68,7 +70,7 @@ export function SearchForm({ onSubmit, isSearching }: SearchFormProps) {
           size="lg"
           disabled={isSearching}
           aria-busy={isSearching}
-          className="min-w-36"
+          className="h-12 min-w-40"
         >
           {isSearching ? (
             <>
@@ -77,7 +79,7 @@ export function SearchForm({ onSubmit, isSearching }: SearchFormProps) {
             </>
           ) : (
             <>
-              Search feeds
+              Find opportunities
               <ArrowRight />
             </>
           )}
@@ -85,7 +87,11 @@ export function SearchForm({ onSubmit, isSearching }: SearchFormProps) {
       </div>
 
       {errors.query?.message ? (
-        <p role="alert" className="pt-3 text-xs text-[#ffd2ca]">
+        <p
+          id="query-error"
+          role="alert"
+          className="pt-3 text-xs text-[#ffd2ca]"
+        >
           {errors.query.message}
         </p>
       ) : null}

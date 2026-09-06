@@ -1,4 +1,4 @@
-import type { JobsListQuery, JobStatus } from "@repo/contracts";
+import type { JobsListQuery, JobStatus } from "../../shared/contracts";
 import { NotFoundError } from "../../shared/errors/http-error";
 import { findJobById, listJobs, setJobStatus } from "./jobs.repository";
 

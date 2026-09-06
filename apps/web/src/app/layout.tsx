@@ -3,9 +3,11 @@ import localFont from "next/font/local";
 import { Providers } from "./providers";
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
+const manrope = localFont({
+  src: "./fonts/ManropeVF.ttf",
+  variable: "--font-manrope",
+  display: "swap",
+  weight: "200 800",
 });
 
 const geistMono = localFont({
@@ -24,8 +26,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="en" className="dark">
+      <body className={`${manrope.variable} ${geistMono.variable}`}>
         <Providers>{children}</Providers>
       </body>
     </html>

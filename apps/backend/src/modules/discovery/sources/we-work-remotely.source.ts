@@ -1,4 +1,4 @@
-import { sourceLabels } from "@repo/contracts";
+import { sourceLabels } from "../../../shared/contracts";
 import { XMLParser } from "fast-xml-parser";
 import {
   cleanText,
@@ -41,24 +41,28 @@ export const weWorkRemotelySource: SourceAdapter = {
 
       const separator = rawTitle.indexOf(":");
       const company =
-        separator > 0 ? rawTitle.slice(0, separator).trim() : "Company not listed";
+        separator > 0
+          ? rawTitle.slice(0, separator).trim()
+          : "Company not listed";
       const title =
         separator > 0 ? rawTitle.slice(separator + 1).trim() : rawTitle;
 
-      return [{
-        source: "we-work-remotely",
-        externalId: toStringValue(item.guid) || link,
-        title,
-        company,
-        location: toStringValue(item.region, "Remote"),
-        isRemote: true,
-        employmentType: toStringValue(item.type) || null,
-        description: cleanText(item.description),
-        applyUrl: link,
-        sourceUrl: link,
-        postedAt: toIsoDate(item.pubDate),
-        tags: [toStringValue(item.category)].filter(Boolean),
-      }];
+      return [
+        {
+          source: "we-work-remotely",
+          externalId: toStringValue(item.guid) || link,
+          title,
+          company,
+          location: toStringValue(item.region, "Remote"),
+          isRemote: true,
+          employmentType: toStringValue(item.type) || null,
+          description: cleanText(item.description),
+          applyUrl: link,
+          sourceUrl: link,
+          postedAt: toIsoDate(item.pubDate),
+          tags: [toStringValue(item.category)].filter(Boolean),
+        },
+      ];
     });
 
     return { jobs, fetchedCount: items.length };

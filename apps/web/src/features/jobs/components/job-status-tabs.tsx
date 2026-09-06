@@ -1,4 +1,4 @@
-import { jobStatuses, type JobStatus } from "@repo/contracts";
+import { jobStatuses, type JobStatus } from "backend/contracts";
 
 const labels: Record<JobStatus, string> = {
   inbox: "Inbox",
@@ -15,7 +15,7 @@ export function JobStatusTabs({ value, onChange }: JobStatusTabsProps) {
   return (
     <div
       aria-label="Job status"
-      className="inline-flex rounded-md border border-input bg-secondary p-0.5"
+      className="inline-flex rounded-lg border border-border bg-background p-1"
     >
       {jobStatuses.map((status) => (
         <button
@@ -25,8 +25,8 @@ export function JobStatusTabs({ value, onChange }: JobStatusTabsProps) {
           onClick={() => onChange(status)}
           className={
             value === status
-              ? "rounded-[4px] bg-accent px-3 py-1.5 text-xs text-accent-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
-              : "rounded-[4px] px-3 py-1.5 text-xs text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+              ? "selected-control rounded-md px-3 py-1.5 text-xs text-accent-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+              : "rounded-md px-3 py-1.5 text-xs text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
           }
         >
           {labels[status]}

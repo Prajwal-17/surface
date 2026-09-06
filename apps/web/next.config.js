@@ -2,7 +2,7 @@ import process from "node:process";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@repo/ui", "@repo/contracts"],
+  transpilePackages: ["backend"],
   async rewrites() {
     return [
       {

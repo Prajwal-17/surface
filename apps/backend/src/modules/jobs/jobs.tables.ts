@@ -1,5 +1,11 @@
-import type { JobStatus, SourceKey } from "@repo/contracts";
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import type { JobStatus, SourceKey } from "../../shared/contracts";
+import {
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 export const jobs = sqliteTable(
   "jobs",
@@ -10,7 +16,9 @@ export const jobs = sqliteTable(
     title: text("title").notNull(),
     company: text("company").notNull(),
     location: text("location").notNull().default("Location not listed"),
-    isRemote: integer("is_remote", { mode: "boolean" }).notNull().default(false),
+    isRemote: integer("is_remote", { mode: "boolean" })
+      .notNull()
+      .default(false),
     employmentType: text("employment_type"),
     description: text("description").notNull().default(""),
     applyUrl: text("apply_url").notNull(),

@@ -1,16 +1,17 @@
+import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import type * as React from "react";
-import { cn } from "./lib/utils";
+
+import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex w-fit items-center rounded-md border px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.05em]",
+  "inline-flex w-fit items-center rounded-md border px-2 py-0.5 text-[10px] font-medium tracking-[0.02em]",
   {
     variants: {
       variant: {
         default: "border-transparent bg-primary text-primary-foreground",
         secondary: "border-border bg-secondary text-secondary-foreground",
         outline: "border-border bg-transparent text-muted-foreground",
-        success: "border-[#356c67] bg-[#173532] text-[#bce5df]",
+        success: "border-[#34483c] bg-[#1b2921] text-[#a4bea9]",
         danger: "border-[#7d3638] bg-[#3a1718] text-[#ffb9b5]",
       },
     },
@@ -20,11 +21,12 @@ const badgeVariants = cva(
   },
 );
 
-export function Badge({
-  className,
-  variant,
-  ...props
-}: React.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
+export interface BadgeProps
+  extends
+    React.HTMLAttributes<HTMLSpanElement>,
+    VariantProps<typeof badgeVariants> {}
+
+function Badge({ className, variant, ...props }: BadgeProps) {
   return (
     <span
       data-slot="badge"
@@ -33,3 +35,5 @@ export function Badge({
     />
   );
 }
+
+export { Badge, badgeVariants };

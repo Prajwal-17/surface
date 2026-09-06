@@ -1,1 +1,1 @@
-export { discoverySearchSchema as searchFormSchema } from "@repo/contracts";
+export { discoverySearchSchema as searchFormSchema } from "backend/contracts";

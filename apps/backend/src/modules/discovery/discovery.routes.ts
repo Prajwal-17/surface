@@ -1,4 +1,4 @@
-import { discoverySearchSchema } from "@repo/contracts";
+import { discoverySearchSchema } from "../../shared/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { runDiscovery } from "./discovery.service";

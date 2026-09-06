@@ -1,4 +1,4 @@
-import type { JobsListQuery } from "@repo/contracts";
+import type { JobsListQuery } from "backend/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { getJobs } from "../api/get-jobs";

@@ -6,10 +6,10 @@ roles without creating an account.
 
 ## Stack
 
-- Next.js App Router, Tailwind CSS, shadcn-style UI, and TanStack Query
+- Next.js App Router, Tailwind CSS, shadcn/ui, and TanStack Query
 - Hono on Bun with module-oriented backend boundaries
 - SQLite with Drizzle ORM and committed migrations
-- Turborepo workspaces with shared UI and Zod API contracts
+- Turborepo workspaces with frontend-owned UI and backend-owned Zod API contracts
 
 ## Start locally
 
@@ -55,10 +55,18 @@ discarding results from the other feeds.
 
 ```text
 apps/
-  web/       Next.js interface organized by product feature
-  backend/   Hono API organized by backend domain module
+  web/       Next.js interface; shadcn/ui components in src/components/ui
+  backend/   Hono API; browser-safe schemas in src/shared/contracts.ts
 packages/
-  contracts/ Shared Zod schemas and API types
-  ui/        Shared shadcn-style primitives
+  eslint-config/      Shared lint configuration
+  typescript-config/  Shared TypeScript configuration
 data/        Local SQLite runtime data
 ```
+
+The frontend imports API schemas through `backend/contracts`, the backend's only
+package export. That module contains Zod schemas and constants, with no server or
+database imports. UI components belong to the frontend and are imported from
+`@/components/ui/*`.
+
+See [design.md](design.md) for the dark theme, typography, component conventions,
+accessibility requirements, and shadcn maintenance workflow.

@@ -1,7 +1,4 @@
-import {
-  jobsListResponseSchema,
-  type JobsListQuery,
-} from "@repo/contracts";
+import { jobsListResponseSchema, type JobsListQuery } from "backend/contracts";
 import { apiClient } from "@/lib/api-client";
 
 export async function getJobs(input: JobsListQuery) {

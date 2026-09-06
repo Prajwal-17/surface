@@ -4,7 +4,7 @@ import type {
   JobsListResponse,
   JobStatus,
   SourceKey,
-} from "@repo/contracts";
+} from "../../shared/contracts";
 import { and, count, desc, eq, inArray, like, or, type SQL } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import {

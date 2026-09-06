@@ -1,4 +1,4 @@
-import { sourceLabels } from "@repo/contracts";
+import { sourceLabels } from "../../../shared/contracts";
 import {
   cleanText,
   toIsoDate,
@@ -31,20 +31,22 @@ export const remoteOkSource: SourceAdapter = {
       const title = toStringValue(item.position);
       if (!applyUrl || !title) return [];
 
-      return [{
-        source: "remote-ok",
-        externalId: toStringValue(item.id) || null,
-        title,
-        company: toStringValue(item.company, "Company not listed"),
-        location: toStringValue(item.location, "Remote"),
-        isRemote: true,
-        employmentType: null,
-        description: cleanText(item.description),
-        applyUrl,
-        sourceUrl,
-        postedAt: toIsoDate(item.date || item.epoch),
-        tags: toStringArray(item.tags),
-      }];
+      return [
+        {
+          source: "remote-ok",
+          externalId: toStringValue(item.id) || null,
+          title,
+          company: toStringValue(item.company, "Company not listed"),
+          location: toStringValue(item.location, "Remote"),
+          isRemote: true,
+          employmentType: null,
+          description: cleanText(item.description),
+          applyUrl,
+          sourceUrl,
+          postedAt: toIsoDate(item.date || item.epoch),
+          tags: toStringArray(item.tags),
+        },
+      ];
     });
 
     return { jobs, fetchedCount: jobItems.length };

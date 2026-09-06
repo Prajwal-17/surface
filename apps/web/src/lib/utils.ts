@@ -1,3 +1,10 @@
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 export function formatDate(value: string | null): string {
   if (!value) return "Date not listed";
 
@@ -9,8 +16,4 @@ export function formatDate(value: string | null): string {
     month: "short",
     year: "numeric",
   }).format(date);
-}
-
-export function pluralize(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
 }

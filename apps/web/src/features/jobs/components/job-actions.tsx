@@ -1,5 +1,5 @@
-import type { Job, JobStatus } from "@repo/contracts";
-import { Button } from "@repo/ui/button";
+import type { Job, JobStatus } from "backend/contracts";
+import { Button } from "@/components/ui/button";
 import { ArchiveX, Bookmark, Inbox } from "lucide-react";
 
 interface JobActionsProps {

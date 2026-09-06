@@ -1,6 +1,6 @@
-import type { Job, JobsListResponse, JobStatus } from "@repo/contracts";
-import { Button } from "@repo/ui/button";
-import { Skeleton } from "@repo/ui/skeleton";
+import type { Job, JobsListResponse, JobStatus } from "backend/contracts";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { JobCard } from "./job-card";
@@ -30,9 +30,9 @@ export function JobList({
 }: JobListProps) {
   if (isLoading) {
     return (
-      <div className="space-y-2" aria-label="Loading jobs">
+      <div className="space-y-3" aria-label="Loading jobs">
         {Array.from({ length: 5 }).map((_, index) => (
-          <Skeleton key={index} className="h-40 rounded-md" />
+          <Skeleton key={index} className="h-48 rounded-xl" />
         ))}
       </div>
     );
@@ -43,30 +43,18 @@ export function JobList({
   }
 
   if (!data?.jobs.length) {
-    const content = {
-      inbox: {
-        title: "Your inbox is clear",
-        description:
-          "Run a search above to gather fresh jobs from the five connected feeds.",
-      },
-      saved: {
-        title: "No saved jobs yet",
-        description:
-          "Save promising roles from your inbox and they will stay collected here.",
-      },
-      dismissed: {
-        title: "Nothing dismissed",
-        description:
-          "Jobs you dismiss move here, where they can always be restored.",
-      },
+    const title = {
+      inbox: "A little room for possibility",
+      saved: "No saved jobs",
+      dismissed: "No dismissed jobs",
     }[status];
 
-    return <EmptyState {...content} />;
+    return <EmptyState title={title} />;
   }
 
   return (
     <>
-      <div className="space-y-2">
+      <div className="space-y-3">
         {data.jobs.map((job) => (
           <JobCard
             key={job.id}

@@ -1,4 +1,4 @@
-import { sourceLabels } from "@repo/contracts";
+import { sourceLabels } from "../../../shared/contracts";
 import {
   cleanText,
   toIsoDate,
@@ -30,23 +30,22 @@ export const remotiveSource: SourceAdapter = {
       const title = toStringValue(item.title);
       if (!applyUrl || !title) return [];
 
-      return [{
-        source: "remotive",
-        externalId: toStringValue(item.id) || null,
-        title,
-        company: toStringValue(item.company_name, "Company not listed"),
-        location: toStringValue(
-          item.candidate_required_location,
-          "Remote",
-        ),
-        isRemote: true,
-        employmentType: toStringValue(item.job_type) || null,
-        description: cleanText(item.description),
-        applyUrl,
-        sourceUrl: applyUrl,
-        postedAt: toIsoDate(item.publication_date),
-        tags: toStringArray(item.tags),
-      }];
+      return [
+        {
+          source: "remotive",
+          externalId: toStringValue(item.id) || null,
+          title,
+          company: toStringValue(item.company_name, "Company not listed"),
+          location: toStringValue(item.candidate_required_location, "Remote"),
+          isRemote: true,
+          employmentType: toStringValue(item.job_type) || null,
+          description: cleanText(item.description),
+          applyUrl,
+          sourceUrl: applyUrl,
+          postedAt: toIsoDate(item.publication_date),
+          tags: toStringArray(item.tags),
+        },
+      ];
     });
 
     return { jobs, fetchedCount: items.length };

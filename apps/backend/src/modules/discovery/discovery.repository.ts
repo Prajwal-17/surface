@@ -2,7 +2,7 @@ import type {
   DiscoveryRunSummary,
   DiscoverySearchInput,
   SourceRunSummary,
-} from "@repo/contracts";
+} from "../../shared/contracts";
 import { eq } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import { discoveryRuns, discoverySourceRuns } from "./discovery.tables";

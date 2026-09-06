@@ -15,6 +15,7 @@ src/
 │   ├── discovery/          # Routes, service, repository, tables, sources
 │   └── jobs/               # Routes, service, repository, and tables
 └── shared/
+    ├── contracts.ts          # Browser-safe Zod API schemas and inferred types
     ├── errors/
     ├── http/
     └── normalization/
@@ -42,3 +43,10 @@ Routes:
 - `GET /api/jobs/:id`
 - `PATCH /api/jobs/:id/status`
 - `GET /api/health`
+
+## API schemas
+
+`src/shared/contracts.ts` is exported as `backend/contracts` for the frontend.
+Keep this module browser-safe: only Zod, constants, and inferred types belong
+here. Do not import database clients, environment configuration, Bun APIs, or
+server modules into it. Backend modules use relative imports to this file.

@@ -1,4 +1,7 @@
-import type { DiscoverySearchInput, SourceKey } from "@repo/contracts";
+import type {
+  DiscoverySearchInput,
+  SourceKey,
+} from "../../../shared/contracts";
 import type { JobCandidate } from "../../../shared/normalization/job-normalization";
 
 export interface SourceSearchResult {

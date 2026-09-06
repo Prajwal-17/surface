@@ -6,9 +6,8 @@ import type {
   Job,
   JobStatus,
   SourceKey,
-} from "@repo/contracts";
+} from "backend/contracts";
 import { useState } from "react";
-import { pluralize } from "@/lib/utils";
 import { JobDetailSheet } from "@/features/jobs/components/job-detail-sheet";
 import { JobFilters } from "@/features/jobs/components/job-filters";
 import { JobList } from "@/features/jobs/components/job-list";
@@ -65,34 +64,23 @@ export function DiscoveryScreen() {
   return (
     <>
       <section className="workspace-enter">
-        <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <p className="utility-label text-brand">Discovery / 01</p>
-            <h1 className="mt-3 max-w-2xl text-[2.35rem] leading-[1.05] tracking-[-0.04em] sm:text-[2.75rem]">
-              Find the next role.
-            </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-[15px]">
-              Search five public job feeds, then sort the useful work into one
-              local inbox.
-            </p>
-          </div>
-          <p className="utility-label text-muted-foreground sm:text-right">
-            5 sources
-            <br />1 workspace
-          </p>
+        <div className="mb-8">
+          <h1 className="font-display text-[2.25rem] leading-[1.1] tracking-[-0.045em] sm:text-[3rem]">
+            Your next <span className="text-brand">chapter.</span>
+          </h1>
         </div>
 
         <SearchForm onSubmit={handleSearch} isSearching={discovery.isPending} />
       </section>
 
-      <div className="workspace-enter mt-10 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_17.5rem]">
+      <div className="workspace-enter mt-10 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_16.5rem] lg:gap-10">
         <section className="min-w-0">
-          <div className="mb-3 flex flex-col gap-4 border-b border-border pb-4">
+          <div className="mb-5 flex flex-col gap-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-[1.35rem] font-normal tracking-[-0.025em]">
-                Job ledger
-                <span className="ml-2 font-mono text-xs tracking-normal text-muted-foreground">
-                  {pluralize(jobsQuery.data?.total ?? 0, "role")}
+              <h2 className="flex items-center gap-2.5 text-lg font-medium tracking-[-0.025em]">
+                Your opportunities
+                <span className="rounded-md border border-border bg-secondary px-2 py-0.5 font-mono text-[11px] tracking-normal text-muted-foreground">
+                  {jobsQuery.data?.total ?? "—"}
                 </span>
               </h2>
               <JobStatusTabs value={status} onChange={changeStatus} />

@@ -1,4 +1,4 @@
-import { sourceLabels } from "@repo/contracts";
+import { sourceLabels } from "../../../shared/contracts";
 import {
   cleanText,
   toIsoDate,
@@ -31,23 +31,25 @@ export const jobicySource: SourceAdapter = {
       const title = toStringValue(item.jobTitle);
       if (!applyUrl || !title) return [];
 
-      return [{
-        source: "jobicy",
-        externalId: toStringValue(item.id) || null,
-        title,
-        company: toStringValue(item.companyName, "Company not listed"),
-        location: toStringValue(item.jobGeo, "Remote"),
-        isRemote: true,
-        employmentType: toStringValue(item.jobType) || null,
-        description: cleanText(item.jobDescription || item.jobExcerpt),
-        applyUrl,
-        sourceUrl: applyUrl,
-        postedAt: toIsoDate(item.pubDate),
-        tags: [
-          ...toStringArray(item.jobIndustry),
-          ...toStringArray(item.jobLevel),
-        ],
-      }];
+      return [
+        {
+          source: "jobicy",
+          externalId: toStringValue(item.id) || null,
+          title,
+          company: toStringValue(item.companyName, "Company not listed"),
+          location: toStringValue(item.jobGeo, "Remote"),
+          isRemote: true,
+          employmentType: toStringValue(item.jobType) || null,
+          description: cleanText(item.jobDescription || item.jobExcerpt),
+          applyUrl,
+          sourceUrl: applyUrl,
+          postedAt: toIsoDate(item.pubDate),
+          tags: [
+            ...toStringArray(item.jobIndustry),
+            ...toStringArray(item.jobLevel),
+          ],
+        },
+      ];
     });
 
     return { jobs, fetchedCount: items.length };

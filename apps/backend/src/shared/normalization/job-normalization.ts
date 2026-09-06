@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { DiscoverySearchInput, SourceKey } from "@repo/contracts";
+import type { DiscoverySearchInput, SourceKey } from "../contracts";
 
 export interface JobCandidate {
   source: SourceKey;
@@ -130,7 +130,9 @@ export function matchesSearch(
   ]
     .join(" ")
     .toLowerCase();
-  const allContent = [highSignal, candidate.description].join(" ").toLowerCase();
+  const allContent = [highSignal, candidate.description]
+    .join(" ")
+    .toLowerCase();
 
   const highSignalMatches = queryTokens.filter((token) =>
     highSignal.includes(token),
@@ -170,8 +172,7 @@ export function normalizeCandidate(candidate: JobCandidate): JobCandidate {
     company: cleanText(candidate.company) || "Company not listed",
     location,
     isRemote:
-      candidate.isRemote ||
-      /\b(remote|worldwide|anywhere)\b/i.test(location),
+      candidate.isRemote || /\b(remote|worldwide|anywhere)\b/i.test(location),
     employmentType: cleanText(candidate.employmentType) || null,
     description: cleanText(candidate.description),
     applyUrl,

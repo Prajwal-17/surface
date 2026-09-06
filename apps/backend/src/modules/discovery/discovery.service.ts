@@ -3,7 +3,7 @@ import {
   type DiscoverySearchInput,
   type DiscoverySearchResponse,
   type SourceRunSummary,
-} from "@repo/contracts";
+} from "../../shared/contracts";
 import { env } from "../../config/env";
 import {
   matchesSearch,

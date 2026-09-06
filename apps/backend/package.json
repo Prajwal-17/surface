@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@hono/zod-validator": "latest",
-    "@repo/contracts": "*",
     "dotenv": "^17.4.2",
     "drizzle-orm": "latest",
     "fast-xml-parser": "latest",
@@ -26,5 +25,8 @@
     "@types/node": "26.3.0",
     "drizzle-kit": "latest",
     "typescript": "npm:typescript@6.0.2"
+  },
+  "exports": {
+    "./contracts": "./src/shared/contracts.ts"
   }
 }

@@ -1,7 +1,7 @@
 import {
   discoverySearchResponseSchema,
   type DiscoverySearchInput,
-} from "@repo/contracts";
+} from "backend/contracts";
 import { apiClient } from "@/lib/api-client";
 
 export async function runDiscovery(input: DiscoverySearchInput) {

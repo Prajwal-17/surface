@@ -2,11 +2,11 @@ import {
   sourceKeys,
   sourceLabels,
   type DiscoverySearchResponse,
-} from "@repo/contracts";
-import { Badge } from "@repo/ui/badge";
-import { Card, CardContent } from "@repo/ui/card";
-import { Skeleton } from "@repo/ui/skeleton";
-import { Check, LoaderCircle, TriangleAlert } from "lucide-react";
+} from "backend/contracts";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Check, Globe2, LoaderCircle, TriangleAlert } from "lucide-react";
 
 interface SourceSummaryProps {
   result?: DiscoverySearchResponse;
@@ -17,26 +17,23 @@ export function SourceSummary({ result, isSearching }: SourceSummaryProps) {
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-0">
-        <div className="border-b border-border bg-accent/65 px-4 py-4">
-          <p className="utility-label text-accent-foreground/70">
-            Source check
-          </p>
-          <div className="mt-2 flex items-end justify-between gap-3">
-            <h2 className="text-lg font-normal tracking-[-0.02em]">
-              Feed report
+        <div className="border-b border-border px-5 py-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-sm font-medium">
+              <Globe2 className="size-4 text-brand" />
+              Search sources
             </h2>
             {isSearching ? (
-              <LoaderCircle className="mb-0.5 size-4 animate-spin text-brand" />
+              <LoaderCircle className="size-4 animate-spin text-brand" />
             ) : result ? (
-              <span className="font-mono text-xs text-accent-foreground/70">
+              <span className="font-mono text-xs text-muted-foreground">
                 {result.run.resultCount} found
               </span>
-            ) : (
-              <span className="font-mono text-xs text-accent-foreground/70">
-                ready
-              </span>
-            )}
+            ) : null}
           </div>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            One search, {sourceKeys.length} job boards.
+          </p>
         </div>
 
         <div>
@@ -48,9 +45,15 @@ export function SourceSummary({ result, isSearching }: SourceSummaryProps) {
             return (
               <div
                 key={source}
-                className="flex min-h-14 items-center justify-between gap-3 border-b border-border/70 px-4 py-2.5 last:border-b-0"
+                className="flex min-h-16 items-center justify-between gap-3 border-b border-border/70 px-5 py-3 last:border-b-0"
               >
-                <div className="min-w-0">
+                <span
+                  aria-hidden="true"
+                  className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-secondary font-mono text-xs text-muted-foreground"
+                >
+                  {sourceLabels[source].slice(0, 1)}
+                </span>
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-foreground">
                     {sourceLabels[source]}
                   </p>
@@ -59,12 +62,12 @@ export function SourceSummary({ result, isSearching }: SourceSummaryProps) {
                   ) : summary ? (
                     <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {summary.status === "success"
-                        ? `${summary.acceptedCount} accepted · ${summary.durationMs}ms`
+                        ? `${summary.acceptedCount} jobs`
                         : summary.error}
                     </p>
                   ) : (
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Standing by
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Ready to search
                     </p>
                   )}
                 </div>
@@ -99,9 +102,8 @@ export function SourceSummary({ result, isSearching }: SourceSummaryProps) {
             );
           })}
         </div>
-
-        <p className="border-t border-border bg-secondary/30 px-4 py-3 text-xs leading-5 text-muted-foreground">
-          Each feed runs independently, so one failure will not block the rest.
+        <p className="border-t border-border px-5 py-4 text-xs leading-5 text-muted-foreground">
+          Save a role to keep it close. Dismiss the rest to clear your inbox.
         </p>
       </CardContent>
     </Card>
