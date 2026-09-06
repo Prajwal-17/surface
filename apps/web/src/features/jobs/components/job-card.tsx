@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowUpRight, CalendarDays, MapPin } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { JobActions } from "./job-actions";
+import { JobFitBadge } from "./job-fit-badge";
 
 interface JobCardProps {
   job: Job;
@@ -46,6 +47,7 @@ export function JobCard({
             {job.employmentType ? (
               <Badge variant="outline">{job.employmentType}</Badge>
             ) : null}
+            {job.fit ? <JobFitBadge fit={job.fit} /> : null}
           </div>
 
           <h3 className="text-[1.12rem] font-medium leading-[1.25] tracking-[-0.02em] text-foreground transition-colors group-hover:text-brand sm:text-[1.2rem]">

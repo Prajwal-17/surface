@@ -7,13 +7,18 @@ import type {
   JobStatus,
   SourceKey,
 } from "backend/contracts";
+import { LoaderCircle, SlidersHorizontal, Sparkles } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { JobDetailSheet } from "@/features/jobs/components/job-detail-sheet";
 import { JobFilters } from "@/features/jobs/components/job-filters";
 import { JobList } from "@/features/jobs/components/job-list";
 import { JobStatusTabs } from "@/features/jobs/components/job-status-tabs";
+import { useAnalyzeJobs } from "@/features/jobs/hooks/use-analyze-jobs";
 import { useJobs } from "@/features/jobs/hooks/use-jobs";
 import { useUpdateJobStatus } from "@/features/jobs/hooks/use-update-job-status";
+import { PreferencesSheet } from "@/features/profile/components/preferences-sheet";
+import { useJobPreferences } from "@/features/profile/hooks/use-job-preferences";
 import { useRunDiscovery } from "../hooks/use-run-discovery";
 import { SearchForm } from "./search-form";
 import { SourceSummary } from "./source-summary";
@@ -25,9 +30,12 @@ export function DiscoveryScreen() {
   const [page, setPage] = useState(1);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [lastResult, setLastResult] = useState<DiscoverySearchResponse>();
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
 
   const discovery = useRunDiscovery();
+  const analysis = useAnalyzeJobs();
   const statusMutation = useUpdateJobStatus();
+  const preferencesQuery = useJobPreferences();
   const jobsQuery = useJobs({
     status,
     search: filter,
@@ -61,13 +69,32 @@ export function DiscoveryScreen() {
     setPage(1);
   }
 
+  function openPreferences() {
+    setSelectedJob(null);
+    setPreferencesOpen(true);
+  }
+
+  function analyzeInbox() {
+    if (!preferencesQuery.data) {
+      openPreferences();
+      return;
+    }
+
+    setSelectedJob(null);
+    analysis.mutate();
+  }
+
   return (
     <>
       <section className="workspace-enter">
-        <div className="mb-8">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <h1 className="font-display text-[2.25rem] leading-[1.1] tracking-[-0.045em] sm:text-[3rem]">
             Your next <span className="text-brand">chapter.</span>
           </h1>
+          <Button variant="outline" onClick={openPreferences}>
+            <SlidersHorizontal />
+            {preferencesQuery.data ? "Preferences" : "Set preferences"}
+          </Button>
         </div>
 
         <SearchForm onSubmit={handleSearch} isSearching={discovery.isPending} />
@@ -83,7 +110,36 @@ export function DiscoveryScreen() {
                   {jobsQuery.data?.total ?? "—"}
                 </span>
               </h2>
-              <JobStatusTabs value={status} onChange={changeStatus} />
+              <div className="flex flex-wrap items-center gap-2">
+                {status === "inbox" ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={analyzeInbox}
+                    disabled={
+                      analysis.isPending ||
+                      preferencesQuery.isLoading ||
+                      jobsQuery.isLoading ||
+                      (Boolean(preferencesQuery.data) &&
+                        jobsQuery.data?.total === 0)
+                    }
+                    aria-busy={analysis.isPending}
+                  >
+                    {analysis.isPending ? (
+                      <LoaderCircle className="animate-spin" />
+                    ) : (
+                      <Sparkles />
+                    )}
+                    {analysis.isPending
+                      ? "Analyzing"
+                      : preferencesQuery.data
+                        ? "Analyze next 10"
+                        : "Set preferences"}
+                  </Button>
+                ) : null}
+                <JobStatusTabs value={status} onChange={changeStatus} />
+              </div>
             </div>
 
             <JobFilters
@@ -130,6 +186,11 @@ export function DiscoveryScreen() {
         onClose={() => setSelectedJob(null)}
         onStatusChange={handleStatusChange}
         isUpdating={statusMutation.isPending}
+      />
+      <PreferencesSheet
+        open={preferencesOpen}
+        onOpenChange={setPreferencesOpen}
+        preferences={preferencesQuery.data}
       />
     </>
   );
