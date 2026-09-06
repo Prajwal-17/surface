@@ -1,8 +1,8 @@
 # Fieldwork
 
-Fieldwork is a local-first job-discovery inbox. The V1 searches five public job
-feeds, normalizes and deduplicates their listings, and lets you save or dismiss
-roles without creating an account.
+Fieldwork is a local-first job-discovery inbox. It searches five public job
+feeds, normalizes and deduplicates their listings, remembers your job
+preferences, and can rank inbox roles with a locally hosted OmniRoute gateway.
 
 ## Stack
 
@@ -27,6 +27,26 @@ requests to it.
 
 The SQLite database is created at `data/job-search.sqlite` and is ignored by
 Git.
+
+## Job-fit assistant
+
+Run [OmniRoute](https://github.com/lcrsx/omniroute) locally, create an endpoint
+key in its dashboard, and add these values to `apps/backend/.env`:
+
+```bash
+OMNIROUTE_BASE_URL=http://127.0.0.1:20128/v1
+OMNIROUTE_API_KEY=your-local-endpoint-key
+OMNIROUTE_MODEL=auto
+```
+
+Set your preferences in Fieldwork, then use **Analyze next 10** in the Inbox.
+Each job is scored separately and successful results are saved even if another
+job fails. Saving updated preferences clears earlier scores so the next run uses
+the new guidance.
+
+Preferences and assessments are stored only in the local SQLite database.
+OmniRoute memory is disabled for these requests, but prompts may be sent to any
+cloud model you connect to OmniRoute.
 
 ## Useful commands
 

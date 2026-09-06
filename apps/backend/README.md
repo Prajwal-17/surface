@@ -41,8 +41,17 @@ Routes:
 - `POST /api/discovery/search`
 - `GET /api/jobs`
 - `GET /api/jobs/:id`
+- `POST /api/jobs/analyze`
 - `PATCH /api/jobs/:id/status`
+- `GET /api/profile`
+- `PUT /api/profile`
 - `GET /api/health`
+
+Job-fit analysis uses an OpenAI-compatible OmniRoute endpoint. Configure:
+
+- `OMNIROUTE_BASE_URL` — defaults to `http://127.0.0.1:20128/v1`
+- `OMNIROUTE_API_KEY` — local endpoint key created by OmniRoute
+- `OMNIROUTE_MODEL` — defaults to OmniRoute's `auto` route
 
 ## API schemas
 

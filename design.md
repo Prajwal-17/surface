@@ -129,6 +129,12 @@ Product-specific components belong in `features/discovery` or `features/jobs`.
 Keep network calls, mutation state, and job-specific behavior outside the UI
 primitives. Reuse Lucide icons; do not add another icon library.
 
+Fit recommendations remain compact and explanatory. Show the numeric score on
+job cards, then put the summary, strengths, and concerns in the detail sheet.
+Use the sage success treatment for strong fits, the champagne accent treatment
+for possible fits, and a neutral outline for weak fits. A fit score never changes
+a job's Inbox, Saved, or Dismissed status automatically.
+
 ### Adding or updating shadcn components
 
 From `apps/web`, add only a component required by a current feature:
@@ -152,6 +158,8 @@ and [CLI reference](https://ui.shadcn.com/docs/cli) for maintenance.
 
 - Search shows a busy label/spinner and disables repeat submission while pending.
   Associate validation errors with the affected input; preserve backend validation.
+- Fit analysis is manually started in batches of ten. Keep its pending state and
+  partial-failure feedback distinct from job-source search feedback.
 - Inbox, Saved, and Dismissed use buttons with `aria-pressed`. Changing status or
   filters resets pagination. Do not rely on color alone to communicate selection.
 - Job title areas and Details open the drawer. Save, Dismiss, and Restore stay
