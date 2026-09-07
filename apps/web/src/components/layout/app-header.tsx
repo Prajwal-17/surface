@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { profileDetailsSchema } from "backend/contracts";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
 import {
@@ -43,6 +44,24 @@ export function AppHeader() {
     params = useSearchParams();
   const { toggleSidebar, setOpenMobile, state } = useSidebar();
   const profile = useProfile();
+  const legacyEmail = useSyncExternalStore(
+    subscribeAccount,
+    () => {
+      try {
+        const account = JSON.parse(
+          localStorage.getItem("surface-account") ?? "null",
+        );
+        return profileDetailsSchema.shape.email.safeParse(account?.email)
+          .success
+          ? (account?.email ?? "")
+          : "";
+      } catch {
+        return "";
+      }
+    },
+    () => "",
+  );
+  const email = profile.data?.context.details?.email || legacyEmail;
   const router = useRouter();
   useEffect(() => {
     if (pathname !== "/" || !profile.isSuccess || profile.data) return;
@@ -168,20 +187,24 @@ export function AppHeader() {
           <Link
             href="/profile"
             onClick={() => setOpenMobile(false)}
-            className="flex min-w-0 w-full items-center gap-3 rounded-md border-t border-sidebar-border px-2 pt-4 text-left transition-colors hover:text-sidebar-accent-foreground"
+            className="flex min-w-0 w-full items-center gap-2 rounded-md border-t border-sidebar-border px-1 pt-3 text-left transition-colors hover:text-sidebar-accent-foreground"
             aria-label="View your profile"
           >
-            <span className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-secondary text-muted-foreground">
+            <span className="grid size-7 shrink-0 place-items-center rounded-full border border-border bg-secondary text-muted-foreground">
               <UserRound className="size-4" />
             </span>
-            <div className="min-w-0">
-              <p className="truncate text-xs font-semibold text-foreground">
+            <div className="min-w-0 flex-1">
+              <p
+                className="truncate text-xs font-semibold text-foreground"
+                title={profile.data?.context.details?.name || "Your profile"}
+              >
                 {profile.data?.context.details?.name || "Your profile"}
               </p>
-              <p className="mt-1 truncate text-xs text-muted-foreground">
-                {profile.data
-                  ? "Preferences & experience"
-                  : "Set up your job search"}
+              <p
+                className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground"
+                title={email || undefined}
+              >
+                {email || "Add your email"}
               </p>
             </div>
           </Link>
@@ -218,4 +241,9 @@ export function AppHeader() {
 function subscribe(callback: () => void) {
   window.addEventListener("surface-navigation", callback);
   return () => window.removeEventListener("surface-navigation", callback);
+}
+
+function subscribeAccount(callback: () => void) {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
 }

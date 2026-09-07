@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SettingsLoading } from "@/components/feedback/loading-state";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ScanLine, Pause, Play, RefreshCw, Zap } from "lucide-react";
+import { ScanLine, Pause, Play, Zap } from "lucide-react";
 export function AnalysisSettings() {
   const client = useQueryClient();
   const settings = useQuery({
@@ -53,28 +53,24 @@ export function AnalysisSettings() {
       <div className="flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-base font-semibold">
           <ScanLine className="size-5 text-brand" />
-          Automatic analysis
+          Job assessment
         </h2>
         <span
-          className={`status-pill ${!data.configured || !data.enabled || data.paused ? "tone-amber" : "tone-mint"}`}
+          className={`status-pill ${!data.configured || data.paused ? "tone-amber" : "tone-mint"}`}
         >
           {!data.configured
             ? "Not configured"
-            : !data.enabled
-              ? "Awaiting profile"
-              : data.paused
-                ? "Paused"
-                : "Enabled"}
+            : data.paused
+              ? "Paused"
+              : "Enabled"}
         </span>
       </div>
       <p className="text-sm text-muted-foreground">
         {!data.configured
           ? "OmniRoute is not configured. Collection and filtering remain available."
-          : !data.enabled
-            ? "Save a usable profile to enable automatic analysis of new relevant jobs."
-            : data.paused
-              ? "Analysis is paused. Existing results remain available."
-              : "Automatic analysis enabled · Up to two concurrent requests"}
+          : data.paused
+            ? "Analysis is paused. Existing results remain available."
+            : "Assessments run only when you click Assess this job in the job reader."}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border bg-card p-4">
@@ -151,25 +147,11 @@ export function AnalysisSettings() {
           {data.paused ? <Play /> : <Pause />}
           {data.paused ? "Resume analysis" : "Pause analysis"}
         </Button>
-        <Button
-          variant="secondary"
-          disabled={save.isPending || !data.enabled}
-          onClick={() =>
-            save.mutate({
-              path: "/api/analysis/existing-inbox",
-              method: "POST",
-              body: {},
-            })
-          }
-        >
-          <RefreshCw />
-          Analyze existing inbox
-        </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Existing jobs are analyzed only when requested or materially changed.
-        Excess work stays queued for the next allowance period. Timezone changes
-        take effect after the current allowance resets.
+        Jobs are assessed only when you request it. If the daily allowance is
+        exhausted, retry after it resets. Timezone changes take effect after the
+        current allowance resets.
       </p>
     </section>
   );

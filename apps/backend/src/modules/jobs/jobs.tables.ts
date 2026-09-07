@@ -21,6 +21,9 @@ export const jobs = sqliteTable(
       .default(false),
     employmentType: text("employment_type"),
     description: text("description").notNull().default(""),
+    descriptionSummary: text("description_summary", { mode: "json" }).$type<
+      import("../../shared/contracts").DescriptionSummary
+    >(),
     applyUrl: text("apply_url").notNull(),
     postedAt: text("posted_at"),
     status: text("status").$type<JobStatus>().notNull().default("inbox"),

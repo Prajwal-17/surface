@@ -5,7 +5,6 @@ import { jobs } from "../jobs/jobs.tables";
 import { findProfile } from "../profile/profile.repository";
 import { workItems, runs, runItems } from "../work/work.tables";
 import { assessments, aiUsage } from "./analysis.tables";
-import { checkEligibility } from "./eligibility";
 import { getSettings, reserveRequest } from "./allowance";
 import {
   requestAssessment,
@@ -21,61 +20,175 @@ export function analysisIdentity(
 ) {
   return `analysis:${job.id}:${job.currentVersionId}:${revision}:${assessmentFormatVersion}`;
 }
-function relevant(job: typeof jobs.$inferSelect, roles: string) {
-  if (roles.includes("Not listed")) return true;
-  const text = `${job.title} ${job.description.slice(0, 2000)}`.toLowerCase();
-  return roles
-    .toLowerCase()
-    .split(/[^a-z0-9+#]+/)
-    .filter((t) => t.length > 2)
-    .some((t) => text.includes(t));
+const activeAssessments = new Set<string>();
+export function isAssessmentRunning(id: string) {
+  return activeAssessments.has(id);
 }
-export function enqueueAnalysis(backfill = false, onlyIds?: string[]) {
+
+export async function assessJobNow(id: string) {
+  const job = db
+    .select()
+    .from(jobs)
+    .where(and(eq(jobs.id, id), isNull(jobs.mergedInto)))
+    .get();
+  if (!job) throw new HttpError(404, "Job not found.");
   const profile = findProfile();
-  if (!profile) {
-    if (backfill) throw new HttpError(409, "Save a usable profile first.");
-    return null;
-  }
+  if (!profile)
+    throw new HttpError(409, "Save your profile before assessing a job.");
+  if (!job.currentVersionId)
+    throw new HttpError(409, "This job has no description version to assess.");
+  const identity = analysisIdentity(job, profile.revision);
+  const current = db
+    .select()
+    .from(assessments)
+    .where(
+      and(
+        eq(assessments.jobId, id),
+        eq(assessments.jobVersionId, job.currentVersionId),
+        eq(assessments.profileRevision, profile.revision),
+        eq(assessments.formatVersion, assessmentFormatVersion),
+      ),
+    )
+    .get();
+  if (current) return;
+  if (
+    activeAssessments.has(id) ||
+    db
+      .select({ id: workItems.id })
+      .from(workItems)
+      .where(
+        and(
+          eq(workItems.jobId, id),
+          eq(workItems.kind, "analysis"),
+          eq(workItems.state, "running"),
+        ),
+      )
+      .get()
+  )
+    throw new HttpError(409, "An assessment is already running for this job.");
   const settings = getSettings();
-  if (!settings.enabled && !backfill) return null;
+  if (!settings.configured)
+    throw new HttpError(
+      409,
+      "Configure AI in Settings before assessing a job.",
+    );
+  if (settings.paused)
+    throw new HttpError(
+      409,
+      "Assessment is paused. Resume it in Settings first.",
+    );
+  if (settings.used >= settings.dailyLimit)
+    throw new HttpError(
+      429,
+      "Daily AI limit reached. Try after the allowance resets or update it in Settings.",
+    );
+  const usageId = reserveRequest(
+    `assessment:${id}:${crypto.randomUUID()}`,
+    settings.configured,
+    true,
+  );
+  if (!usageId)
+    throw new HttpError(
+      409,
+      "AI is busy. Try again when a current request finishes; this assessment has not been queued.",
+    );
+  activeAssessments.add(id);
+  try {
+    // A direct click supersedes any old waiting request for this job.
+    db.update(workItems)
+      .set({
+        state: "interrupted",
+        error: "Replaced by an immediate assessment.",
+        completedAt: new Date().toISOString(),
+      })
+      .where(
+        and(
+          eq(workItems.jobId, id),
+          eq(workItems.kind, "analysis"),
+          eq(workItems.state, "queued"),
+        ),
+      )
+      .run();
+    syncRuns();
+    const result = await requestAssessment(profile, job);
+    db.transaction((tx) => {
+      const latestJob = tx.select().from(jobs).where(eq(jobs.id, id)).get();
+      const latestProfile = findProfile();
+      if (
+        !latestJob ||
+        latestJob.mergedInto ||
+        !latestProfile ||
+        analysisIdentity(latestJob, latestProfile.revision) !== identity
+      )
+        throw new HttpError(
+          409,
+          "The job or profile changed during assessment. Click Assess again for the updated details.",
+        );
+      tx.insert(assessments)
+        .values({
+          id: crypto.randomUUID(),
+          jobId: id,
+          jobVersionId: job.currentVersionId!,
+          profileRevision: profile.revision,
+          formatVersion: assessmentFormatVersion,
+          output: result.output,
+          model: result.model,
+          createdAt: new Date().toISOString(),
+        })
+        .onConflictDoNothing()
+        .run();
+      tx.update(jobs)
+        .set({ analysisRequested: false })
+        .where(eq(jobs.id, id))
+        .run();
+      tx.update(aiUsage)
+        .set({ outcome: "completed" })
+        .where(eq(aiUsage.id, usageId))
+        .run();
+    });
+  } catch (error) {
+    db.update(aiUsage)
+      .set({
+        outcome:
+          error instanceof HttpError && error.status === 409
+            ? "stale"
+            : "failed",
+      })
+      .where(eq(aiUsage.id, usageId))
+      .run();
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(
+      502,
+      error instanceof Error
+        ? error.message
+        : "Could not assess this job. Try again.",
+    );
+  } finally {
+    activeAssessments.delete(id);
+  }
+}
+
+export function enqueueAnalysis(onlyIds: string[]) {
+  if (!onlyIds.length) return null;
+  const profile = findProfile();
+  if (!profile)
+    throw new HttpError(409, "Save your profile before assessing a job.");
   return db.transaction((tx) => {
     const now = new Date().toISOString();
-    if (backfill)
-      tx.update(jobs)
-        .set({ analysisRequested: true })
-        .where(
-          and(
-            eq(jobs.status, "inbox"),
-            isNull(jobs.mergedInto),
-            ...(onlyIds ? [inArray(jobs.id, onlyIds)] : []),
-          ),
-        )
-        .run();
     const candidates = tx
       .select()
       .from(jobs)
-      .where(
-        and(
-          eq(jobs.analysisRequested, true),
-          eq(jobs.status, "inbox"),
-          isNull(jobs.mergedInto),
-          ...(onlyIds ? [inArray(jobs.id, onlyIds)] : []),
-        ),
-      )
+      .where(and(inArray(jobs.id, onlyIds), isNull(jobs.mergedInto)))
       .all();
+    if (candidates.length !== new Set(onlyIds).size)
+      throw new HttpError(404, "Job not found.");
     let runId: string | null = null;
     for (const job of candidates) {
-      if (
-        !job.currentVersionId ||
-        checkEligibility(job, profile.context).state === "conflicts" ||
-        !relevant(
-          job,
-          profile.context.details?.roles.length
-            ? profile.context.details.roles.join(", ")
-            : profile.targetRoles,
-        )
-      )
-        continue;
+      if (!job.currentVersionId)
+        throw new HttpError(
+          409,
+          "This job has no description version to assess.",
+        );
       const current = tx
         .select()
         .from(assessments)
@@ -88,13 +201,7 @@ export function enqueueAnalysis(backfill = false, onlyIds?: string[]) {
           ),
         )
         .get();
-      if (current) {
-        tx.update(jobs)
-          .set({ analysisRequested: false })
-          .where(eq(jobs.id, job.id))
-          .run();
-        continue;
-      }
+      if (current) continue;
       const identity = analysisIdentity(job, profile.revision);
       const existing = tx
         .select()
@@ -102,19 +209,14 @@ export function enqueueAnalysis(backfill = false, onlyIds?: string[]) {
         .where(eq(workItems.identity, identity))
         .orderBy(desc(workItems.createdAt))
         .get();
-      if (
-        existing &&
-        (["queued", "running", "completed"].includes(existing.state) ||
-          !backfill)
-      )
-        continue;
+      if (existing && ["queued", "running"].includes(existing.state)) continue;
       if (!runId) {
         runId = crypto.randomUUID();
         tx.insert(runs)
           .values({
             id: runId,
             kind: "analysis",
-            label: backfill ? "Analyze existing inbox" : "Automatic assessment",
+            label: "Requested assessment",
             state: "queued",
             createdAt: now,
           })
@@ -134,19 +236,6 @@ export function enqueueAnalysis(backfill = false, onlyIds?: string[]) {
         .run();
       tx.insert(runItems).values({ runId, workId: id }).run();
     }
-    if (!runId && backfill) {
-      runId = crypto.randomUUID();
-      tx.insert(runs)
-        .values({
-          id: runId,
-          kind: "analysis",
-          label: "Inbox already queued or no eligible unassessed jobs",
-          state: "completed",
-          createdAt: now,
-          completedAt: now,
-        })
-        .run();
-    }
     return runId ? { runId } : null;
   });
 }
@@ -164,9 +253,7 @@ export async function executeAnalysis(
     !profile ||
     !job ||
     job.mergedInto ||
-    job.status !== "inbox" ||
-    item.identity !== analysisIdentity(job, profile.revision) ||
-    checkEligibility(job, profile.context).state === "conflicts"
+    item.identity !== analysisIdentity(job, profile.revision)
   ) {
     db.update(workItems)
       .set({
@@ -187,7 +274,7 @@ export async function executeAnalysis(
       .returning()
       .get();
     if (!claimed) return null;
-    const usageId = reserveRequest(item.id, configured);
+    const usageId = reserveRequest(item.id, configured, true);
     if (!usageId) {
       const settings = getSettings();
       tx.update(workItems)
@@ -220,7 +307,6 @@ export async function executeAnalysis(
       if (
         !latestJob ||
         latestJob.mergedInto ||
-        latestJob.status !== "inbox" ||
         !latestProfile ||
         analysisIdentity(latestJob, latestProfile.revision) !== item.identity
       ) {

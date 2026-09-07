@@ -59,14 +59,20 @@ const icons = {
 function editorProfile(profile: Profile | null): EditorProfile {
   const context = personalContextSchema.parse(profile?.context ?? {});
   const details = profileDetailsSchema.parse(context.details ?? {});
-  if (!context.details && typeof window !== "undefined") {
+  if (typeof window !== "undefined") {
     try {
       const account = JSON.parse(
         localStorage.getItem("surface-account") ?? "null",
       );
-      if (typeof account?.name === "string") details.name = account.name;
+      if (!details.name && typeof account?.name === "string")
+        details.name = account.name;
+      if (
+        !details.email &&
+        profileDetailsSchema.shape.email.safeParse(account?.email).success
+      )
+        details.email = account?.email ?? "";
     } catch {
-      /* Optional legacy display name. */
+      /* Optional legacy account details. */
     }
   }
   return {
@@ -208,6 +214,7 @@ function ProfileEditor({
       setReviewOpen(false);
       setError("");
       client.setQueryData(["profile-context"], profile);
+      void client.invalidateQueries({ queryKey: ["jobs"], refetchType: "all" });
       void client.invalidateQueries({ queryKey: ["analysis-settings"] });
       toast.success("Profile saved");
       if (onboarding) router.push("/");

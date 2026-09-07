@@ -23,7 +23,7 @@ Use `BACKEND_URL` for a different backend. SQLite defaults to
 The backend performs monitoring and analysis while the browser is closed.
 Run one backend executor per data directory.
 
-The database starts from one generated baseline: `apps/backend/drizzle/0000_surface.sql`.
+The database starts from a generated baseline: `apps/backend/drizzle/0000_surface.sql`.
 Its `meta` folder contains the snapshot and journal Drizzle needs to generate future
 changes. The baseline creates the current schema and seeds the five default feeds.
 Its journal timestamp retains the final migration cutoff from the previous chain,
@@ -54,6 +54,11 @@ revisions preserve their context.
   non-posting pages are saved with an explanation of unavailable collection.
 - Jobs retains filters, sort, page and selection in the URL. Inbox/Saved/Dismissed,
   eligibility, availability and analysis state are separate. Dismiss offers Undo.
+- Inbox defaults to matching Profile target roles against job titles, including
+  common spelling variants and developer/engineer synonyms. All roles shows every
+  collected job; Saved and Dismissed default to all roles. Search and pagination
+  apply within the selected role filter. Collection retains every job. With no
+  target roles (or only Not listed), all jobs remain visible. Assessments run only when explicitly requested in the job reader.
 - Strong cross-site matches combine source references. Ambiguous matches offer
   Same job / Keep separate; manual merges preserve original rows and can be undone.
 - Only complete successful inventories establish disappearance. First absence is
@@ -71,6 +76,17 @@ The collector permits at most 100 pages and 8 MiB per response with validated
 public destinations, DNS pinning, validated redirects and timeouts. Larger or
 incomplete inventories remain partial and cannot establish closure.
 
+Job descriptions have an on-demand **Summarise** button and a separate **AI Summary**
+tab. Summaries cover company context, responsibilities, required and preferred
+qualifications, working arrangements, compensation, benefits and application details
+from the full posting. The prompt requires explicit handling of missing or conflicting
+facts. Summary text streams as the provider responds, renders as Markdown headings,
+lists, emphasis and links, and is saved after validation; **Regenerate** requests
+a fresh summary. Providers returning buffered JSON still work. Older summary formats
+are marked for regeneration with the improved prompt.
+Changed descriptions mark old summaries as outdated. Summaries use the shared AI
+allowance and never include your profile or run automatically.
+
 ## OmniRoute assessment
 
 Configure `apps/backend/.env`, which [Bun loads automatically](https://bun.sh/docs/runtime/environment-variables):
@@ -81,16 +97,20 @@ OMNIROUTE_API_KEY=your-local-endpoint-key
 OMNIROUTE_MODEL=auto
 ```
 
-Save a usable Profile to enable automatic assessment of new or materially changed
-relevant inbox jobs. Explicit hard mismatches stay inspectable and are not
-submitted to the model. Missing or incomparable facts need clarification.
+Save your Profile, open a job’s **Assessment** tab, and click **Assess this job** for a brief plain-text
+recommendation: whether to apply, the strongest match, the main gap, and a next
+step. Clicking Assess starts the AI request immediately, without a queued work item
+or automatic retries. If AI is busy, the request reports that immediately. Scraping
+and profile changes never start assessments automatically. You can
+request an assessment for an Inbox, Saved, or Dismissed job, including roles outside
+your targets. Missing or incomparable facts need clarification.
 Free-text preferences and deal-breakers remain advisory.
 
 The default allowance is **20 dispatched model requests per day**, with at most
 **two concurrent requests**, initially in **Asia/Kolkata**. Failed calls and retries
-consume the same persisted allowance. Settings offers a limit, timezone, pause and
-**Analyze existing inbox**. Changing timezone does not reset the current allowance.
-No blanket analysis backfill runs during migration. Collection works without AI.
+consume the same persisted allowance. Settings offers a limit, timezone and pause control. Assessments are started
+from the job reader. Changing timezone does not reset the current allowance.
+No analysis backfill runs during migration. Collection works without AI.
 
 Assessments cite supplied job/profile excerpts, distinguish interpretation from
 facts, and record the job version, profile revision and assessment format version.
@@ -120,16 +140,11 @@ the runtime uses Bun SQLite and does not need Drizzle Studio's native driver.
 ## Verification
 
 ```sh
-bun test apps/backend/src/modules/workspace/workspace.test.ts
 bun run lint
 bun run check-types
 bun run build
 ```
 
-Backend fixtures cover migration-compatible persistence, extraction/pagination,
-duplicates, meaningful versions, source disappearance, scheduling/restarts, quota,
-stale in-flight assessments and citation validation. Docker smoke tests use a
-disposable mount and verify SQLite and raw files across container recreation.
 Browser review remains manual: desktop/mobile, keyboard, long titles, reader focus,
 empty/error states, source links and stability during background updates.
 
@@ -167,7 +182,7 @@ profile. Country/city catalogs are exposed through `/api/profile/catalogs`,
 `/api/profile/locations?country=IN&q=Mumbai&offset=0` and
 `/api/profile/locations/:id`.
 
-Job assessments receive all saved personal fields and every project without
+Job assessments receive saved personal context (excluding email) and every project without
 summarization or truncation. Assessment format version 2 preserves citation
 validation and marks previous-format results stale. Provider context-limit failures
 remain visible; the app does not silently shorten the profile.

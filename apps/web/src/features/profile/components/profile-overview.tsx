@@ -132,6 +132,7 @@ export function ProfileOverview({
         {heading("Experience & projects", "experience")}
         <dl>
           {d.name && <Entry label="Display name">{d.name}</Entry>}
+          {d.email && <Entry label="Email">{d.email}</Entry>}
           {c.experience && (
             <Entry label="Experience">
               <ProfileMarkdown>{c.experience}</ProfileMarkdown>

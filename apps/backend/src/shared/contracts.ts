@@ -72,14 +72,26 @@ export const jobFitSchema = z.object({
 
 export type JobFit = z.infer<typeof jobFitSchema>;
 
+export const DESCRIPTION_SUMMARY_FORMAT_VERSION = 3;
+
+export const descriptionSummarySchema = z.object({
+  text: z.string().trim().min(1).max(16000),
+  formatVersion: z.number().int().positive().default(1),
+  jobVersionId: z.string(),
+  generatedAt: z.string(),
+});
+export type DescriptionSummary = z.infer<typeof descriptionSummarySchema>;
+
 export const jobSchema = z.object({
   id: z.string(),
   title: z.string(),
   company: z.string(),
+  companyWebsite: z.string().url().nullable().default(null),
   location: z.string(),
   isRemote: z.boolean(),
   employmentType: z.string().nullable(),
   description: z.string(),
+  descriptionSummary: descriptionSummarySchema.nullable().default(null),
   applyUrl: z.string().url(),
   postedAt: z.string().nullable(),
   status: jobStatusSchema,
@@ -120,6 +132,7 @@ export type Job = z.infer<typeof jobSchema>;
 export const jobsListQuerySchema = z.object({
   status: jobStatusSchema.default("inbox"),
   search: z.string().trim().max(100).optional().default(""),
+  relevance: z.enum(["target", "all"]).optional(),
   source: sourceKeySchema.optional(),
   reviewState: z.enum(["unreviewed", "reviewed"]).optional(),
   eligibility: z.enum(["meets", "clarify", "conflicts"]).optional(),
@@ -151,6 +164,7 @@ export const jobsListResponseSchema = z.object({
   jobs: z.array(jobSchema),
   revision: z.string(),
   total: z.number().int().nonnegative(),
+  collectedTotal: z.number().int().nonnegative(),
   page: z.number().int().positive(),
   limit: z.number().int().positive(),
   pages: z.number().int().nonnegative(),

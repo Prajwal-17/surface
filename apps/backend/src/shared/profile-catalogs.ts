@@ -205,6 +205,7 @@ export const profileLocationSchema = z.object({
 export type ProfileLocation = z.infer<typeof profileLocationSchema>;
 export const profileDetailsSchema = z.object({
   name: z.string().max(200).default(""),
+  email: z.union([z.email().max(254), z.literal("")]).default(""),
   roles: selected(roleOptions),
   employmentTypes: z
     .array(

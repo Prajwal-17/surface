@@ -67,6 +67,20 @@ export function AdvancedFilters({
   return (
     <>
       <Select
+        value={
+          filters.relevance ?? (filters.status === "inbox" ? "target" : "all")
+        }
+        onValueChange={(value) => change({ relevance: value, page: "1" })}
+      >
+        <SelectTrigger aria-label="Role relevance" className="w-auto min-w-32">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="target">Target roles</SelectItem>
+          <SelectItem value="all">All roles</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select
         value={filters.sort}
         onValueChange={(value) => change({ sort: value, page: "1" })}
       >
@@ -88,6 +102,11 @@ export function AdvancedFilters({
         <PopoverContent>
           <div className="max-h-[70svh] space-y-4 overflow-y-auto">
             <h2 className="font-semibold">Filter jobs</h2>
+            <p className="text-xs text-muted-foreground">
+              Target roles matches job titles against your Profile roles. Choose
+              All roles to browse every collected job. Without target roles, all
+              jobs are shown.
+            </p>
             {select("Review state", "reviewState", [
               ["unreviewed", "Unreviewed"],
               ["reviewed", "Reviewed"],

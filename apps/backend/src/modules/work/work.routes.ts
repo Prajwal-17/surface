@@ -30,7 +30,7 @@ workRoutes.post("/runs/:id/retry", (c) => {
   );
   if (run.kind === "analysis")
     return c.json(
-      enqueueAnalysis(true, failed.map((i) => i.jobId!).filter(Boolean)),
+      enqueueAnalysis(failed.map((i) => i.jobId!).filter(Boolean)),
       202,
     );
   if (!failed.length)

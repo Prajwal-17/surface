@@ -20,52 +20,60 @@ export function JobActions({
       <Button
         type="button"
         variant="outline"
-        size={compact ? "sm" : "default"}
+        size={compact ? "icon" : "default"}
+        className={compact ? "size-8" : undefined}
         disabled={isPending}
+        title="Restore to Inbox"
         onClick={() => onChange("inbox")}
       >
         <Inbox />
-        Restore
+        <span className={compact ? "sr-only" : undefined}>Restore</span>
       </Button>
     );
   }
 
   return (
     <div
-      className={compact ? "flex items-center gap-1.5" : "flex flex-wrap gap-2"}
+      className={compact ? "flex items-center gap-0.5" : "flex flex-wrap gap-2"}
     >
       {job.status !== "saved" ? (
         <Button
           type="button"
           variant="secondary"
-          size={compact ? "sm" : "default"}
+          size={compact ? "icon" : "default"}
+          className={compact ? "size-8" : undefined}
           disabled={isPending}
+          title="Save job"
           onClick={() => onChange("saved")}
         >
           <Bookmark />
-          Save
+          <span className={compact ? "sr-only" : undefined}>Save</span>
         </Button>
       ) : (
         <Button
           type="button"
           variant="outline"
-          size={compact ? "sm" : "default"}
+          size={compact ? "icon" : "default"}
+          className={compact ? "size-8" : undefined}
           disabled={isPending}
+          title="Move to Inbox"
           onClick={() => onChange("inbox")}
         >
           <Inbox />
-          Inbox
+          <span className={compact ? "sr-only" : undefined}>Inbox</span>
         </Button>
       )}
       <Button
         type="button"
         variant="ghost"
-        size={compact ? "sm" : "default"}
+        size={compact ? "icon" : "default"}
+        className={compact ? "size-8" : undefined}
         disabled={isPending}
+        title="Dismiss job"
         onClick={() => onChange("dismissed")}
       >
         <ArchiveX />
-        Dismiss
+        <span className={compact ? "sr-only" : undefined}>Dismiss</span>
       </Button>
     </div>
   );

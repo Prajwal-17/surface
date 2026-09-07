@@ -8,6 +8,13 @@
       "when": 1788727302950,
       "tag": "0000_surface",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788794082162,
+      "tag": "0001_job_description_summary",
+      "breakpoints": true
     }
   ]
 }

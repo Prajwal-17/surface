@@ -1275,3 +1275,68 @@
 .profile-markdown hr {
   margin-block: 1.25em;
 }
+
+/* Beautiful UI loading and streaming primitives, adapted to Surface tokens. */
+@keyframes ai-pixel-on {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  40% {
+    opacity: 0.9;
+  }
+}
+@keyframes ai-shimmer-text {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@keyframes ai-word-in {
+  from {
+    opacity: 0.35;
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+.ai-loader-pixel {
+  animation: ai-pixel-on 650ms ease-in-out infinite;
+}
+.ai-loader-label {
+  color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--muted-foreground) 35%,
+    var(--foreground) 50%,
+    var(--muted-foreground) 65%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  animation: ai-shimmer-text 1.4s linear infinite;
+}
+.ai-stream-word {
+  animation: ai-word-in 180ms ease-out both;
+}
+.ai-stream-cursor {
+  animation: ai-pixel-on 900ms ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-loader-pixel,
+  .ai-loader-label,
+  .ai-stream-word,
+  .ai-stream-cursor {
+    animation: none;
+  }
+  .ai-loader-pixel {
+    opacity: 0.45;
+  }
+  .ai-loader-label {
+    background: none;
+    color: var(--muted-foreground);
+  }
+}

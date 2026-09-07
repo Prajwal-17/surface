@@ -87,6 +87,13 @@ export function JobList({
           Couldn’t refresh jobs. Showing the previous results.
         </p>
       )}
+      <p
+        className="shrink-0 border-b px-4 py-2 text-xs text-muted-foreground"
+        title="Results reflect your active filters. Collected jobs include every role from your sources."
+      >
+        {data.total.toLocaleString()} results ·{" "}
+        {data.collectedTotal.toLocaleString()} collected
+      </p>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {data.jobs.map((job) => (
           <JobCard

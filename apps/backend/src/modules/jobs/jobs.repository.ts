@@ -1,8 +1,12 @@
+import { isAssessmentRunning } from "../analysis/analysis.service";
+import { companies } from "../workspace/workspace.tables";
+import { companyWebsite } from "./company-website";
 import { workspaceRevision } from "../work/events.routes";
 import { assessments } from "../analysis/analysis.tables";
 import { workItems } from "../work/work.tables";
 import { checkEligibility } from "../analysis/eligibility";
 import { findProfile } from "../profile/profile.repository";
+import { roleMatcher } from "./relevance";
 import { assessmentFormatVersion } from "../../shared/contracts";
 import { createHash } from "node:crypto";
 import {
@@ -250,7 +254,7 @@ export function upsertCandidates(candidates: JobCandidate[]): UpsertResult {
           })
           .run();
         tx.update(jobs)
-          .set({ currentVersionId: id, analysisRequested: true })
+          .set({ currentVersionId: id, analysisRequested: false })
           .where(eq(jobs.id, jobId))
           .run();
       }
@@ -323,15 +327,17 @@ function mapJob(row: typeof jobs.$inferSelect, details = false): Job {
     .get();
   const assessmentState: Job["assessmentState"] = current
     ? "current"
-    : latest && ["queued", "running"].includes(latest.state)
-      ? (latest.state as "queued" | "running")
-      : latest?.state === "failed"
-        ? "failed"
-        : history.length
-          ? "stale"
-          : row.fitScore !== null
-            ? "legacy"
-            : "not-assessed";
+    : isAssessmentRunning(row.id)
+      ? "running"
+      : latest && ["queued", "running"].includes(latest.state)
+        ? (latest.state as "queued" | "running")
+        : latest?.state === "failed"
+          ? "failed"
+          : history.length
+            ? "stale"
+            : row.fitScore !== null
+              ? "legacy"
+              : "not-assessed";
   const fit = current
     ? {
         score: current.output.score,
@@ -367,10 +373,22 @@ function mapJob(row: typeof jobs.$inferSelect, details = false): Job {
     id: row.id,
     title: row.title,
     company: row.company,
+    companyWebsite: companyWebsite(
+      row.companyId
+        ? db
+            .select({ website: companies.website })
+            .from(companies)
+            .where(eq(companies.id, row.companyId))
+            .get()?.website
+        : undefined,
+      row.evidence,
+      row.description,
+    ),
     location: row.location,
     isRemote: row.isRemote,
     employmentType: row.employmentType,
     description: row.description,
+    descriptionSummary: row.descriptionSummary,
     applyUrl: row.applyUrl,
     postedAt: row.postedAt,
     status: row.status,
@@ -479,6 +497,7 @@ export function listJobs(input: JobsListQuery): JobsListResponse {
   if (input.discoveredAfter)
     conditions.push(sql`${jobs.firstSeenAt} >= ${input.discoveredAfter}`);
   const where = and(...conditions);
+  const matchesRole = roleMatcher(findProfile());
   // ponytail: eligibility is computed from current profile at read time for this local inbox.
   // Materialize indexed eligibility when an inbox grows beyond tens of thousands of jobs.
   let mapped = db
@@ -487,6 +506,11 @@ export function listJobs(input: JobsListQuery): JobsListResponse {
     .where(where)
     .orderBy(desc(jobs.firstSeenAt), desc(jobs.id))
     .all()
+    .filter(
+      (row) =>
+        (input.relevance ?? (input.status === "inbox" ? "target" : "all")) ===
+          "all" || matchesRole(row),
+    )
     .map((row) => mapJob(row));
   mapped = mapped.filter(
     (job) =>
@@ -521,6 +545,11 @@ export function listJobs(input: JobsListQuery): JobsListResponse {
       input.page * input.limit,
     ),
     total,
+    collectedTotal: db
+      .select({ total: sql<number>`count(*)` })
+      .from(jobs)
+      .where(isNull(jobs.mergedInto))
+      .get()!.total,
     page: input.page,
     limit: input.limit,
     pages: total ? Math.ceil(total / input.limit) : 0,

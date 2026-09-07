@@ -1,4 +1,4 @@
-import { enqueueAnalysis, executeAnalysis } from "../analysis/analysis.service";
+import { executeAnalysis } from "../analysis/analysis.service";
 import { getSettings } from "../analysis/allowance";
 import { and, eq, inArray, lte, sql } from "drizzle-orm";
 import { db, sqlite } from "../../infrastructure/database/client";
@@ -225,9 +225,8 @@ export function startExecutor() {
       analysisActive = true;
       void (async () => {
         try {
-          enqueueAnalysis();
           const settings = getSettings();
-          if (settings.configured && settings.enabled && !settings.paused) {
+          if (settings.configured && !settings.paused) {
             const pending = db
               .select()
               .from(workItems)

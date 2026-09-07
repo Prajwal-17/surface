@@ -225,6 +225,18 @@ export function ProfileSections({
                 onChange={(e) => details({ name: e.target.value })}
               />
             </Field>
+            <Field
+              label="Email"
+              hint="Optional. Shown below your name in the sidebar."
+            >
+              <Input
+                type="email"
+                autoComplete="email"
+                maxLength={254}
+                value={d.email}
+                onChange={(e) => details({ email: e.target.value.trim() })}
+              />
+            </Field>
             <Field label="Years of experience">
               <Input
                 type="number"

@@ -40,6 +40,10 @@ export function DiscoveryScreen() {
     queryFn: async () =>
       jobSchema.parse(await apiClient(`/api/jobs/${selectedId}`)),
     enabled: Boolean(selectedId),
+    refetchInterval: (query) =>
+      ["queued", "running"].includes(query.state.data?.assessmentState ?? "")
+        ? 2000
+        : false,
   });
   function change(patch: Record<string, string | undefined>) {
     const next = new URLSearchParams(params);

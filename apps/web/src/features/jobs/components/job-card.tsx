@@ -80,7 +80,19 @@ export function JobCard({
             </Button>
           </h2>
           <div className="job-byline">
-            <span className="truncate">{job.company}</span>
+            {job.companyWebsite ? (
+              <a
+                href={job.companyWebsite}
+                target="_blank"
+                rel="noreferrer"
+                className="truncate underline underline-offset-3 hover:text-foreground"
+                title={job.companyWebsite}
+              >
+                {job.company}
+              </a>
+            ) : (
+              <span className="truncate">{job.company}</span>
+            )}
             <span aria-hidden="true">·</span>
             <Popover>
               <PopoverTrigger asChild>

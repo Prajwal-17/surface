@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { env } from "../config/env";
+import { readModelStream } from "./model-stream";
 let activeRequests = 0;
 export function modelCapacityAvailable() {
   return activeRequests < 2;
@@ -10,12 +11,20 @@ export async function requestModelJson<T>(
   instructions: string,
   data: unknown,
   maxTokens: number,
+  onJson?: (json: string) => void,
 ) {
   if (!modelCapacityAvailable())
     throw new Error("Two AI requests are already running. Try again shortly.");
   activeRequests++;
   try {
-    return await sendModelJson(schema, name, instructions, data, maxTokens);
+    return await sendModelJson(
+      schema,
+      name,
+      instructions,
+      data,
+      maxTokens,
+      onJson,
+    );
   } finally {
     activeRequests--;
   }
@@ -26,6 +35,7 @@ async function sendModelJson<T>(
   instructions: string,
   data: unknown,
   maxTokens: number,
+  onJson?: (json: string) => void,
 ) {
   const response = await fetch(
     `${env.OMNIROUTE_BASE_URL.replace(/\/$/, "")}/chat/completions`,
@@ -39,7 +49,7 @@ async function sendModelJson<T>(
       },
       body: JSON.stringify({
         model: env.OMNIROUTE_MODEL,
-        stream: false,
+        stream: Boolean(onJson),
         max_tokens: maxTokens,
         messages: [
           { role: "system", content: instructions },
@@ -60,6 +70,17 @@ async function sendModelJson<T>(
     throw new Error(
       `OmniRoute rejected the request (HTTP ${response.status}). The supplied information has not been shortened. Check the model configuration or context limit.`,
     );
+  if (
+    onJson &&
+    response.body &&
+    response.headers.get("content-type")?.includes("text/event-stream")
+  ) {
+    const result = await readModelStream(response.body, onJson);
+    return {
+      output: schema.parse(JSON.parse(result.content)),
+      model: result.model || env.OMNIROUTE_MODEL,
+    };
+  }
   const reader = response.body?.getReader();
   if (!reader) throw new Error("Empty OmniRoute response.");
   let size = 0;

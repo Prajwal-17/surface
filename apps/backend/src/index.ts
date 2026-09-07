@@ -8,6 +8,7 @@ startExecutor();
 
 const server = Bun.serve({
   port: env.PORT,
+  idleTimeout: 150,
   fetch: app.fetch,
 });
 
