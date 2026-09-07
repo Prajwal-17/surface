@@ -1,4 +1,10 @@
 "use client";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
+
 import { TaskRows } from "@/components/ai/task-rows";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -9,7 +15,13 @@ import {
 import { apiClient } from "@/lib/api-client";
 import { CompaniesScreen } from "@/features/companies/components/companies-screen";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,12 +30,10 @@ import {
   RefreshCw,
   Clock3,
   CircleCheck,
-  TriangleAlert,
   Globe2,
   CalendarClock,
   HardDrive,
   ChevronDown,
-  Radio,
 } from "lucide-react";
 export function ActivityScreen() {
   const client = useQueryClient();
@@ -69,84 +79,58 @@ export function ActivityScreen() {
     onError: (e) => toast.error(e.message),
   });
   return (
-    <div className="mx-auto max-w-7xl space-y-6 pb-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="page-kicker">Behind your inbox</p>
-          <h1 className="page-heading">Activity</h1>
-          <p className="page-description">
-            See what's collecting, what's ready, and what needs attention.
-          </p>
-        </div>
-        <Button variant="outline" onClick={() => void runs.refetch()}>
-          <RefreshCw />
-          Refresh
-        </Button>
-      </div>
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+    <div className="mx-auto max-w-7xl space-y-4 pb-4">
+      <h1 className="sr-only">Activity</h1>
+      <div className="activity-stats">
         {[
-          {
-            label: "Recent runs",
-            value: runs.data?.length,
-            icon: Activity,
-            tone: "tone-blue",
-          },
+          { label: "Recent runs", value: runs.data?.length },
           {
             label: "In progress",
             value: runs.data?.filter((r) =>
               ["running", "queued"].includes(r.state),
             ).length,
-            icon: Radio,
-            tone: "tone-blue",
           },
           {
             label: "Completed",
             value: runs.data?.filter((r) => r.state === "completed").length,
-            icon: CircleCheck,
-            tone: "tone-mint",
           },
           {
             label: "Need attention",
             value: runs.data?.filter((r) =>
               ["failed", "partial", "interrupted"].includes(r.state),
             ).length,
-            icon: TriangleAlert,
-            tone: "tone-amber",
           },
-        ].map(({ label, value, icon: Icon, tone }) => (
-          <div key={label} className="panel flex items-center gap-4 p-4">
-            <span
-              className={`grid size-10 shrink-0 place-items-center rounded-xl ${tone}`}
-            >
-              <Icon className="size-5" />
-            </span>
-            <div>
-              <p className="text-2xl font-bold tracking-tight">
-                {value ?? "—"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">{label}</p>
-            </div>
+        ].map(({ label, value }) => (
+          <div key={label} className="activity-stat">
+            <p>{label}</p>
+            <p>{value ?? "—"}</p>
           </div>
         ))}
       </div>
       <Tabs defaultValue="runs">
-        <TabsList className="mb-5 flex h-auto w-fit flex-wrap justify-start gap-1">
-          {[
-            { value: "runs", label: "Run history", icon: Activity },
-            { value: "schedules", label: "Schedules", icon: CalendarClock },
-            { value: "sources", label: "Sources", icon: Globe2 },
-            { value: "storage", label: "Storage", icon: HardDrive },
-          ].map(({ value, label, icon: Icon }) => (
-            <TabsTrigger
-              key={value}
-              value={value}
-              className="h-9 gap-2 text-xs"
-            >
-              <Icon className="size-4" />
-              {label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="section-toolbar">
+          <TabsList className="flex flex-wrap">
+            {[
+              { value: "runs", label: "Run history", icon: Activity },
+              { value: "schedules", label: "Schedules", icon: CalendarClock },
+              { value: "sources", label: "Sources", icon: Globe2 },
+              { value: "storage", label: "Storage", icon: HardDrive },
+            ].map(({ value, label, icon: Icon }) => (
+              <TabsTrigger key={value} value={value} className="gap-2">
+                <Icon className="size-4" />
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void runs.refetch()}
+          >
+            <RefreshCw />
+            Refresh
+          </Button>
+        </div>
         <TabsContent value="runs">
           <section className="space-y-3">
             <div className="mb-4 flex items-center justify-between">
@@ -169,70 +153,74 @@ export function ActivityScreen() {
                 </p>
               </div>
             )}
-            {runs.data?.map((run) => (
-              <details key={run.id} className="group panel p-4">
-                <summary className="flex list-none flex-wrap items-center gap-3">
-                  <span
-                    className={`grid size-10 place-items-center rounded-xl ${run.state === "completed" ? "tone-mint" : ["failed", "partial", "interrupted"].includes(run.state) ? "tone-amber" : "tone-blue"}`}
-                  >
-                    {run.state === "completed" ? (
-                      <CircleCheck className="size-5" />
-                    ) : (
-                      <Activity className="size-5" />
-                    )}
-                  </span>
-                  <div className="min-w-[160px] flex-1">
-                    <h3 className="break-words text-sm font-semibold">
-                      {run.label}
-                    </h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {new Date(run.createdAt).toLocaleString()} ·{" "}
-                      {
-                        run.items.filter((i) =>
-                          [
-                            "completed",
-                            "partial",
-                            "failed",
-                            "interrupted",
-                          ].includes(i.state),
-                        ).length
-                      }{" "}
-                      of {run.items.length} items finished
-                    </p>
-                  </div>
-                  <span
-                    className={`status-pill capitalize ${run.state === "completed" ? "tone-mint" : ["failed", "partial", "interrupted"].includes(run.state) ? "tone-amber" : "tone-blue"}`}
-                  >
-                    {run.state}
-                  </span>
-                  <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
-                </summary>
-                <div className="mt-3 space-y-3">
-                  <TaskRows
-                    items={run.items}
-                    label={(item) =>
-                      sources.data?.find((s) => s.id === item.sourceId)
-                        ?.label ??
-                      item.jobId ??
-                      item.kind
-                    }
-                  />
-                  {run.items.some((i) =>
-                    ["failed", "interrupted", "partial"].includes(i.state),
-                  ) && (
-                    <Button
-                      variant="outline"
-                      disabled={action.isPending}
-                      onClick={() =>
-                        action.mutate({ path: `/api/runs/${run.id}/retry` })
-                      }
+            <div className="activity-runs">
+              {runs.data?.map((run) => (
+                <Collapsible key={run.id} className="group activity-run">
+                  <CollapsibleTrigger className="flex list-none flex-wrap items-center gap-3">
+                    <span
+                      className={`grid size-8 place-items-center rounded-md ${run.state === "completed" ? "tone-mint" : ["failed", "partial", "interrupted"].includes(run.state) ? "tone-amber" : "tone-blue"}`}
                     >
-                      Retry failed items
-                    </Button>
-                  )}
-                </div>
-              </details>
-            ))}
+                      {run.state === "completed" ? (
+                        <CircleCheck className="size-5" />
+                      ) : (
+                        <Activity className="size-5" />
+                      )}
+                    </span>
+                    <div className="min-w-[160px] flex-1">
+                      <h3 className="break-words text-sm font-semibold">
+                        {run.label}
+                      </h3>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {new Date(run.createdAt).toLocaleString()} ·{" "}
+                        {
+                          run.items.filter((i) =>
+                            [
+                              "completed",
+                              "partial",
+                              "failed",
+                              "interrupted",
+                            ].includes(i.state),
+                          ).length
+                        }{" "}
+                        of {run.items.length} items finished
+                      </p>
+                    </div>
+                    <span
+                      className={`status-pill capitalize ${run.state === "completed" ? "tone-mint" : ["failed", "partial", "interrupted"].includes(run.state) ? "tone-amber" : "tone-blue"}`}
+                    >
+                      {run.state}
+                    </span>
+                    <ChevronDown className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="mt-3 space-y-3">
+                      <TaskRows
+                        items={run.items}
+                        label={(item) =>
+                          sources.data?.find((s) => s.id === item.sourceId)
+                            ?.label ??
+                          item.jobId ??
+                          item.kind
+                        }
+                      />
+                      {run.items.some((i) =>
+                        ["failed", "interrupted", "partial"].includes(i.state),
+                      ) && (
+                        <Button
+                          variant="outline"
+                          disabled={action.isPending}
+                          onClick={() =>
+                            action.mutate({ path: `/api/runs/${run.id}/retry` })
+                          }
+                        >
+                          Retry failed items
+                        </Button>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+            </div>
           </section>
         </TabsContent>
         <TabsContent value="schedules">
@@ -262,29 +250,36 @@ export function ActivityScreen() {
                   </span>
                 </span>
                 <Select
-                  aria-label={`${source.label} schedule`}
-                  value={source.scheduleHours}
+                  value={String(source.scheduleHours)}
                   disabled={action.isPending}
-                  onChange={(e) =>
+                  onValueChange={(value) =>
                     action.mutate({
                       path: `/api/sources/${source.id}`,
                       method: "PUT",
                       body: {
                         ...source,
-                        scheduleHours: Number(e.target.value),
+                        scheduleHours: Number(value),
                       },
                     })
                   }
                 >
-                  {[0, 6, 12, 24].map((h) => (
-                    <option key={h} value={h}>
-                      {h
-                        ? h === 24
-                          ? "Daily"
-                          : `Every ${h} hours`
-                        : "Manual only"}
-                    </option>
-                  ))}
+                  <SelectTrigger
+                    aria-label={`${source.label} schedule`}
+                    className="w-auto min-w-28"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[0, 6, 12, 24].map((h) => (
+                      <SelectItem key={h} value={String(h)}>
+                        {h
+                          ? h === 24
+                            ? "Daily"
+                            : `Every ${h} hours`
+                          : "Manual only"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </label>
             ))}
@@ -295,24 +290,31 @@ export function ActivityScreen() {
               >
                 <span>Search: {search.name}</span>
                 <Select
-                  aria-label={`${search.name} schedule`}
-                  value={search.scheduleHours}
-                  onChange={(e) =>
+                  value={String(search.scheduleHours)}
+                  onValueChange={(value) =>
                     action.mutate({
                       path: `/api/saved-searches/${search.id}`,
                       method: "PUT",
                       body: {
                         ...search,
-                        scheduleHours: Number(e.target.value),
+                        scheduleHours: Number(value),
                       },
                     })
                   }
                 >
-                  {[0, 6, 12, 24].map((h) => (
-                    <option key={h} value={h}>
-                      {h ? `Every ${h} hours` : "Manual only"}
-                    </option>
-                  ))}
+                  <SelectTrigger
+                    aria-label={`${search.name} schedule`}
+                    className="w-auto min-w-28"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[0, 6, 12, 24].map((h) => (
+                      <SelectItem key={h} value={String(h)}>
+                        {h ? `Every ${h} hours` : "Manual only"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
                 <Button
                   variant="outline"

@@ -82,7 +82,9 @@ export async function fetchPublic(
       hostname.endsWith(".localhost") ||
       hostname.endsWith(".local")
     )
-      throw new FetchFailure("Unsupported: private-network URLs cannot be collected.");
+      throw new FetchFailure(
+        "Unsupported: private-network URLs cannot be collected.",
+      );
     const addresses = isIP(hostname)
       ? [{ address: hostname, family: isIP(hostname) }]
       : await Promise.race([

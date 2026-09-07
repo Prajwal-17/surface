@@ -1,5 +1,32 @@
 "use client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { CompanyMark } from "@/components/ui/company-mark";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { apiClient } from "@/lib/api-client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   companySchema,
   configuredSourceSchema,
@@ -8,35 +35,21 @@ import {
   type ConfiguredSource,
   type SourceInspection,
 } from "backend/contracts";
+import {
+  Archive,
+  ArrowUpRight,
+  Building2,
+  Check,
+  Globe2,
+  Link2,
+  Pause,
+  Pencil,
+  Play,
+  Plus,
+  RefreshCw,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { apiClient } from "@/lib/api-client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CompanyMark } from "@/components/ui/company-mark";
-import {
-  Building2,
-  Plus,
-  ArrowUpRight,
-  Globe2,
-  RefreshCw,
-  Pause,
-  Play,
-  Pencil,
-  Link2,
-  Check,
-  Archive,
-} from "lucide-react";
 export function CompaniesScreen({
   sourcesOnly = false,
 }: {
@@ -98,7 +111,7 @@ export function CompaniesScreen({
   });
   const sourceList = (
     <div className="space-y-3">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">Job sources</h2>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -117,11 +130,11 @@ export function CompaniesScreen({
       )}
       {sources.isPending && <p role="status">Loading sources…</p>}
       {sources.data?.map((source) => (
-        <article
+        <Card
           key={source.id}
           className="panel flex flex-wrap items-start gap-4 p-4"
         >
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-400/10 text-brand">
+          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-brand">
             <Globe2 className="size-5" />
           </span>
           <div className="min-w-[160px] flex-1">
@@ -210,12 +223,12 @@ export function CompaniesScreen({
               <Pencil />
             </Button>
           </div>
-        </article>
+        </Card>
       ))}
       {sources.data?.length === 0 && (
         <div className="panel grid place-items-center gap-3 px-5 py-14 text-center">
           <Globe2 className="size-8 text-brand" />
-          <h3 className="font-semibold">Your sources start here</h3>
+          <h3 className="font-semibold">No sources yet</h3>
           <p className="max-w-xs text-sm leading-6 text-muted-foreground">
             Add an ATS board or a public job URL. Surface will inspect what can
             be collected.
@@ -226,45 +239,40 @@ export function CompaniesScreen({
   );
   return (
     <div
-      className={sourcesOnly ? "space-y-5" : "mx-auto max-w-7xl space-y-7 pb-6"}
+      className={sourcesOnly ? "space-y-5" : "mx-auto max-w-7xl space-y-4 pb-4"}
     >
       {!sourcesOnly && (
         <>
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="page-kicker">Follow what interests you</p>
-              <h1 className="page-heading">Companies</h1>
-              <p className="page-description">
-                A watchlist for the places you could see yourself next.
-              </p>
-            </div>
-            <Button
-              onClick={() => {
-                setEditing(null);
-                setCompanyOpen(true);
-              }}
-            >
-              <Plus />
-              Watch a company
-            </Button>
-          </div>
+          <h1 className="sr-only">Companies</h1>
           <Tabs defaultValue="companies">
-            <TabsList className="mb-6">
-              <TabsTrigger value="companies" className="gap-2">
-                <Building2 className="size-4" />
-                Watchlist{" "}
-                <span className="ml-1 text-muted-foreground">
-                  {companies.data?.filter((c) => !c.archived).length ?? 0}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger value="sources" className="gap-2">
-                <Globe2 className="size-4" />
-                Sources{" "}
-                <span className="ml-1 text-muted-foreground">
-                  {sources.data?.length ?? 0}
-                </span>
-              </TabsTrigger>
-            </TabsList>
+            <div className="section-toolbar">
+              <TabsList>
+                <TabsTrigger value="companies" className="gap-2">
+                  <Building2 className="size-4" />
+                  Watchlist{" "}
+                  <span className="ml-1 text-muted-foreground">
+                    {companies.data?.filter((c) => !c.archived).length ?? 0}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="sources" className="gap-2">
+                  <Globe2 className="size-4" />
+                  Sources{" "}
+                  <span className="ml-1 text-muted-foreground">
+                    {sources.data?.length ?? 0}
+                  </span>
+                </TabsTrigger>
+              </TabsList>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditing(null);
+                  setCompanyOpen(true);
+                }}
+              >
+                <Plus />
+                Watch a company
+              </Button>
+            </div>
             <TabsContent value="companies">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="section-label">
@@ -287,13 +295,13 @@ export function CompaniesScreen({
                 </p>
               )}
               {companies.isPending && <p role="status">Loading companies…</p>}
-              <div className="grid gap-4 xl:grid-cols-3 sm:grid-cols-2">
+              <div className="company-grid">
                 {companies.data
                   ?.filter((c) => c.archived === showArchived)
                   .map((company) => (
-                    <article
+                    <Card
                       key={company.id}
-                      className="panel flex flex-col p-5"
+                      className="company-card panel flex flex-col p-5"
                     >
                       <div className="flex items-start gap-3">
                         <CompanyMark name={company.name} />
@@ -330,12 +338,14 @@ export function CompaniesScreen({
                           "Add a reason for watching this company."}
                       </p>
                       {company.notes && (
-                        <details className="mb-4 text-xs text-muted-foreground">
-                          <summary>Notes</summary>
-                          <p className="mt-2 whitespace-pre-wrap leading-6">
-                            {company.notes}
-                          </p>
-                        </details>
+                        <Collapsible className="mb-4 text-xs text-muted-foreground">
+                          <CollapsibleTrigger>Notes</CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <p className="mt-2 whitespace-pre-wrap leading-6">
+                              {company.notes}
+                            </p>
+                          </CollapsibleContent>
+                        </Collapsible>
                       )}
                       <div className="flex items-center gap-2 border-t pt-4">
                         <span className="status-pill tone-blue">
@@ -378,19 +388,19 @@ export function CompaniesScreen({
                           <Archive />
                         </Button>
                       </div>
-                    </article>
+                    </Card>
                   ))}
               </div>
               {companies.data?.filter((c) => c.archived === showArchived)
                 .length === 0 && (
                 <div className="panel flex flex-col items-center px-6 py-16 text-center">
-                  <div className="mb-5 grid size-16 place-items-center rounded-2xl bg-blue-400/10">
+                  <div className="mb-5 grid size-16 place-items-center rounded-lg bg-secondary">
                     <Building2 className="size-7 text-brand" />
                   </div>
                   <h3 className="text-lg font-semibold">
                     {showArchived
                       ? "No archived companies"
-                      : "Keep the right companies in sight"}
+                      : "Build your watchlist"}
                   </h3>
                   <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
                     {showArchived
@@ -424,7 +434,7 @@ export function CompaniesScreen({
               {editing ? "Edit company" : "Watch a company"}
             </DialogTitle>
             <DialogDescription>
-              Keep the places you're interested in close.
+              Add a company and keep your research in one place.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -530,17 +540,27 @@ export function CompaniesScreen({
             </label>
             <label className="grid gap-2 text-xs font-medium">
               Link to a company
-              <Select value={owner} onChange={(e) => setOwner(e.target.value)}>
-                <option value="">
-                  Independent source / cross-company feed
-                </option>
-                {companies.data
-                  ?.filter((c) => !c.archived)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
+              <Select
+                value={owner || "independent"}
+                onValueChange={(value) =>
+                  setOwner(value === "independent" ? "" : value)
+                }
+              >
+                <SelectTrigger aria-label="Link to a company">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="independent">
+                    Independent source / cross-company feed
+                  </SelectItem>
+                  {companies.data
+                    ?.filter((c) => !c.archived)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
               </Select>
             </label>
             <Button
@@ -614,7 +634,10 @@ export function CompaniesScreen({
                       ...sourceEditing,
                       label: data.get("label"),
                       url: data.get("url"),
-                      companyId: data.get("companyId") || null,
+                      companyId:
+                        data.get("companyId") === "independent"
+                          ? null
+                          : data.get("companyId") || null,
                     },
                   });
                   setSourceEditing(null);
@@ -640,14 +663,21 @@ export function CompaniesScreen({
                 Company
                 <Select
                   name="companyId"
-                  defaultValue={sourceEditing.companyId ?? ""}
+                  defaultValue={sourceEditing.companyId ?? "independent"}
                 >
-                  <option value="">Independent source</option>
-                  {companies.data?.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
+                  <SelectTrigger aria-label="Company">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="independent">
+                      Independent source
+                    </SelectItem>
+                    {companies.data?.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </label>
               <Button disabled={mutate.isPending}>Save changes</Button>

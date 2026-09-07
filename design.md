@@ -1,49 +1,60 @@
 # Surface interface
 
-Surface is a personal career workspace. The interface should make a full inbox feel manageable: see the role, understand the evidence, decide what to do next.
+Surface is a personal job-review workspace. Its design prioritizes scanning roles, reading the original evidence, and making a decision.
 
-## Direction
+## Implemented design
 
-Deep blue surfaces, electric blue actions, crisp typography, and meaningful mint, amber, and rose states. This replaces the previous charcoal/sage direction. Keep the local Manrope and Geist Mono fonts; reserve monospace for raw evidence. Never apply global button sizing or a monospace font to notifications.
+1. Establish one dark visual system: graphite backgrounds, a muted periwinkle interaction accent, consistent lightweight Lucide icons, and local Manrope typography. Remove promotional copy and decorative panels from navigation.
+2. Rebuild the review layout: use the full width for the inbox, align role information into columns, and open a split reader only after selection. Separate Overview, Assessment, and Sources & history. Keep review actions available at the reader's foot.
+3. Apply the system across Companies, Activity, Profile, forms, dialogs, popovers, and empty states. Verify real content in the browser, responsive behavior, keyboard focus, and production compilation.
 
-| Role                 | Color     |
-| -------------------- | --------- |
-| Workspace background | `#0C1322` |
-| Navigation           | `#0E182A` |
-| Panels               | `#131E31` |
-| Elevated controls    | `#1C2B43` |
-| Primary action       | `#4F6BED` |
-| Primary action text  | `#FFFFFF` |
-| Primary text         | `#EDF2FC` |
-| Secondary text       | `#9EAFC8` |
-| Accent text          | `#9AB4FF` |
-| Positive state       | `#6CDEC0` |
-| Needs attention      | `#F4C779` |
-| Error/conflict       | `#F48699` |
-| Divider              | `#293A53` |
-| Input border         | `#6681A4` |
-| Focus                | `#97B6FF` |
+## Palette
 
-Use 24–30px page headings, 14px role titles and reading text, and 12px supporting labels. Status always includes text. Company initials identify companies without inventing logos. Panels use a 12–14px radius; controls use 8px. Avoid ornamental gradients, confidence meters, and simulated progress.
+| Role                | Color     |
+| ------------------- | --------- |
+| Background          | `#111214` |
+| Navigation          | `#141517` |
+| Panel               | `#17181B` |
+| Elevated control    | `#202125` |
+| Primary text        | `#EEEEF0` |
+| Supporting text     | `#999BA3` |
+| Primary action      | `#B3AFF5` |
+| Primary action text | `#17181B` |
+| Accent / focus      | `#B8B4F6` |
+| Selected navigation | `#272534` |
+| Positive state      | `#A4C7AF` |
+| Needs attention     | `#DBBF89` |
+| Error / conflict    | `#E79A9E` |
+| Divider             | `#2B2D32` |
+| Form input border   | `#62656C` |
 
-## Navigation and review
+Color denotes interaction or state, with accompanying text. Company initials are neutral identifiers, not invented logos. Use the top-bar breadcrumb as the visible page title, with screen-reader-only page headings. Use 13–14px reading and row text, and 11–12px supporting information. Manrope is bundled locally; Geist Mono is reserved for raw evidence. Lucide icons use a consistent 1.65 stroke. Panels have an 8px radius; controls use 6px.
 
-- Official shadcn Sidebar provides persistent desktop navigation and a mobile Sheet. Destinations: Opportunities, Companies, Activity, My profile. The previous Jobs URL is retained across navigation.
-- Jobs uses a compact toolbar and independent list/reader scrolling at 1100px and above. Mobile details use a full-width Sheet. The selected row has a blue surface and a visible accent edge.
-- Rows show the company, wrapping title, location, known compensation, assessment state, source links, and publication date. Save/dismiss controls remain accessible without occupying a second oversized panel.
-- Reader: company/title, role facts, review/eligibility state, Surface insight, evidence, description, source/history details. Save, Dismiss, and Open original remain at the bottom of the reader.
-- Job status, listing availability, review state, and assessment freshness remain separate. URL filters, selection, sorting and pagination are preserved. Background updates announce availability without silently replacing the list.
+## Components
 
-## Components and forms
+Use the local shadcn/Radix component layer for Button, Input, Textarea, Select, Checkbox, Card, Collapsible, Tabs, Dialog, Sheet, Popover, Sidebar, Tooltip, and Sonner. Feature screens use these components for form controls and expandable sections. Select uses the official shadcn Radix composition with Trigger, Value, Content, and Item. Radix owns focus, keyboard navigation, and form participation.
 
-General controls use shadcn/Radix: Sidebar, Tabs, Dialog, Sheet, Popover, Tooltip, Checkbox, buttons, fields, native selects, and Sonner. Official source is adapted to Tailwind 4, the installed React rules, and Surface tokens. Keep the MIT license in `components/ui`.
+## Layout and behavior
 
-Beautiful UI Recommendation Card, Context Cards, and Task Rows are adapted in `components/ai`, with their MIT attribution retained. They render actual assessments, cited source/profile excerpts, and persisted work states. Surface insight has a visible blue frame even when an assessment is pending or unavailable; it never invents results.
+- The desktop sidebar is 208px wide. Mobile uses the existing Radix Sheet. Navigation preserves the last jobs URL. Settings lives above the sidebar account area and currently only displays “Coming soon.” The top bar contains navigation breadcrumbs.
+- Keep the shell compact: a 44px top bar, 16px content inset below it, 36px status tabs, 32px toolbar controls, and a 37px pagination footer. Put status tabs and actions on the same row when space allows. The Inbox/Saved/Dismissed divider ends beneath the tabs, rather than continuing underneath the action buttons. Job rows retain their reading space.
+- Companies and Activity place their actions alongside section tabs; Profile starts directly with its section navigation.
+- The inbox fills the available width until a role is selected. At 1100px and above, the reader is a full-height right pane from the 44px top bar to the viewport bottom. Inbox controls stay in the left pane; both panes scroll independently. The reader uses a compact 16px title and company metadata with a location icon, with a fixed header and action footer. Narrower screens use a full-width reader Sheet.
+- Container queries adapt the job rows to the actual list width, including when the sidebar collapses. On compact rows, publication dates remain available in the reader.
+- The title is an explicit, keyboard-accessible selection button. Source links, save, and dismiss have independent hit targets. Closing the reader restores focus to its title button.
+- Filters, sorting, page, and selection stay in the URL. Background changes announce new results without silently replacing the list.
+- Location icons expose full location and work arrangement via shadcn tooltips on hover, keyboard focus, or tap. Laptop denotes remote, arrows hybrid, building on-site, globe worldwide, and pin other locations. Unknown arrangements remain explicit in the tooltip.
+- Job status, availability, review state, eligibility, and assessment freshness remain separate. The reader defaults to Overview. Assessment and source evidence retain their existing functionality.
+- Companies uses a restrained watchlist grid and source rows. Activity uses a single summary strip and divided run history. Profile uses section navigation beside the form on desktop and a two-column tab grid on mobile.
 
-Companies uses a watchlist grid and focused dialogs for company/source creation and editing. Activity separates run history, schedules, sources and storage into tabs. Profile uses Experience, Constraints, Preferences, and Projects tabs; automatic-analysis settings show actual daily usage and queued work.
+## Micro-interactions
 
-Notifications sit below the top bar, away from reader actions, and use the shadcn Sonner wrapper: proportional body font, compact title/description, standard action sizing, blue actions, mint success icons and rose errors. No expanded stack or stretched close button.
+Use CSS and the existing Radix components. Hover/color transitions take 140–150ms. The reader enters over 180ms with 6px of horizontal travel; tab content fades in over 140ms with 4px of vertical travel. Tooltips use the local shadcn component’s fade and scale transitions. Shadcn Collapsible animates disclosure height and opacity while its chevron rotates. There are no staggered job rows or decorative looping animations. All nonessential motion is disabled for `prefers-reduced-motion`.
+
+Radix owns the positioning transform on `[data-radix-popper-content-wrapper]`. Never animate or override that wrapper’s transform: doing so makes tooltips briefly appear at the page origin. Apply motion to the inner tooltip or popover content instead.
 
 ## Verification
 
-Run lint, type checks and production build. Check color contrast, responsive CSS and accessible names in source. Browser review remains manual: desktop/mobile, sidebar, selected row, wrapping titles, Sheet/Dialog focus restoration, tabs by keyboard, source popovers, empty/error states, saved-search edits, and dismissal Undo. Never claim visual verification from a build alone.
+Browser checks use the real local app: desktop pages, a 390px mobile viewport, navigation drawer, company-dialog dismissal/focus restoration, sources and schedules, search empty state, filter popover, mobile reader tabs, reader close/focus restoration, horizontal overflow, compact pagination, full-height desktop reader alignment, and location tooltip anchoring and tap behavior. Supporting text on panels has 6.4:1 contrast; primary-button text has 8.76:1; form-input borders against the background have 3.21:1.
+
+Run `bun run lint`, `bun run check-types`, and `bun run build`. The current execution environment blocks Turbopack's local worker port; `bun run build --webpack` from `apps/web` provides an alternate production build without changing the project's default compiler.

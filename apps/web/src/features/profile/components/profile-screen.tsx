@@ -14,7 +14,13 @@ import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -24,7 +30,6 @@ import {
   FolderOpen,
   Save,
   Plus,
-  LockKeyhole,
 } from "lucide-react";
 const responseSchema = z.object({ profile: profileSchema.nullable() });
 export function ProfileScreen() {
@@ -110,42 +115,15 @@ function ProfileForm({ initial }: { initial: Profile | null }) {
   );
   return (
     <form
-      className="mx-auto max-w-5xl space-y-6"
+      className="mx-auto max-w-5xl space-y-5"
       onSubmit={(e) => {
         e.preventDefault();
         save.mutate();
       }}
     >
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="page-kicker">The context that matters</p>
-          <h1 className="page-heading">My profile</h1>
-          <p className="page-description">
-            What you've done. What you want. Where you want to grow.
-          </p>
-        </div>
-        <span className="status-pill tone-mint">
-          <LockKeyhole className="size-3" />
-          Stored locally
-        </span>
-      </div>
-      <div className="flex items-start gap-3 rounded-xl border border-blue-400/20 bg-blue-500/[.07] p-4">
-        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-blue-400/10 text-brand">
-          <BriefcaseBusiness className="size-4" />
-        </span>
-        <div>
-          <p className="text-sm font-semibold">
-            Make every assessment more relevant
-          </p>
-          <p className="mt-1 text-xs leading-6 text-muted-foreground">
-            A clear profile helps Surface connect each opportunity to your
-            skills, boundaries, and ambitions. Revision {initial?.revision ?? 0}
-            .
-          </p>
-        </div>
-      </div>
-      <Tabs defaultValue="experience">
-        <TabsList className="mb-5 flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
+      <h1 className="sr-only">My profile</h1>
+      <Tabs defaultValue="experience" className="settings-layout">
+        <TabsList aria-label="Profile sections">
           {[
             {
               value: "experience",
@@ -156,11 +134,7 @@ function ProfileForm({ initial }: { initial: Profile | null }) {
             { value: "preferences", label: "Preferences", icon: Heart },
             { value: "projects", label: "Projects", icon: FolderOpen },
           ].map(({ value, label, icon: Icon }) => (
-            <TabsTrigger
-              key={value}
-              value={value}
-              className="h-10 gap-2 rounded-lg border border-transparent px-4 data-[state=active]:border-blue-400/25 data-[state=active]:bg-accent data-[state=active]:text-brand"
-            >
+            <TabsTrigger key={value} value={value} className="gap-2">
               <Icon className="size-4" />
               {label}
             </TabsTrigger>
@@ -210,7 +184,7 @@ function ProfileForm({ initial }: { initial: Profile | null }) {
           <section className="form-section space-y-5">
             <h2>
               <ShieldCheck />
-              Your boundaries
+              Hard constraints
             </h2>
             <p className="text-sm text-muted-foreground">
               Only these explicit fields are hard constraints. Missing or
@@ -239,21 +213,25 @@ function ProfileForm({ initial }: { initial: Profile | null }) {
               Required work mode
               <Select
                 value={context.constraints.workMode}
-                onChange={(e) =>
+                onValueChange={(value) =>
                   updateContext({
                     constraints: {
                       ...context.constraints,
-                      workMode: e.target
-                        .value as typeof context.constraints.workMode,
+                      workMode: value as typeof context.constraints.workMode,
                     },
                   })
                 }
               >
-                {["any", "remote", "hybrid", "onsite"].map((v) => (
-                  <option key={v} value={v}>
-                    {v === "any" ? "No requirement" : v}
-                  </option>
-                ))}
+                <SelectTrigger aria-label="Required work mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["any", "remote", "hybrid", "onsite"].map((v) => (
+                    <SelectItem key={v} value={v}>
+                      {v === "any" ? "No requirement" : v}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </label>
             <fieldset>
@@ -335,19 +313,25 @@ function ProfileForm({ initial }: { initial: Profile | null }) {
                 Period
                 <Select
                   value={context.constraints.salaryPeriod}
-                  onChange={(e) =>
+                  onValueChange={(value) =>
                     updateContext({
                       constraints: {
                         ...context.constraints,
-                        salaryPeriod: e.target.value as
-                          "year" | "month" | "hour",
+                        salaryPeriod: value as "year" | "month" | "hour",
                       },
                     })
                   }
                 >
-                  {["year", "month", "hour"].map((v) => (
-                    <option key={v}>{v}</option>
-                  ))}
+                  <SelectTrigger aria-label="Period">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["year", "month", "hour"].map((v) => (
+                      <SelectItem key={v} value={v}>
+                        {v}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </label>
             </div>
@@ -357,7 +341,7 @@ function ProfileForm({ initial }: { initial: Profile | null }) {
           <section className="form-section space-y-5">
             <h2>
               <Heart />
-              What you prefer
+              Preferences
             </h2>
             <p className="text-sm text-muted-foreground">
               Preferences guide assessment. Existing free text remains advisory
@@ -372,15 +356,22 @@ function ProfileForm({ initial }: { initial: Profile | null }) {
               Preferred work mode
               <Select
                 value={context.workMode}
-                onChange={(e) =>
+                onValueChange={(value) =>
                   updateContext({
-                    workMode: e.target.value as typeof context.workMode,
+                    workMode: value as typeof context.workMode,
                   })
                 }
               >
-                {["any", "remote", "hybrid", "onsite"].map((v) => (
-                  <option key={v}>{v}</option>
-                ))}
+                <SelectTrigger aria-label="Preferred work mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["any", "remote", "hybrid", "onsite"].map((v) => (
+                    <SelectItem key={v} value={v}>
+                      {v}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </label>
             {textField(
@@ -405,7 +396,7 @@ function ProfileForm({ initial }: { initial: Profile | null }) {
           <section className="form-section space-y-5">
             <h2>
               <FolderOpen />
-              Work that speaks for you
+              Projects
             </h2>
             <p className="text-sm text-muted-foreground">
               Add evidence of your contribution and results. Links are stored;
@@ -467,13 +458,13 @@ function ProfileForm({ initial }: { initial: Profile | null }) {
         </TabsContent>
       </Tabs>
       {error && (
-        <p role="alert" className="text-red-200">
+        <p role="alert" className="text-destructive">
           {error}
         </p>
       )}
-      <div className="flex items-center justify-between gap-3 rounded-xl border bg-card p-4">
+      <div className="profile-savebar flex items-center justify-between gap-3 border-t pt-5">
         <p className="text-xs text-muted-foreground">
-          Your context stays private to this workspace.
+          Changes apply after saving.
         </p>
         <Button type="submit" disabled={save.isPending}>
           <Save />

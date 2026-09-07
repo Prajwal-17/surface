@@ -8,7 +8,13 @@ import {
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import {
   Popover,
   PopoverTrigger,
@@ -39,29 +45,38 @@ export function AdvancedFilters({
     <label className="grid gap-2 text-sm">
       {label}
       <Select
-        value={String(filters[key] ?? "")}
-        onChange={(e) =>
-          change({ [key]: e.target.value || undefined, page: "1" })
+        value={String(filters[key] ?? "all")}
+        onValueChange={(value) =>
+          change({ [key]: value === "all" ? undefined : value, page: "1" })
         }
       >
-        <option value="">All</option>
-        {options.map(([value, text]) => (
-          <option key={value} value={value}>
-            {text}
-          </option>
-        ))}
+        <SelectTrigger aria-label={label}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All</SelectItem>
+          {options.map(([value, text]) => (
+            <SelectItem key={value} value={value}>
+              {text}
+            </SelectItem>
+          ))}
+        </SelectContent>
       </Select>
     </label>
   );
   return (
     <>
       <Select
-        aria-label="Sort jobs"
         value={filters.sort}
-        onChange={(e) => change({ sort: e.target.value, page: "1" })}
+        onValueChange={(value) => change({ sort: value, page: "1" })}
       >
-        <option value="newest">Newest</option>
-        <option value="best-fit">Best fit</option>
+        <SelectTrigger aria-label="Sort jobs" className="w-auto min-w-28">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="newest">Newest</SelectItem>
+          <SelectItem value="best-fit">Best fit</SelectItem>
+        </SelectContent>
       </Select>
       <Popover>
         <PopoverTrigger asChild>

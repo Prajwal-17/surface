@@ -1,3 +1,8 @@
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 // Adapted from Beautiful UI TaskRows.tsx, Copyright (c) 2026 Shane Levine.
 // MIT license: ./LICENSE.md. Actual persisted states replace the demo sequence.
 import type { WorkItem } from "backend/contracts";
@@ -12,8 +17,8 @@ export function TaskRows({
   return (
     <div className="divide-y overflow-hidden rounded-xl border bg-background/40">
       {items.map((item, i) => (
-        <details key={item.id} className="group p-4">
-          <summary className="flex cursor-pointer items-center gap-3 text-sm">
+        <Collapsible key={item.id} className="group p-4">
+          <CollapsibleTrigger className="flex cursor-pointer items-center gap-3 text-sm">
             <span aria-hidden="true" className="shrink-0">
               {item.state === "completed" ? (
                 <Check className="size-4 text-success" />
@@ -36,28 +41,30 @@ export function TaskRows({
             >
               {item.state}
             </span>
-          </summary>
-          <div className="mt-3 space-y-2 pl-7 text-sm">
-            <p>Dispatched attempts: {item.attempts}</p>
-            {item.error && (
-              <p className="rounded-lg bg-destructive/10 p-3 text-destructive">
-                {item.error}
-              </p>
-            )}
-            {item.state === "queued" && (
-              <p className="text-muted-foreground">
-                Eligible after {new Date(item.retryAt).toLocaleString()}
-              </p>
-            )}
-            {item.result && (
-              <p className="text-muted-foreground">
-                {Object.entries(item.result)
-                  .map(([key, value]) => `${key}: ${String(value)}`)
-                  .join(" · ")}
-              </p>
-            )}
-          </div>
-        </details>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-3 space-y-2 pl-7 text-sm">
+              <p>Dispatched attempts: {item.attempts}</p>
+              {item.error && (
+                <p className="rounded-lg bg-destructive/10 p-3 text-destructive">
+                  {item.error}
+                </p>
+              )}
+              {item.state === "queued" && (
+                <p className="text-muted-foreground">
+                  Eligible after {new Date(item.retryAt).toLocaleString()}
+                </p>
+              )}
+              {item.result && (
+                <p className="text-muted-foreground">
+                  {Object.entries(item.result)
+                    .map(([key, value]) => `${key}: ${String(value)}`)
+                    .join(" · ")}
+                </p>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       ))}
     </div>
   );

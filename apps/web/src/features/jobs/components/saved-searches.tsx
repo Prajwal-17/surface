@@ -1,10 +1,17 @@
 "use client";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { configuredSourceSchema, savedSearchSchema } from "backend/contracts";
 import { useState } from "react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -51,10 +58,16 @@ export function SavedSearches({ parameters }: { parameters: string }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2 text-muted-foreground"
+        >
           <Bookmark className="size-4" />
-          Saved searches
-          {searches.data?.length ? ` · ${searches.data.length}` : ""}
+          <span className="max-sm:sr-only">
+            Saved searches
+            {searches.data?.length ? ` · ${searches.data.length}` : ""}
+          </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="max-h-[75svh] w-[min(420px,calc(100vw-2rem))] overflow-y-auto">
@@ -96,83 +109,84 @@ export function SavedSearches({ parameters }: { parameters: string }) {
               >
                 Refresh sources
               </Button>
-              <details className="w-full">
-                <summary className="cursor-pointer text-sm text-muted-foreground">
+              <Collapsible className="w-full">
+                <CollapsibleTrigger className="cursor-pointer text-sm text-muted-foreground">
                   Edit saved search
-                </summary>
-                <form
-                  className="mt-3 space-y-3 rounded-md border p-3"
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    const data = new FormData(e.currentTarget);
-                    try {
-                      const replace = data.get("replaceFilters") === "on";
-                      await apiClient(`/api/saved-searches/${search.id}`, {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          ...search,
-                          name: data.get("name"),
-                          sourceIds: data.getAll("sourceIds"),
-                          ...(replace
-                            ? {
-                                query:
-                                  new URLSearchParams(parameters).get(
-                                    "search",
-                                  ) ?? "",
-                                filters: Object.fromEntries(
-                                  [...new URLSearchParams(parameters)].filter(
-                                    ([key]) => !["page", "job"].includes(key),
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <form
+                    className="mt-3 space-y-3 rounded-md border p-3"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const data = new FormData(e.currentTarget);
+                      try {
+                        const replace = data.get("replaceFilters") === "on";
+                        await apiClient(`/api/saved-searches/${search.id}`, {
+                          method: "PUT",
+                          body: JSON.stringify({
+                            ...search,
+                            name: data.get("name"),
+                            sourceIds: data.getAll("sourceIds"),
+                            ...(replace
+                              ? {
+                                  query:
+                                    new URLSearchParams(parameters).get(
+                                      "search",
+                                    ) ?? "",
+                                  filters: Object.fromEntries(
+                                    [...new URLSearchParams(parameters)].filter(
+                                      ([key]) => !["page", "job"].includes(key),
+                                    ),
                                   ),
-                                ),
-                              }
-                            : {}),
-                        }),
-                      });
-                      await client.invalidateQueries({
-                        queryKey: ["saved-searches"],
-                      });
-                      toast.success("Search updated");
-                    } catch (error) {
-                      toast.error(
-                        error instanceof Error
-                          ? error.message
-                          : "Update failed",
-                      );
-                    }
-                  }}
-                >
-                  <label className="grid gap-2 text-sm">
-                    Name
-                    <Input name="name" required defaultValue={search.name} />
-                  </label>
-                  <fieldset>
-                    <legend className="text-sm">Selected sources</legend>
-                    <div className="flex flex-wrap gap-3">
-                      {sources.data?.map((source) => (
-                        <label
-                          key={source.id}
-                          className="flex min-h-10 items-center gap-2 text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            name="sourceIds"
-                            value={source.id}
-                            defaultChecked={search.sourceIds.includes(
-                              source.id,
-                            )}
-                          />
-                          {source.label}
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                  <label className="flex min-h-10 items-center gap-2 text-sm">
-                    <input type="checkbox" name="replaceFilters" />
-                    Replace this search with the current filters
-                  </label>
-                  <Button>Save search changes</Button>
-                </form>
-              </details>
+                                }
+                              : {}),
+                          }),
+                        });
+                        await client.invalidateQueries({
+                          queryKey: ["saved-searches"],
+                        });
+                        toast.success("Search updated");
+                      } catch (error) {
+                        toast.error(
+                          error instanceof Error
+                            ? error.message
+                            : "Update failed",
+                        );
+                      }
+                    }}
+                  >
+                    <label className="grid gap-2 text-sm">
+                      Name
+                      <Input name="name" required defaultValue={search.name} />
+                    </label>
+                    <fieldset>
+                      <legend className="text-sm">Selected sources</legend>
+                      <div className="flex flex-wrap gap-3">
+                        {sources.data?.map((source) => (
+                          <label
+                            key={source.id}
+                            className="flex min-h-10 items-center gap-2 text-sm"
+                          >
+                            <Checkbox
+                              name="sourceIds"
+                              value={source.id}
+                              defaultChecked={search.sourceIds.includes(
+                                source.id,
+                              )}
+                            />
+                            {source.label}
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                    <label className="flex min-h-10 items-center gap-2 text-sm">
+                      <Checkbox name="replaceFilters" />
+                      Replace this search with the current filters
+                    </label>
+                    <Button>Save search changes</Button>
+                  </form>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
           ))}
           <form
@@ -199,12 +213,11 @@ export function SavedSearches({ parameters }: { parameters: string }) {
                     key={source.id}
                     className="flex min-h-10 items-center gap-2 text-sm"
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={selected.includes(source.id)}
-                      onChange={(e) =>
+                      onCheckedChange={(checked) =>
                         setSelected(
-                          e.target.checked
+                          checked === true
                             ? [...selected, source.id]
                             : selected.filter((id) => id !== source.id),
                         )

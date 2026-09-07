@@ -6,7 +6,7 @@ import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Sparkles, Pause, Play, RefreshCw, Zap } from "lucide-react";
+import { ScanLine, Pause, Play, RefreshCw, Zap } from "lucide-react";
 export function AnalysisSettings() {
   const client = useQueryClient();
   const settings = useQuery({
@@ -48,10 +48,10 @@ export function AnalysisSettings() {
       },
     });
   return (
-    <section className="mx-auto mt-7 mb-6 max-w-5xl space-y-5 rounded-xl border border-blue-400/25 bg-card p-6">
+    <section className="mx-auto mt-8 mb-4 max-w-5xl space-y-4 border-t border-border pt-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-bold">
-          <Sparkles className="size-5 text-brand" />
+        <h2 className="flex items-center gap-2 text-base font-semibold">
+          <ScanLine className="size-5 text-brand" />
           Automatic analysis
         </h2>
         <span
@@ -76,7 +76,7 @@ export function AnalysisSettings() {
               : "Automatic analysis enabled · Up to two concurrent requests"}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border bg-secondary/40 p-4">
+        <div className="rounded-lg border bg-card p-4">
           <p className="mb-2 text-xs text-muted-foreground">Daily allowance</p>
           <p className="text-2xl font-bold tracking-tight">
             {data.used}
@@ -94,7 +94,7 @@ export function AnalysisSettings() {
             />
           </div>
         </div>
-        <div className="rounded-xl border bg-secondary/40 p-4">
+        <div className="rounded-lg border bg-card p-4">
           <p className="mb-2 text-xs text-muted-foreground">
             Waiting for assessment
           </p>

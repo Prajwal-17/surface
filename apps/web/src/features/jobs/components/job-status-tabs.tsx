@@ -4,27 +4,30 @@ import { Inbox, Bookmark, ArchiveX } from "lucide-react";
 export function JobStatusTabs({
   value,
   onChange,
+  count,
 }: {
   value: JobStatus;
+  count?: number;
   onChange: (value: JobStatus) => void;
 }) {
   return (
     <Tabs value={value} onValueChange={(v) => onChange(v as JobStatus)}>
-      <TabsList aria-label="Job status" className="h-10 bg-secondary/60 p-1">
+      <TabsList aria-label="Job status" className="border-0">
         {(
           [
             { value: "inbox", label: "Inbox", icon: Inbox },
             { value: "saved", label: "Saved", icon: Bookmark },
             { value: "dismissed", label: "Dismissed", icon: ArchiveX },
           ] as const
-        ).map(({ value, label, icon: Icon }) => (
-          <TabsTrigger
-            key={value}
-            value={value}
-            className="gap-2 rounded-md px-3 text-xs data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
-          >
+        ).map(({ value: status, label, icon: Icon }) => (
+          <TabsTrigger key={status} value={status} className="gap-2">
             <Icon className="size-3.5" />
             {label}
+            {status === value && count !== undefined && (
+              <span className="rounded bg-brand/10 px-1.5 py-0.5 text-[10px] leading-none text-brand">
+                {count}
+              </span>
+            )}
           </TabsTrigger>
         ))}
       </TabsList>

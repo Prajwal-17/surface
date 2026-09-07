@@ -1,6 +1,13 @@
 import { sourceKeys, sourceLabels, type SourceKey } from "backend/contracts";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { ChevronDown, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 interface JobFiltersProps {
   search: string;
@@ -17,37 +24,38 @@ export function JobFilters({
 }: JobFiltersProps) {
   return (
     <div className="flex min-w-0 flex-1 flex-wrap gap-2">
-      <label className="relative min-w-[180px] flex-1">
+      <label className="relative min-w-[180px] flex-1 sm:max-w-sm">
         <span className="sr-only">Filter jobs</span>
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search roles, companies, keywords…"
+          placeholder="Search roles or companies…"
           className="pl-9"
         />
       </label>
 
-      <label className="relative">
-        <span className="sr-only">Filter by source</span>
-        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <select
-          value={source ?? ""}
-          onChange={(event) =>
-            onSourceChange(
-              (event.target.value || undefined) as SourceKey | undefined,
-            )
-          }
-          className="h-10 w-full min-w-36 appearance-none sm:w-auto rounded-lg border border-input bg-card px-3 pr-9 text-sm text-foreground outline-none transition-colors hover:border-border-strong focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+      <Select
+        value={source ?? "all"}
+        onValueChange={(value) =>
+          onSourceChange(value === "all" ? undefined : (value as SourceKey))
+        }
+      >
+        <SelectTrigger
+          aria-label="Filter by source"
+          className="w-auto min-w-32 border-border bg-card"
         >
-          <option value="">All sources</option>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All sources</SelectItem>
           {sourceKeys.map((key) => (
-            <option key={key} value={key}>
+            <SelectItem key={key} value={key}>
               {sourceLabels[key]}
-            </option>
+            </SelectItem>
           ))}
-        </select>
-      </label>
+        </SelectContent>
+      </Select>
     </div>
   );
 }

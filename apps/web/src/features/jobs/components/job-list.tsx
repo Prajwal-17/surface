@@ -32,9 +32,9 @@ export function JobList({
 }: JobListProps) {
   if (isLoading) {
     return (
-      <div className="space-y-3" aria-label="Loading jobs">
+      <div className="divide-y divide-border" aria-label="Loading jobs">
         {Array.from({ length: 5 }).map((_, index) => (
-          <Skeleton key={index} className="h-32 rounded-xl" />
+          <Skeleton key={index} className="h-24 rounded-none" />
         ))}
       </div>
     );
@@ -55,7 +55,7 @@ export function JobList({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {data.jobs.map((job) => (
           <JobCard
@@ -72,15 +72,17 @@ export function JobList({
       {data.pages > 1 ? (
         <nav
           aria-label="Job pages"
-          className="flex shrink-0 items-center justify-between border-t border-border px-4 py-3"
+          className="flex shrink-0 items-center justify-between border-t border-border px-4 py-1"
         >
           <p className="text-xs text-muted-foreground">
-            Page {data.page} of {data.pages}
+            {data.total.toLocaleString()} roles · Page {data.page} of{" "}
+            {data.pages}
           </p>
-          <div className="flex gap-2">
+          <div className="flex gap-1">
             <Button
               variant="outline"
               size="sm"
+              className="h-7 px-2.5"
               disabled={page <= 1}
               onClick={() => onPageChange(page - 1)}
             >
@@ -89,6 +91,7 @@ export function JobList({
             <Button
               variant="outline"
               size="sm"
+              className="h-7 px-2.5"
               disabled={page >= data.pages}
               onClick={() => onPageChange(page + 1)}
             >

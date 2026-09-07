@@ -7,7 +7,7 @@ export function Toaster(props: ToasterProps) {
       theme="dark"
       className="toaster group"
       position="top-right"
-      offset={80}
+      offset={{ top: 64, right: 24, bottom: 24, left: 24 }}
       mobileOffset={{ top: 76, right: 16, left: 16 }}
       gap={10}
       visibleToasts={3}

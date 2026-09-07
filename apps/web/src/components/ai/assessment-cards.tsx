@@ -1,10 +1,15 @@
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 // Adapted from Beautiful UI RecommendationCard.tsx / ContextCards.tsx.
 // Copyright (c) 2026 Shane Levine. MIT license: ./LICENSE.md.
 // Retains the recommendation/action and source-context structure; uses real assessments.
 import type { Assessment, Job } from "backend/contracts";
 import Link from "next/link";
 import {
-  Sparkles,
+  ScanLine,
   ArrowUpRight,
   Bookmark,
   Check,
@@ -41,11 +46,11 @@ export function RecommendationCard({
           ? "Worth a closer look"
           : "Limited fit";
   return (
-    <section className="mb-6 overflow-hidden rounded-xl border border-blue-400/30 bg-[#18294a]">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-400/15 px-4 py-3">
+    <section className="mb-6 overflow-hidden rounded-lg border border-border bg-background/50">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <span className="flex items-center gap-2 text-xs font-semibold text-brand">
-          <Sparkles className="size-4" />
-          Surface insight
+          <ScanLine className="size-4" />
+          Fit assessment
         </span>
         <span
           className={`status-pill ${assessment && job.assessmentState === "current" && assessment.output.score >= 75 ? "tone-mint" : "tone-blue"}`}
@@ -58,21 +63,19 @@ export function RecommendationCard({
       </div>
       <div className="p-4">
         <h3 className="text-[15px] font-semibold">
-          {assessment
-            ? "How this role fits your direction"
-            : "A more personal view of this role"}
+          {assessment ? "Assessment summary" : "No assessment yet"}
         </h3>
-        <p className="mt-2 text-[13px] leading-6 text-[#bdcce8]">
+        <p className="mt-2 text-[13px] leading-6 text-muted-foreground">
           {assessment
             ? assessment.output.summary
             : job.assessmentState === "running"
               ? "An assessment is in progress. The result will be available when analysis finishes."
               : job.assessmentState === "queued"
                 ? "This role is in the analysis queue. It will be assessed within your daily allowance."
-                : "Connect your experience, skills, and ambitions to the details in this listing. Every assessment includes the evidence behind it."}
+                : "Save your profile to assess this role against your experience and preferences."}
         </p>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-blue-400/15 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3">
         <span className="text-xs text-muted-foreground">
           {assessment
             ? "Interpretation · grounded in cited evidence"
@@ -116,11 +119,11 @@ export function ContextCards({ assessment }: { assessment: Assessment }) {
       {sections
         .filter(([, claims]) => claims.length)
         .map(([title, claims]) => (
-          <details
+          <Collapsible
             key={title}
             className="group rounded-xl border bg-background/30"
           >
-            <summary className="flex list-none items-center gap-2 px-4 py-3 text-[13px] font-semibold">
+            <CollapsibleTrigger className="flex list-none items-center gap-2 px-4 py-3 text-[13px] font-semibold">
               <span
                 className={`size-1.5 rounded-full ${title === "Concerns" ? "bg-warning" : "bg-success"}`}
               />
@@ -128,53 +131,55 @@ export function ContextCards({ assessment }: { assessment: Assessment }) {
               <span className="ml-auto text-xs font-normal text-muted-foreground">
                 {claims.length} {claims.length === 1 ? "finding" : "findings"}
               </span>
-              <ChevronDown className="size-3.5 text-muted-foreground transition-transform group-open:rotate-180" />
-            </summary>
-            <div className="space-y-3 border-t p-3">
-              {claims.map((claim, i) => (
-                <article key={i} className="rounded-lg border bg-card p-3">
-                  <span
-                    className={`status-pill ${claim.kind === "fact" ? "tone-mint" : "tone-blue"}`}
-                  >
-                    {claim.kind === "fact" ? "Stated fact" : "Interpretation"}
-                  </span>
-                  <p className="my-3 text-[13px] leading-6">{claim.text}</p>
-                  {(["jobEvidence", "profileEvidence"] as const).map(
-                    (kind) =>
-                      claim[kind] && (
-                        <div
-                          key={kind}
-                          className="mt-3 rounded-md bg-secondary/60 p-3"
-                        >
-                          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-brand">
-                            {kind === "jobEvidence" ? (
-                              <FileText className="size-3" />
-                            ) : (
-                              <UserRound className="size-3" />
-                            )}
-                            {kind === "jobEvidence"
-                              ? "From the listing"
-                              : "From your profile"}
+              <ChevronDown className="size-3.5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="space-y-3 border-t p-3">
+                {claims.map((claim, i) => (
+                  <article key={i} className="rounded-lg border bg-card p-3">
+                    <span
+                      className={`status-pill ${claim.kind === "fact" ? "tone-mint" : "tone-blue"}`}
+                    >
+                      {claim.kind === "fact" ? "Stated fact" : "Interpretation"}
+                    </span>
+                    <p className="my-3 text-[13px] leading-6">{claim.text}</p>
+                    {(["jobEvidence", "profileEvidence"] as const).map(
+                      (kind) =>
+                        claim[kind] && (
+                          <div
+                            key={kind}
+                            className="mt-3 rounded-md bg-secondary/60 p-3"
+                          >
+                            <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-brand">
+                              {kind === "jobEvidence" ? (
+                                <FileText className="size-3" />
+                              ) : (
+                                <UserRound className="size-3" />
+                              )}
+                              {kind === "jobEvidence"
+                                ? "From the listing"
+                                : "From your profile"}
+                            </div>
+                            <blockquote className="border-l-2 border-primary/60 pl-3 text-xs leading-6 text-muted-foreground">
+                              “{claim[kind]!.quote}”
+                            </blockquote>
+                            <p className="mt-2 break-all text-xs text-muted-foreground">
+                              {claim[kind]!.field}
+                            </p>
                           </div>
-                          <blockquote className="border-l-2 border-primary/60 pl-3 text-xs leading-6 text-muted-foreground">
-                            “{claim[kind]!.quote}”
-                          </blockquote>
-                          <p className="mt-2 break-all text-xs text-muted-foreground">
-                            {claim[kind]!.field}
-                          </p>
-                        </div>
-                      ),
-                  )}
-                </article>
-              ))}
-            </div>
-          </details>
+                        ),
+                    )}
+                  </article>
+                ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         ))}
       {assessment.output.unansweredQuestions.length > 0 && (
         <section className="rounded-xl border border-amber-400/20 bg-amber-400/[.04] p-4">
           <h3 className="flex items-center gap-2 text-[13px] font-semibold text-warning">
             <CircleHelp className="size-4" />
-            Questions to take forward
+            Questions to clarify
           </h3>
           <ul className="mt-3 list-disc space-y-2 pl-4 text-xs leading-6 text-muted-foreground">
             {assessment.output.unansweredQuestions.map((q) => (

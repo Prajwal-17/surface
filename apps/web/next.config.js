@@ -2,6 +2,7 @@ import process from "node:process";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  devIndicators: false,
   transpilePackages: ["backend"],
   async rewrites() {
     return [
