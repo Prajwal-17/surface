@@ -86,7 +86,7 @@ export function JobCard({
               <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="job-source h-auto justify-start p-0 text-[11px] font-normal hover:bg-transparent"
+                  className="job-source h-auto justify-start p-0 text-xs font-normal hover:bg-transparent"
                 >
                   {sourceLabels[job.sources[0]!] ?? "Public listing"}
                   {sites.length > 1 && <span> +{sites.length - 1}</span>}
@@ -116,7 +116,7 @@ export function JobCard({
       <div className="job-location">
         <JobLocation job={job} showLabel />
         {job.compensation && (
-          <span className="block text-[11px] text-muted-foreground">
+          <span className="block text-xs text-muted-foreground">
             {formatCompensation(job.compensation)}
           </span>
         )}

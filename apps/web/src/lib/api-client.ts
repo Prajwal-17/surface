@@ -9,7 +9,9 @@ export async function apiClient<T>(
   const response = await fetch(path, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      ...(init?.body instanceof FormData
+        ? {}
+        : { "Content-Type": "application/json" }),
       ...init?.headers,
     },
   });

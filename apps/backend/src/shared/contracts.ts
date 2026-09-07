@@ -166,3 +166,6 @@ export type UpdateJobStatusInput = z.infer<typeof updateJobStatusSchema>;
 
 export * from "./workspace-contracts";
 export * from "./work-contracts";
+
+export * from "./profile-catalogs";
+export * from "./resume-contracts";

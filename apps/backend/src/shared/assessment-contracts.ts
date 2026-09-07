@@ -1,5 +1,5 @@
 import { z } from "zod";
-export const assessmentFormatVersion = 1;
+export const assessmentFormatVersion = 2;
 export const eligibilitySchema = z.object({
   state: z.enum(["meets", "clarify", "conflicts"]),
   reasons: z.array(z.string()),

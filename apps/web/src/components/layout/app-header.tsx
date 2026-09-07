@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { useEffect, useSyncExternalStore } from "react";
 import {
   BriefcaseBusiness,
   Building2,
@@ -26,20 +26,11 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-const accountStorageKey = "surface-account";
-type Account = { name: string; email: string };
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useProfile } from "@/features/profile/profile-query";
 
 const destinations = [
-  { href: "/", label: "Opportunities", icon: BriefcaseBusiness },
+  { href: "/", label: "Jobs", icon: BriefcaseBusiness },
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/profile", label: "My profile", icon: UserRound },
@@ -51,19 +42,17 @@ export function AppHeader() {
   const pathname = usePathname(),
     params = useSearchParams();
   const { toggleSidebar, setOpenMobile, state } = useSidebar();
-  const accountRaw = useSyncExternalStore(
-    subscribeAccount,
-    getAccountSnapshot,
-    () => null,
-  );
-  const account = parseAccount(accountRaw);
-  const accountReady = accountRaw !== null;
-  const [accountDismissed, setAccountDismissed] = useState(false);
-  const [accountRequestedOpen, setAccountRequestedOpen] = useState(false);
-  const [accountDraft, setAccountDraft] = useState<Account>({
-    name: "",
-    email: "",
-  });
+  const profile = useProfile();
+  const router = useRouter();
+  useEffect(() => {
+    if (pathname !== "/" || !profile.isSuccess || profile.data) return;
+    try {
+      if (localStorage.getItem("surface-onboarding-skipped")) return;
+    } catch {
+      return;
+    }
+    router.replace("/onboarding");
+  }, [pathname, profile.isSuccess, profile.data, router]);
   const jobsUrl = useSyncExternalStore(
     subscribe,
     () =>
@@ -84,25 +73,6 @@ export function AppHeader() {
   const current = [...destinations, ...referenceDestinations].find(
     (d) => d.href === pathname,
   );
-  const accountOpen =
-    accountReady &&
-    (accountRequestedOpen || (!account && !accountDismissed));
-  function editAccount() {
-    setAccountDraft(account ?? { name: "", email: "" });
-    setAccountRequestedOpen(true);
-  }
-  function saveAccount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const next = {
-      name: accountDraft.name.trim(),
-      email: accountDraft.email.trim(),
-    };
-    if (!next.name || !next.email) return;
-    localStorage.setItem(accountStorageKey, JSON.stringify(next));
-    window.dispatchEvent(new Event("surface-account"));
-    setAccountRequestedOpen(false);
-    setAccountDismissed(true);
-  }
   return (
     <>
       <a
@@ -126,7 +96,7 @@ export function AppHeader() {
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup className="px-3 pt-7">
-            <SidebarGroupLabel className="px-3 text-[11px] font-medium text-muted-foreground">
+            <SidebarGroupLabel className="px-3 text-xs font-medium text-muted-foreground">
               Workspace
             </SidebarGroupLabel>
             <SidebarMenu className="mt-2 gap-1">
@@ -135,7 +105,7 @@ export function AppHeader() {
                   <SidebarMenuButton
                     asChild
                     isActive={pathname === href}
-                    className="h-9 gap-3 rounded-md px-3 text-[13px] font-medium data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
+                    className="h-11 gap-3 rounded-md px-3 text-sm font-medium data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
                   >
                     <Link
                       href={href === "/" ? jobsUrl : href}
@@ -151,7 +121,7 @@ export function AppHeader() {
             </SidebarMenu>
           </SidebarGroup>
           <SidebarGroup className="mt-auto px-3 pb-2">
-            <SidebarGroupLabel className="px-3 text-[11px] font-medium text-muted-foreground/70">
+            <SidebarGroupLabel className="px-3 text-xs font-medium text-muted-foreground">
               Reference
             </SidebarGroupLabel>
             <SidebarMenu className="mt-2">
@@ -160,7 +130,7 @@ export function AppHeader() {
                   <SidebarMenuButton
                     asChild
                     isActive={pathname === href}
-                    className="h-8 gap-3 rounded-md px-3 text-[12px] font-medium text-sidebar-foreground/80 data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
+                    className="h-11 gap-3 rounded-md px-3 text-xs font-medium text-sidebar-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
                   >
                     <Link
                       href={href}
@@ -182,7 +152,7 @@ export function AppHeader() {
               <SidebarMenuButton
                 asChild
                 isActive={pathname === "/settings"}
-                className="h-9 gap-3 rounded-md px-3 text-[13px]"
+                className="h-11 gap-3 rounded-md px-3 text-sm"
               >
                 <Link
                   href="/settings"
@@ -195,28 +165,30 @@ export function AppHeader() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
-          <button
-            type="button"
-            className="flex min-w-0 w-full items-center gap-3 rounded-md border-t border-sidebar-border px-2 pt-4 text-left transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            onClick={editAccount}
-            aria-label="Edit account details"
+          <Link
+            href="/profile"
+            onClick={() => setOpenMobile(false)}
+            className="flex min-w-0 w-full items-center gap-3 rounded-md border-t border-sidebar-border px-2 pt-4 text-left transition-colors hover:text-sidebar-accent-foreground"
+            aria-label="View your profile"
           >
-            <span className="grid size-9 shrink-0 place-items-center rounded-full border border-brand/20 bg-brand/10 text-brand">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-secondary text-muted-foreground">
               <UserRound className="size-4" />
             </span>
             <div className="min-w-0">
               <p className="truncate text-xs font-semibold text-foreground">
-                {account?.name ?? "Your account"}
+                {profile.data?.context.details?.name || "Your profile"}
               </p>
-              <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                {account?.email ?? "Email not set"}
+              <p className="mt-1 truncate text-xs text-muted-foreground">
+                {profile.data
+                  ? "Preferences & experience"
+                  : "Set up your job search"}
               </p>
             </div>
-          </button>
+          </Link>
         </SidebarFooter>
       </Sidebar>
       <header
-        className={`fixed left-0 right-0 top-0 z-30 flex h-11 items-center gap-3 border-b border-border bg-background px-4 md:px-6 ${state === "collapsed" ? "md:left-0" : "md:left-[var(--sidebar-width)]"}`}
+        className={`fixed left-0 right-0 top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background px-4 md:px-6 ${state === "collapsed" ? "md:left-0" : "md:left-[var(--sidebar-width)]"}`}
       >
         <Button
           variant="ghost"
@@ -236,86 +208,12 @@ export function AppHeader() {
             ? "Settings"
             : (current?.label ?? "Surface")}
         </span>
+        <div className="ml-auto">
+          <ThemeToggle />
+        </div>
       </header>
-      <Dialog
-        open={accountOpen}
-        onOpenChange={(open) => {
-          setAccountRequestedOpen(open);
-          if (!open) setAccountDismissed(true);
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Welcome to Surface</DialogTitle>
-            <DialogDescription>
-              Add your name and email to personalize the account area. These
-              details stay on this device.
-            </DialogDescription>
-          </DialogHeader>
-          <form className="grid gap-4" onSubmit={saveAccount}>
-            <label className="grid gap-2 text-sm font-medium">
-              Name
-              <Input
-                autoComplete="name"
-                required
-                value={accountDraft.name}
-                onChange={(event) =>
-                  setAccountDraft({ ...accountDraft, name: event.target.value })
-                }
-                placeholder="Your name"
-              />
-            </label>
-            <label className="grid gap-2 text-sm font-medium">
-              Email
-              <Input
-                type="email"
-                autoComplete="email"
-                required
-                value={accountDraft.email}
-                onChange={(event) =>
-                  setAccountDraft({
-                    ...accountDraft,
-                    email: event.target.value,
-                  })
-                }
-                placeholder="you@example.com"
-              />
-            </label>
-            <DialogFooter>
-              <Button type="submit">Save details</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </>
   );
-}
-function parseAccount(raw: string | null): Account | null {
-  if (!raw) return null;
-  try {
-    const value: unknown = JSON.parse(raw);
-    if (typeof value !== "object" || value === null) return null;
-    const { name, email } = value as Record<string, unknown>;
-    if (typeof name !== "string" || typeof email !== "string") return null;
-    const trimmedName = name.trim();
-    const trimmedEmail = email.trim();
-    return trimmedName && trimmedEmail
-      ? { name: trimmedName, email: trimmedEmail }
-      : null;
-  } catch {
-    return null;
-  }
-}
-function getAccountSnapshot() {
-  return localStorage.getItem(accountStorageKey) ?? "";
-}
-function subscribeAccount(callback: () => void) {
-  window.addEventListener("surface-account", callback);
-  window.addEventListener("storage", callback);
-  return () => {
-    window.removeEventListener("surface-account", callback);
-    window.removeEventListener("storage", callback);
-  };
 }
 function subscribe(callback: () => void) {
   window.addEventListener("surface-navigation", callback);

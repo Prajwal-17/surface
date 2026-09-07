@@ -1,476 +1,589 @@
 "use client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { z } from "zod";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowLeft,
+  ArrowRight,
+  BriefcaseBusiness,
+  Check,
+  FileText,
+  FolderOpen,
+  Layers2,
+  ListChecks,
+  MapPin,
+  Upload,
+} from "lucide-react";
+import {
+  profileDetailsSchema,
   personalContextSchema,
-  profileSchema,
   profileInputSchema,
   type Profile,
-  type ProfileInput,
 } from "backend/contracts";
-import { z } from "zod";
-import { useState } from "react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { ProfileLoading } from "@/components/feedback/loading-state";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { useProfile, profileResponseSchema } from "../profile-query";
 import {
-  BriefcaseBusiness,
-  ShieldCheck,
-  Heart,
-  FolderOpen,
-  Save,
-  Plus,
-} from "lucide-react";
-const responseSchema = z.object({ profile: profileSchema.nullable() });
-export function ProfileScreen() {
-  const query = useQuery({
-    queryKey: ["profile-context"],
-    queryFn: async () =>
-      responseSchema.parse(await apiClient("/api/profile/context")).profile,
-  });
-  if (query.isPending) return <p role="status">Loading profile…</p>;
-  if (query.error) return <p role="alert">{query.error.message}</p>;
-  return <ProfileForm initial={query.data ?? null} />;
+  ProfileSections,
+  sectionTitles,
+  type EditorProfile,
+  type ProfileSection,
+} from "./profile-sections";
+import { ProfileOverview } from "./profile-overview";
+import { ResumeImport } from "./resume-import";
+const sections = ["goals", "experience", "locations"] as const;
+const steps = [
+  "Get started",
+  "Your next role",
+  "Your background",
+  "Work preferences",
+  "Review",
+];
+const icons = {
+  goals: BriefcaseBusiness,
+  experience: FolderOpen,
+  locations: MapPin,
+};
+function editorProfile(profile: Profile | null): EditorProfile {
+  const context = personalContextSchema.parse(profile?.context ?? {});
+  const details = profileDetailsSchema.parse(context.details ?? {});
+  if (!context.details && typeof window !== "undefined") {
+    try {
+      const account = JSON.parse(
+        localStorage.getItem("surface-account") ?? "null",
+      );
+      if (typeof account?.name === "string") details.name = account.name;
+    } catch {
+      /* Optional legacy display name. */
+    }
+  }
+  return {
+    targetRoles: profile?.targetRoles ?? "",
+    preferredSkills: profile?.preferredSkills ?? "",
+    locationPreferences: profile?.locationPreferences ?? "",
+    dealBreakers: profile?.dealBreakers ?? "",
+    context: { ...context, details },
+  };
 }
-function ProfileForm({ initial }: { initial: Profile | null }) {
+export function ProfileScreen({
+  onboarding = false,
+}: {
+  onboarding?: boolean;
+}) {
+  const query = useProfile();
+  if (query.isPending) return <ProfileLoading onboarding={onboarding} />;
+  if (query.error)
+    return (
+      <div role="alert" className="mx-auto max-w-4xl space-y-3 p-8">
+        <p>{query.error.message}</p>
+        <Button onClick={() => void query.refetch()}>Try again</Button>
+      </div>
+    );
+  return <ProfileEditor initial={query.data ?? null} onboarding={onboarding} />;
+}
+function ProfileEditor({
+  initial,
+  onboarding,
+}: {
+  initial: Profile | null;
+  onboarding: boolean;
+}) {
+  const router = useRouter();
   const client = useQueryClient();
-  const [form, setForm] = useState<ProfileInput>(
-    initial ?? {
-      targetRoles: "",
-      preferredSkills: "",
-      locationPreferences: "",
-      dealBreakers: "",
-      context: personalContextSchema.parse({}),
-    },
+  const [revision, setRevision] = useState(initial?.revision ?? 0);
+  const [saved, setSaved] = useState(() => editorProfile(initial));
+  const draftKey = `surface-profile-draft:${revision}`;
+  const [form, setForm] = useState<EditorProfile>(() => {
+    try {
+      const draft = sessionStorage.getItem(draftKey);
+      if (draft) {
+        const parsed = profileInputSchema
+          .extend({ targetRoles: z.string().max(100000) })
+          .safeParse(JSON.parse(draft));
+        if (parsed.success)
+          return {
+            ...parsed.data,
+            context: {
+              ...parsed.data.context,
+              details: profileDetailsSchema.parse(
+                parsed.data.context.details ?? {},
+              ),
+            },
+          };
+      }
+    } catch {
+      /* Ignore invalid or unavailable tab storage. */
+    }
+    return editorProfile(initial);
+  });
+  const [section, setSection] = useState<ProfileSection | "overview">(
+    "overview",
   );
+  const [step, setStep] = useState(0);
+  const [furthestStep, setFurthestStep] = useState(0);
+  const [importOpen, setImportOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [error, setError] = useState("");
+  const heading = useRef<HTMLHeadingElement>(null);
+  const dirty = JSON.stringify(form) !== JSON.stringify(saved);
+  const hasRoles =
+    form.context.details.roles.length > 0 ||
+    (!saved.context.details.roles.length &&
+      form.targetRoles.trim().length >= 2);
+  useEffect(() => {
+    try {
+      if (dirty) sessionStorage.setItem(draftKey, JSON.stringify(form));
+      else sessionStorage.removeItem(draftKey);
+    } catch {
+      /* The form remains usable when tab storage is unavailable. */
+    }
+    const warn = (event: BeforeUnloadEvent) => {
+      if (dirty) event.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [form, dirty, draftKey]);
+  function edit(next: ProfileSection) {
+    setSection(next);
+    if (onboarding) setStep(sections.indexOf(next) + 1);
+    setReviewOpen(false);
+    setError("");
+    heading.current?.focus();
+  }
+  function go(next: number) {
+    if (next > 1 && !hasRoles) {
+      setError("Choose at least one target role to continue.");
+      return;
+    }
+    setStep(next);
+    setFurthestStep(Math.max(furthestStep, next));
+    setError("");
+    heading.current?.focus();
+  }
   const save = useMutation({
     mutationFn: async () => {
-      const input = profileInputSchema.safeParse({
-        ...form,
-        context: {
-          ...form.context,
-          constraints: {
-            ...form.context.constraints,
-            countries: form.context.constraints.countries.filter(Boolean),
-          },
-        },
-      });
-      if (!input.success)
+      if (!hasRoles)
+        throw new Error("Choose at least one target role before saving.");
+      const targetRoles = form.context.details.roles.length
+        ? form.context.details.roles.join(", ")
+        : form.targetRoles;
+      const parsed = profileInputSchema.safeParse({ ...form, targetRoles });
+      if (!parsed.success)
         throw new Error(
-          input.error.issues
-            .map((i) => `${i.path.join(".")}: ${i.message}`)
-            .join("; "),
+          parsed.error.issues
+            .map((i) => `${i.path.join(" · ")}: ${i.message}`)
+            .join("\n"),
         );
-      return responseSchema.parse(
+      return profileResponseSchema.parse(
         await apiClient("/api/profile/context", {
           method: "PUT",
-          body: JSON.stringify(input.data),
+          body: JSON.stringify({ ...parsed.data, expectedRevision: revision }),
         }),
       ).profile;
     },
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: ["profile-context"] });
-      await client.invalidateQueries({ queryKey: ["analysis-settings"] });
+    onSuccess: (profile) => {
+      if (!profile) return;
+      const next = editorProfile(profile);
+      try {
+        sessionStorage.removeItem(draftKey);
+        localStorage.removeItem("surface-onboarding-skipped");
+      } catch {
+        /* Saved profile is authoritative. */
+      }
+      setForm(next);
+      setSaved(next);
+      setRevision(profile.revision);
+      setReviewOpen(false);
       setError("");
+      client.setQueryData(["profile-context"], profile);
+      void client.invalidateQueries({ queryKey: ["analysis-settings"] });
       toast.success("Profile saved");
+      if (onboarding) router.push("/");
     },
     onError: (e) => setError(e.message),
   });
-  const context = form.context;
-  const updateContext = (patch: Partial<typeof context>) =>
-    setForm({ ...form, context: { ...context, ...patch } });
-  const textField = (
-    label: string,
-    value: string,
-    change: (value: string) => void,
-    hint?: string,
-  ) => (
-    <label className="grid gap-2">
-      <span className="font-medium">{label}</span>
-      {hint && <span className="text-sm text-muted-foreground">{hint}</span>}
-      <Textarea
-        rows={3}
-        value={value}
-        onChange={(e) => change(e.target.value)}
-        placeholder={
-          label === "Target roles"
-            ? "e.g. Frontend engineer, design engineer"
-            : label === "Skills and technologies"
-              ? "e.g. TypeScript, React, design systems"
-              : "Add a little context…"
-        }
-      />
-    </label>
-  );
+  function skip() {
+    try {
+      localStorage.setItem("surface-onboarding-skipped", "true");
+    } catch {
+      /* Browsing remains available. */
+    }
+    router.push("/");
+  }
+  const pageTitle = onboarding
+    ? [
+        "Make your search personal.",
+        "What would you like to do next?",
+        "Give your experience some context.",
+        "Where does work fit into your life?",
+        "Your profile, in your words.",
+      ][step]
+    : section === "overview"
+      ? "Your search, your priorities."
+      : sectionTitles[section];
+  const description = onboarding
+    ? [
+        "Start with your résumé or add your details yourself. You’ll review everything before saving.",
+        "Choose the roles and opportunities you want to explore.",
+        "Add the work, skills, and projects that show what you can do.",
+        "Set your preferences and make any non-negotiables explicit.",
+        "Check your answers below. You can update them anytime from My profile.",
+      ][step]
+    : section === "overview"
+      ? "The background and preferences used to assess opportunities for you."
+      : "Keep your answers specific. Changes apply only after you review and save.";
   return (
-    <form
-      className="mx-auto max-w-5xl space-y-5"
-      onSubmit={(e) => {
-        e.preventDefault();
-        save.mutate();
-      }}
-    >
-      <h1 className="sr-only">My profile</h1>
-      <Tabs defaultValue="experience" className="settings-layout">
-        <TabsList aria-label="Profile sections">
-          {[
-            {
-              value: "experience",
-              label: "Experience",
-              icon: BriefcaseBusiness,
-            },
-            { value: "constraints", label: "Constraints", icon: ShieldCheck },
-            { value: "preferences", label: "Preferences", icon: Heart },
-            { value: "projects", label: "Projects", icon: FolderOpen },
-          ].map(({ value, label, icon: Icon }) => (
-            <TabsTrigger key={value} value={value} className="gap-2">
-              <Icon className="size-4" />
-              {label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        <TabsContent value="experience">
-          <section className="form-section space-y-5">
-            <h2>
-              <BriefcaseBusiness />
-              Your experience
-            </h2>
-            <p className="text-xs leading-6 text-muted-foreground">
-              Tell us about the work you know and the roles you want to explore.
-            </p>
-            {textField(
-              "Target roles",
-              form.targetRoles,
-              (v) => setForm({ ...form, targetRoles: v }),
-              "Required. Roles you want to review.",
-            )}
-            {textField("Experience", context.experience, (v) =>
-              updateContext({ experience: v }),
-            )}
-            <label className="grid gap-2">
-              Years of experience
-              <Input
-                type="number"
-                min="0"
-                max="80"
-                step="0.5"
-                value={context.yearsExperience ?? ""}
-                onChange={(e) =>
-                  updateContext({
-                    yearsExperience: e.target.value
-                      ? Number(e.target.value)
-                      : null,
-                  })
-                }
-              />
-            </label>
-            {textField("Skills and technologies", form.preferredSkills, (v) =>
-              setForm({ ...form, preferredSkills: v }),
-            )}
-          </section>
-        </TabsContent>
-        <TabsContent value="constraints">
-          <section className="form-section space-y-5">
-            <h2>
-              <ShieldCheck />
-              Hard constraints
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Only these explicit fields are hard constraints. Missing or
-              incomparable job information needs clarification.
-            </p>
-            <label className="grid gap-2">
-              Eligible countries (comma-separated)
-              <Input
-                value={context.constraints.countries.join(", ")}
-                onChange={(e) =>
-                  updateContext({
-                    constraints: {
-                      ...context.constraints,
-                      countries: e.target.value.split(",").map((v) => v.trim()),
-                    },
-                  })
-                }
-              />
-            </label>
-            {textField(
-              "Work eligibility notes",
-              context.eligibilityNotes,
-              (v) => updateContext({ eligibilityNotes: v }),
-            )}
-            <label className="grid gap-2">
-              Required work mode
-              <Select
-                value={context.constraints.workMode}
-                onValueChange={(value) =>
-                  updateContext({
-                    constraints: {
-                      ...context.constraints,
-                      workMode: value as typeof context.constraints.workMode,
-                    },
-                  })
-                }
-              >
-                <SelectTrigger aria-label="Required work mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {["any", "remote", "hybrid", "onsite"].map((v) => (
-                    <SelectItem key={v} value={v}>
-                      {v === "any" ? "No requirement" : v}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
-            <fieldset>
-              <legend className="mb-2">
-                Required employment types (leave empty for any)
-              </legend>
-              <div className="flex flex-wrap gap-4">
-                {(
-                  [
-                    "full-time",
-                    "part-time",
-                    "contract",
-                    "internship",
-                    "temporary",
-                  ] as const
-                ).map((type) => (
-                  <label
-                    key={type}
-                    className="flex min-h-10 items-center gap-2 text-sm"
-                  >
-                    <Checkbox
-                      checked={context.constraints.employmentTypes.includes(
-                        type,
-                      )}
-                      onCheckedChange={(checked) =>
-                        updateContext({
-                          constraints: {
-                            ...context.constraints,
-                            employmentTypes:
-                              checked === true
-                                ? [...context.constraints.employmentTypes, type]
-                                : context.constraints.employmentTypes.filter(
-                                    (value) => value !== type,
-                                  ),
-                          },
-                        })
-                      }
-                    />
-                    {type}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <label className="grid gap-2">
-                Minimum compensation
-                <Input
-                  type="number"
-                  min="0"
-                  value={context.constraints.minimumSalary ?? ""}
-                  onChange={(e) =>
-                    updateContext({
-                      constraints: {
-                        ...context.constraints,
-                        minimumSalary: e.target.value
-                          ? Number(e.target.value)
-                          : null,
-                      },
-                    })
-                  }
-                />
-              </label>
-              <label className="grid gap-2">
-                Currency (ISO code)
-                <Input
-                  maxLength={3}
-                  value={context.constraints.currency}
-                  onChange={(e) =>
-                    updateContext({
-                      constraints: {
-                        ...context.constraints,
-                        currency: e.target.value.toUpperCase(),
-                      },
-                    })
-                  }
-                />
-              </label>
-              <label className="grid gap-2">
-                Period
-                <Select
-                  value={context.constraints.salaryPeriod}
-                  onValueChange={(value) =>
-                    updateContext({
-                      constraints: {
-                        ...context.constraints,
-                        salaryPeriod: value as "year" | "month" | "hour",
-                      },
-                    })
-                  }
-                >
-                  <SelectTrigger aria-label="Period">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["year", "month", "hour"].map((v) => (
-                      <SelectItem key={v} value={v}>
-                        {v}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-            </div>
-          </section>
-        </TabsContent>
-        <TabsContent value="preferences">
-          <section className="form-section space-y-5">
-            <h2>
-              <Heart />
-              Preferences
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Preferences guide assessment. Existing free text remains advisory
-              and is never converted into a hard rule.
-            </p>
-            {textField(
-              "Location and work preferences",
-              form.locationPreferences,
-              (v) => setForm({ ...form, locationPreferences: v }),
-            )}
-            <label className="grid gap-2">
-              Preferred work mode
-              <Select
-                value={context.workMode}
-                onValueChange={(value) =>
-                  updateContext({
-                    workMode: value as typeof context.workMode,
-                  })
-                }
-              >
-                <SelectTrigger aria-label="Preferred work mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {["any", "remote", "hybrid", "onsite"].map((v) => (
-                    <SelectItem key={v} value={v}>
-                      {v}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
-            {textField(
-              "Compensation expectations",
-              context.compensationExpectations,
-              (v) => updateContext({ compensationExpectations: v }),
-            )}
-            {textField("Industries", context.industries, (v) =>
-              updateContext({ industries: v }),
-            )}
-            {textField(
-              "Deal-breakers (advisory text)",
-              form.dealBreakers,
-              (v) => setForm({ ...form, dealBreakers: v }),
-            )}
-            {textField("Growth interests", context.growthInterests, (v) =>
-              updateContext({ growthInterests: v }),
-            )}
-          </section>
-        </TabsContent>
-        <TabsContent value="projects">
-          <section className="form-section space-y-5">
-            <h2>
-              <FolderOpen />
-              Projects
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Add evidence of your contribution and results. Links are stored;
-              their pages are not collected.
-            </p>
-            {context.projects.map((project, i) => (
-              <fieldset key={i} className="space-y-3 border-t pt-4">
-                <legend className="pt-3">Project {i + 1}</legend>
-                {(["title", "url", "contribution", "results"] as const).map(
-                  (key) => (
-                    <label key={key} className="grid gap-2 capitalize">
-                      {key === "results" ? "Evidence of results" : key}
-                      <Textarea
-                        rows={key === "title" || key === "url" ? 1 : 3}
-                        className={
-                          key === "title" || key === "url" ? "min-h-10" : ""
-                        }
-                        value={project[key]}
-                        onChange={(e) =>
-                          updateContext({
-                            projects: context.projects.map((p, j) =>
-                              j === i ? { ...p, [key]: e.target.value } : p,
-                            ),
-                          })
-                        }
-                      />
-                    </label>
-                  ),
-                )}
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() =>
-                    updateContext({
-                      projects: context.projects.filter((_, j) => i !== j),
-                    })
-                  }
-                >
-                  Remove project
-                </Button>
-              </fieldset>
-            ))}
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() =>
-                updateContext({
-                  projects: [
-                    ...context.projects,
-                    { title: "", url: "", contribution: "", results: "" },
-                  ],
-                })
+    <div className={onboarding ? "onboarding-page" : "profile-page"}>
+      {onboarding && (
+        <header className="onboarding-top">
+          <Link
+            href="/"
+            onClick={() => {
+              try {
+                localStorage.setItem("surface-onboarding-skipped", "true");
+              } catch {
+                /* Browsing remains available. */
               }
-            >
-              <Plus />
-              Add project
+            }}
+            className="flex items-center gap-2.5 font-semibold"
+          >
+            <Layers2 className="size-5 text-brand" />
+            Surface
+          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button type="button" variant="ghost" size="sm" onClick={skip}>
+              Skip for now
+              <ArrowRight className="size-3.5" />
             </Button>
-          </section>
-        </TabsContent>
-      </Tabs>
-      {error && (
-        <p role="alert" className="text-destructive">
-          {error}
-        </p>
+          </div>
+        </header>
       )}
-      <div className="profile-savebar flex items-center justify-between gap-3 border-t pt-5">
-        <p className="text-xs text-muted-foreground">
-          Changes apply after saving.
-        </p>
-        <Button type="submit" disabled={save.isPending}>
-          <Save />
-          {save.isPending ? "Saving…" : "Save profile"}
-        </Button>
+      <div className={onboarding ? "onboarding-layout" : "profile-layout"}>
+        <aside
+          className={
+            onboarding ? "onboarding-navigation" : "profile-navigation"
+          }
+        >
+          {onboarding ? (
+            <>
+              <p className="mb-6 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Your profile
+              </p>
+              <ol className="onboarding-steps">
+                {steps.map((label, i) => (
+                  <li
+                    key={label}
+                    aria-current={i === step ? "step" : undefined}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (i <= furthestStep) go(i);
+                      }}
+                      aria-label={label}
+                      disabled={i > furthestStep}
+                      className="flex items-center gap-3 text-left"
+                    >
+                      <span className="step-number">
+                        {i < step ? (
+                          <Check className="size-3.5" />
+                        ) : (
+                          String(i + 1).padStart(2, "0")
+                        )}
+                      </span>
+                      <span>{label}</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+              <p className="onboarding-aside-note">
+                A little context helps you make better decisions.
+                <br />
+                <br />
+                Only your target roles are required.
+              </p>
+            </>
+          ) : (
+            <nav aria-label="Profile sections">
+              <button
+                type="button"
+                className="profile-nav-item"
+                aria-current={section === "overview" ? "page" : undefined}
+                onClick={() => {
+                  setSection("overview");
+                  setError("");
+                }}
+              >
+                <ListChecks />
+                Overview
+              </button>
+              {sections.map((s) => {
+                const Icon = icons[s];
+                return (
+                  <button
+                    type="button"
+                    key={s}
+                    className="profile-nav-item"
+                    aria-current={section === s ? "page" : undefined}
+                    onClick={() => edit(s)}
+                  >
+                    <Icon />
+                    {sectionTitles[s]}
+                  </button>
+                );
+              })}
+            </nav>
+          )}
+        </aside>
+        <main className="profile-main">
+          <div className="profile-page-heading">
+            <div>
+              {onboarding && (
+                <p className="mb-3 text-xs text-brand">
+                  Step {step + 1} of {steps.length}
+                </p>
+              )}
+              <h1 ref={heading} tabIndex={-1}>
+                {pageTitle}
+              </h1>
+              <p>{description}</p>
+            </div>
+            {!onboarding && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setImportOpen(true)}
+              >
+                <Upload />
+                Import resume
+              </Button>
+            )}
+          </div>
+          {onboarding && step === 0 ? (
+            <div className="onboarding-start">
+              <button
+                type="button"
+                className="onboarding-method"
+                onClick={() => setImportOpen(true)}
+              >
+                <span className="method-icon">
+                  <Upload />
+                </span>
+                <span className="flex-1">
+                  <strong>Start with your résumé</strong>
+                  <span>Upload a PDF and review the prefilled details.</span>
+                </span>
+                <ArrowRight className="size-4 text-muted-foreground" />
+              </button>
+              <button
+                type="button"
+                className="onboarding-method"
+                onClick={() => go(1)}
+              >
+                <span className="method-icon">
+                  <FileText />
+                </span>
+                <span className="flex-1">
+                  <strong>Fill in your details</strong>
+                  <span>A few focused questions. Go at your own pace.</span>
+                </span>
+                <ArrowRight className="size-4 text-muted-foreground" />
+              </button>
+              <p className="mt-6 text-xs leading-6 text-muted-foreground">
+                Your answers stay editable. Résumé import suggests details; you
+                decide what to keep.
+              </p>
+            </div>
+          ) : (
+            <>
+              {!onboarding && !initial && section === "overview" && (
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+                  <p className="text-sm text-muted-foreground">
+                    Start with a few focused questions.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => router.push("/onboarding")}
+                  >
+                    Set up your profile
+                    <ArrowRight />
+                  </Button>
+                </div>
+              )}
+              {onboarding ? (
+                step === 4 ? (
+                  <ProfileOverview form={form} onEdit={edit} />
+                ) : (
+                  <ProfileSections
+                    section={sections[step - 1]!}
+                    form={form}
+                    onChange={setForm}
+                  />
+                )
+              ) : section === "overview" ? (
+                <ProfileOverview form={form} onEdit={edit} />
+              ) : (
+                <ProfileSections
+                  section={section}
+                  form={form}
+                  onChange={setForm}
+                />
+              )}
+            </>
+          )}
+          {error && (
+            <p
+              role="alert"
+              className="mt-5 whitespace-pre-wrap rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+            >
+              {error}
+            </p>
+          )}
+          {(onboarding ? step > 0 : dirty || section !== "overview") && (
+            <footer className="profile-editor-footer">
+              {onboarding ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => go(step - 1)}
+                    disabled={save.isPending}
+                  >
+                    <ArrowLeft />
+                    Back
+                  </Button>
+                  <span className="hidden text-xs text-muted-foreground sm:inline">
+                    Nothing is saved until you finish.
+                  </span>
+                  {step < 4 ? (
+                    <Button type="button" onClick={() => go(step + 1)}>
+                      Continue
+                      <ArrowRight />
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      disabled={!hasRoles || save.isPending}
+                      onClick={() => save.mutate()}
+                    >
+                      {save.isPending ? "Saving…" : "Save profile"}
+                      <Check />
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="text-xs text-muted-foreground" role="status">
+                    {dirty
+                      ? "Unsaved changes"
+                      : revision
+                        ? "All changes saved"
+                        : "Profile not saved yet"}
+                  </span>
+                  <div className="flex gap-2">
+                    {dirty && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          setForm(structuredClone(saved));
+                          setError("");
+                        }}
+                      >
+                        Discard changes
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      disabled={
+                        !hasRoles || (!dirty && !!revision) || save.isPending
+                      }
+                      onClick={() => setReviewOpen(true)}
+                    >
+                      Review changes
+                      <ArrowRight />
+                    </Button>
+                  </div>
+                </>
+              )}
+            </footer>
+          )}
+        </main>
       </div>
-    </form>
+      <ResumeImport
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        form={form}
+        onApply={(next) => {
+          setForm(next);
+          if (onboarding) go(1);
+          else setSection("experience");
+        }}
+      />
+      <Sheet open={reviewOpen} onOpenChange={setReviewOpen}>
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col gap-0 p-0 sm:max-w-4xl"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            heading.current?.focus();
+          }}
+        >
+          <SheetHeader className="shrink-0 flex-row items-center justify-between gap-3 space-y-0 border-b px-4 py-3 pr-14 text-left sm:px-6 sm:pr-16">
+            <SheetTitle className="sr-only text-base sm:not-sr-only">
+              Review your profile
+            </SheetTitle>
+            <SheetDescription className="sr-only">
+              Review your answers before saving. You can edit any section.
+            </SheetDescription>
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setReviewOpen(false)}
+              >
+                Back to editing
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={save.isPending}
+                onClick={() => save.mutate()}
+              >
+                {save.isPending ? "Saving…" : "Save changes"}
+                <Check />
+              </Button>
+            </div>
+          </SheetHeader>
+          {error && (
+            <p
+              role="alert"
+              className="max-h-32 shrink-0 overflow-y-auto whitespace-pre-wrap px-4 py-3 text-sm text-destructive sm:px-6"
+            >
+              {error}
+            </p>
+          )}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-8">
+            <ProfileOverview form={form} onEdit={edit} />
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }

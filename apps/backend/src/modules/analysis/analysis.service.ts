@@ -22,6 +22,7 @@ export function analysisIdentity(
   return `analysis:${job.id}:${job.currentVersionId}:${revision}:${assessmentFormatVersion}`;
 }
 function relevant(job: typeof jobs.$inferSelect, roles: string) {
+  if (roles.includes("Not listed")) return true;
   const text = `${job.title} ${job.description.slice(0, 2000)}`.toLowerCase();
   return roles
     .toLowerCase()
@@ -67,7 +68,12 @@ export function enqueueAnalysis(backfill = false, onlyIds?: string[]) {
       if (
         !job.currentVersionId ||
         checkEligibility(job, profile.context).state === "conflicts" ||
-        !relevant(job, profile.targetRoles)
+        !relevant(
+          job,
+          profile.context.details?.roles.length
+            ? profile.context.details.roles.join(", ")
+            : profile.targetRoles,
+        )
       )
         continue;
       const current = tx

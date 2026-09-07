@@ -88,7 +88,7 @@ Free-text preferences and deal-breakers remain advisory.
 
 The default allowance is **20 dispatched model requests per day**, with at most
 **two concurrent requests**, initially in **Asia/Kolkata**. Failed calls and retries
-consume the same persisted allowance. Profile offers a limit, timezone, pause and
+consume the same persisted allowance. Settings offers a limit, timezone, pause and
 **Analyze existing inbox**. Changing timezone does not reset the current allowance.
 No blanket analysis backfill runs during migration. Collection works without AI.
 
@@ -137,3 +137,41 @@ Frontend features own their UI; browser-safe Zod contracts are exported through
 `backend/contracts`. General controls live in `components/ui`; selected Beautiful
 UI structures live in `components/ai` with attribution and the MIT license.
 See [design.md](design.md) for tokens and interaction rules.
+
+## Personal profile and onboarding
+
+New workspaces start at `/onboarding`, with PDF résumé prefill or manual entry,
+then career goals, experience, work preferences and a final review. Setup can be
+skipped; existing profiles open normally. `/profile` reuses those fields in a
+sectioned editor and shows only answered information in its overview. Analysis
+controls now live in `/settings`.
+
+Roles, skills, industries and priorities use catalogs. Country/city search uses a
+bundled global dataset, with canonical country codes and city identifiers. Current
+residence, preferred job locations and confirmed eligible countries are separate.
+Existing free-text answers remain editable as previous profile notes. New optional
+fields use the existing JSON context column, so no SQL migration is required.
+
+`POST /api/profile/resume` accepts a PDF as multipart field `file`, or JSON
+`{ "text": "..." }`. Text-based PDFs are limited to 10 MB and 30 pages; scanned or
+locked files offer a pasted-text/manual fallback. OmniRoute proposes exact document
+excerpts and catalog matches. Review selects replacements before anything reaches
+the saved profile. Uploaded files are not retained. Explicit imports share the
+persisted daily request allowance and two-request concurrency limit; they can run
+while automatic job analysis is paused. Failed dispatched requests count too.
+
+The browser keeps an unsaved profile draft in tab session storage, keyed by the
+saved revision. Saving clears that draft. Profile writes can include
+`expectedRevision`; stale editors receive a conflict instead of overwriting a newer
+profile. Country/city catalogs are exposed through `/api/profile/catalogs`,
+`/api/profile/locations?country=IN&q=Mumbai&offset=0` and
+`/api/profile/locations/:id`.
+
+Job assessments receive all saved personal fields and every project without
+summarization or truncation. Assessment format version 2 preserves citation
+validation and marks previous-format results stale. Provider context-limit failures
+remain visible; the app does not silently shorten the profile.
+
+Location data: [Countries States Cities Database](https://github.com/dr5hn/countries-states-cities-database),
+ODbL 1.0. The derived snapshot, checksum, attribution and license are in
+`apps/backend/src/modules/profile/data`.

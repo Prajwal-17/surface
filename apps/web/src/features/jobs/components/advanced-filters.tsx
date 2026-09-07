@@ -87,7 +87,7 @@ export function AdvancedFilters({
         </PopoverTrigger>
         <PopoverContent>
           <div className="max-h-[70svh] space-y-4 overflow-y-auto">
-            <h2 className="font-semibold">Filter opportunities</h2>
+            <h2 className="font-semibold">Filter jobs</h2>
             {select("Review state", "reviewState", [
               ["unreviewed", "Unreviewed"],
               ["reviewed", "Reviewed"],

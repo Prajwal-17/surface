@@ -65,7 +65,7 @@ export function RecommendationCard({
         <h3 className="text-[15px] font-semibold">
           {assessment ? "Assessment summary" : "No assessment yet"}
         </h3>
-        <p className="mt-2 text-[13px] leading-6 text-muted-foreground">
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
           {assessment
             ? assessment.output.summary
             : job.assessmentState === "running"
@@ -123,7 +123,7 @@ export function ContextCards({ assessment }: { assessment: Assessment }) {
             key={title}
             className="group rounded-xl border bg-background/30"
           >
-            <CollapsibleTrigger className="flex list-none items-center gap-2 px-4 py-3 text-[13px] font-semibold">
+            <CollapsibleTrigger className="flex list-none items-center gap-2 px-4 py-3 text-sm font-semibold">
               <span
                 className={`size-1.5 rounded-full ${title === "Concerns" ? "bg-warning" : "bg-success"}`}
               />
@@ -142,7 +142,7 @@ export function ContextCards({ assessment }: { assessment: Assessment }) {
                     >
                       {claim.kind === "fact" ? "Stated fact" : "Interpretation"}
                     </span>
-                    <p className="my-3 text-[13px] leading-6">{claim.text}</p>
+                    <p className="my-3 text-sm leading-6">{claim.text}</p>
                     {(["jobEvidence", "profileEvidence"] as const).map(
                       (kind) =>
                         claim[kind] && (
@@ -177,7 +177,7 @@ export function ContextCards({ assessment }: { assessment: Assessment }) {
         ))}
       {assessment.output.unansweredQuestions.length > 0 && (
         <section className="rounded-xl border border-amber-400/20 bg-amber-400/[.04] p-4">
-          <h3 className="flex items-center gap-2 text-[13px] font-semibold text-warning">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-warning">
             <CircleHelp className="size-4" />
             Questions to clarify
           </h3>

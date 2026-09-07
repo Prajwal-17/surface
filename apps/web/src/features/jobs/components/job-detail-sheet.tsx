@@ -12,6 +12,8 @@ import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
 import { type Job, type JobStatus } from "backend/contracts";
 import { useEffect, useSyncExternalStore } from "react";
+import { ReaderLoadingContent } from "@/components/feedback/loading-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -42,6 +44,7 @@ interface JobDetailSheetProps {
   onClose: () => void;
   onStatusChange: (job: Job, status: JobStatus) => void;
   isUpdating: boolean;
+  loading?: boolean;
 }
 
 export function JobDetailSheet({
@@ -49,6 +52,7 @@ export function JobDetailSheet({
   onClose,
   onStatusChange,
   isUpdating,
+  loading = false,
 }: JobDetailSheetProps) {
   const client = useQueryClient();
   const decide = useMutation({
@@ -75,17 +79,56 @@ export function JobDetailSheet({
     () => false,
   );
   useEffect(() => {
-    if (!job || !wide) return;
+    if ((!job && !loading) || !wide) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !event.defaultPrevented) onClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [job, onClose, wide]);
+  }, [job, loading, onClose, wide]);
+  if (loading && !job) {
+    const skeleton = <ReaderLoadingContent />;
+    if (wide)
+      return (
+        <aside
+          aria-label="Job reader"
+          className="job-reader flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
+        >
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b p-5">
+            <div className="flex-1 space-y-3">
+              <Skeleton className="h-6 w-2/3" />
+              <Skeleton className="h-4 w-1/3" />
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              aria-label="Close job reader"
+            >
+              <X />
+            </Button>
+          </div>
+          {skeleton}
+        </aside>
+      );
+    return (
+      <Sheet open onOpenChange={(open) => !open && onClose()}>
+        <SheetContent className="flex h-full w-full max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
+          <SheetHeader className="shrink-0 border-b p-5 pr-14 text-left">
+            <SheetTitle>Loading job</SheetTitle>
+            <SheetDescription>
+              Getting the description and assessment.
+            </SheetDescription>
+          </SheetHeader>
+          {skeleton}
+        </SheetContent>
+      </Sheet>
+    );
+  }
   if (!job) return null;
   const heading = (
     <div className="min-w-0">
-      <h2 className="break-words text-base font-semibold leading-6 tracking-tight">
+      <h2 className="break-words text-lg font-semibold leading-6 tracking-tight">
         {job.title}
       </h2>
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -445,13 +488,15 @@ export function JobDetailSheet({
         className="job-reader flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
         aria-label="Job reader"
       >
-        <div className="flex shrink-0 flex-wrap items-start gap-3 border-b bg-card px-5 py-3 lg:px-6">
+        <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3 border-b bg-card px-5 py-4 lg:px-6">
           <div className="min-w-0 flex-1">{heading}</div>
-          {headerActions}
+          <div className="col-span-2 row-start-2 justify-self-start">
+            {headerActions}
+          </div>
           <Button
             variant="ghost"
             size="icon"
-            className="size-7 shrink-0"
+            className="col-start-2 row-start-1 size-9 shrink-0"
             onClick={onClose}
             aria-label="Close job reader"
           >
@@ -475,8 +520,8 @@ export function JobDetailSheet({
         }}
       >
         <SheetHeader className="shrink-0 flex-row flex-wrap items-start gap-3 space-y-0 border-b px-5 py-3 pr-14 text-left">
-          <div className="min-w-0 flex-1">
-            <SheetTitle className="text-base leading-6">{job.title}</SheetTitle>
+          <div className="min-w-0 basis-full">
+            <SheetTitle className="text-lg leading-6">{job.title}</SheetTitle>
             <SheetDescription className="mt-1 flex items-center gap-2 text-xs">
               <span>{job.company}</span>
               <JobLocation job={job} showLabel />

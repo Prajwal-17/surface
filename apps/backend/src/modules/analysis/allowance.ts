@@ -1,4 +1,5 @@
-import { and, count, eq, inArray, sql } from "drizzle-orm";
+import { modelCapacityAvailable } from "../../shared/model-client";
+import { and, count, eq, sql } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import { env } from "../../config/env";
 import { analysisSettings, aiUsage } from "./analysis.tables";
@@ -79,10 +80,16 @@ export function enableAnalysis() {
 export function reserveRequest(
   workId: string,
   configured = Boolean(env.OMNIROUTE_API_KEY),
+  manual = false,
 ): string | null {
   return db.transaction((tx) => {
     const settings = getSettings();
-    if (!configured || !settings.enabled || settings.paused) return null;
+    if (
+      !configured ||
+      !modelCapacityAvailable() ||
+      (!manual && (!settings.enabled || settings.paused))
+    )
+      return null;
     const claimed = tx
       .update(analysisSettings)
       .set({ used: sql`${analysisSettings.used} + 1` })

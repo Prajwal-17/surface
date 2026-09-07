@@ -30,6 +30,9 @@ import {
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadingStatus } from "@/components/feedback/loading-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useTheme } from "@/components/ui/theme-toggle";
 
 type SchemaColumn = {
   cid: number;
@@ -75,7 +78,7 @@ const domainStyles = {
 } as const;
 
 const nodeTypes = { table: TableNodeCard };
-const nodeWidth = 286;
+const nodeWidth = 340;
 
 export function SchemaScreen() {
   const schema = useQuery({
@@ -111,6 +114,7 @@ export function SchemaScreen() {
 }
 
 function SchemaCanvas({ tables }: { tables: SchemaTable[] }) {
+  const theme = useTheme();
   const flow = useRef<ReactFlowInstance<TableNode, Edge> | null>(null);
   const [direction, setDirection] = useState<Direction>("LR");
   const initial = useMemo(() => createGraph(tables, "LR"), [tables]);
@@ -206,8 +210,8 @@ function SchemaCanvas({ tables }: { tables: SchemaTable[] }) {
   }
 
   return (
-    <section className="relative h-full min-h-0 overflow-hidden bg-[#101113]">
-      <div className="absolute left-4 top-3 z-20 flex h-8 items-center gap-2 text-[11px] text-muted-foreground">
+    <section className="relative h-full min-h-0 overflow-hidden bg-background">
+      <div className="absolute left-4 top-3 z-20 flex h-8 items-center gap-2 text-xs text-muted-foreground">
         <Database className="size-3.5 text-brand" />
         <span>
           <strong className="font-semibold text-foreground">
@@ -241,7 +245,7 @@ function SchemaCanvas({ tables }: { tables: SchemaTable[] }) {
         </Button>
       </div>
       {normalizedQuery && (
-        <div className="pointer-events-none absolute left-3 top-14 z-20 rounded-md border border-border bg-popover/95 px-2.5 py-1.5 text-[11px] text-muted-foreground shadow-lg backdrop-blur">
+        <div className="pointer-events-none absolute left-3 top-14 z-20 rounded-md border border-border bg-popover/95 px-2.5 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur">
           <span className="font-semibold text-foreground">
             {matchingIds.size}
           </span>{" "}
@@ -258,25 +262,25 @@ function SchemaCanvas({ tables }: { tables: SchemaTable[] }) {
           flow.current = instance;
           const focus = nodes.find(({ id }) => id === "jobs") ?? nodes[0];
           if (focus)
-            void instance.fitView({
-              nodes: [focus],
-              padding: 0.32,
-              maxZoom: 0.78,
-            });
+            void instance.setCenter(
+              focus.position.x + nodeWidth / 2,
+              focus.position.y + 220,
+              { zoom: 1 },
+            );
         }}
         minZoom={0.12}
         maxZoom={1.6}
         nodesConnectable={false}
         deleteKeyCode={null}
         proOptions={{ hideAttribution: true }}
-        colorMode="dark"
+        colorMode={theme}
         className="schema-flow"
       >
         <Background
           variant={BackgroundVariant.Dots}
           gap={20}
           size={1}
-          color="#34363c"
+          color="var(--border-strong)"
         />
         <Controls
           position="bottom-left"
@@ -290,10 +294,10 @@ function SchemaCanvas({ tables }: { tables: SchemaTable[] }) {
           nodeColor={(node) =>
             domainStyles[(node.data as TableNode["data"]).domain].color
           }
-          maskColor="#0d0e10d9"
+          maskColor="color-mix(in srgb, var(--background), transparent 15%)"
         />
       </ReactFlow>
-      <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 hidden -translate-x-1/2 items-center gap-3 rounded-md border border-border bg-popover/90 px-3 py-1.5 text-[10px] text-muted-foreground shadow-lg backdrop-blur lg:flex">
+      <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 hidden -translate-x-1/2 items-center gap-3 rounded-md border border-border bg-popover/90 px-3 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur lg:flex">
         {Object.entries(domainStyles).map(([key, value]) => (
           <span key={key} className="flex items-center gap-1.5">
             <i
@@ -315,16 +319,16 @@ function TableNodeCard({ data, selected }: NodeProps<TableNode>) {
 
   return (
     <article
-      className={`w-[286px] overflow-hidden rounded-[7px] border bg-[#18191c] shadow-[0_9px_28px_#00000035] transition-[opacity,border-color,box-shadow] duration-200 ${
+      className={`w-[340px] overflow-hidden rounded-[7px] border bg-card shadow-[0_9px_28px_#00000035] transition-[opacity,border-color,box-shadow] duration-200 ${
         dimmed
           ? "opacity-20"
           : selected
             ? "border-brand shadow-[0_0_0_2px_#b8b4f62b,0_12px_36px_#0007]"
-            : "border-[#35373d]"
+            : "border-border-strong"
       }`}
     >
       <header
-        className="flex items-center justify-between gap-3 border-b border-[#303238] px-3 py-2.5"
+        className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5"
         style={{ boxShadow: `inset 3px 0 0 ${style.color}` }}
       >
         <div className="flex min-w-0 items-center gap-2">
@@ -332,11 +336,11 @@ function TableNodeCard({ data, selected }: NodeProps<TableNode>) {
             className="size-1.5 shrink-0 rounded-full"
             style={{ background: style.color }}
           />
-          <h2 className="truncate font-mono text-[12px] font-semibold tracking-[-0.01em] text-[#f0f0f2]">
+          <h2 className="truncate font-mono text-sm font-semibold tracking-[-0.01em] text-foreground">
             {table.name}
           </h2>
         </div>
-        <span className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+        <span className="shrink-0 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
           {style.label}
         </span>
       </header>
@@ -346,7 +350,7 @@ function TableNodeCard({ data, selected }: NodeProps<TableNode>) {
           return (
             <div
               key={column.name}
-              className="relative flex h-7 items-center gap-2 px-3 font-mono text-[10px] hover:bg-white/[0.025]"
+              className="relative flex h-9 items-center gap-2 px-3 font-mono text-xs hover:bg-white/[0.025]"
               title={`${column.name}: ${column.type}${column.notnull ? " · required" : " · nullable"}${column.dflt_value === null ? "" : ` · default ${column.dflt_value}`}`}
             >
               <Handle
@@ -364,7 +368,7 @@ function TableNodeCard({ data, selected }: NodeProps<TableNode>) {
               <span className="flex w-3 shrink-0 justify-center">
                 {column.pk > 0 ? (
                   <KeyRound
-                    className="size-3 text-[#d6ac72]"
+                    className="size-3 text-warning"
                     aria-label="Primary key"
                   />
                 ) : isForeign ? (
@@ -377,11 +381,11 @@ function TableNodeCard({ data, selected }: NodeProps<TableNode>) {
                 )}
               </span>
               <span
-                className={`min-w-0 flex-1 truncate ${column.notnull || column.pk ? "text-[#d8d9dd]" : "text-[#9799a1]"}`}
+                className={`min-w-0 flex-1 truncate ${column.notnull || column.pk ? "text-foreground" : "text-muted-foreground"}`}
               >
                 {column.name}
               </span>
-              <span className="shrink-0 text-[9px] uppercase tracking-wide text-[#6f727b]">
+              <span className="shrink-0 text-[12px] uppercase tracking-wide text-muted-foreground">
                 {column.type || "any"}
                 {!column.notnull && !column.pk && "?"}
               </span>
@@ -424,7 +428,7 @@ function createGraph(tables: SchemaTable[], direction: Direction) {
   for (const node of nodes) {
     graph.setNode(node.id, {
       width: nodeWidth,
-      height: 50 + node.data.table.columns.length * 28,
+      height: 50 + node.data.table.columns.length * 36,
     });
   }
   for (const edge of edges) graph.setEdge(edge.source, edge.target);
@@ -433,7 +437,7 @@ function createGraph(tables: SchemaTable[], direction: Direction) {
   return {
     nodes: nodes.map((node) => {
       const position = graph.node(node.id);
-      const height = 50 + node.data.table.columns.length * 28;
+      const height = 50 + node.data.table.columns.length * 36;
       return {
         ...node,
         position: {
@@ -467,17 +471,23 @@ function getDomain(tableName: string): Domain {
 
 function SchemaLoading() {
   return (
-    <div
-      className="flex h-full min-h-0 items-center justify-center overflow-hidden bg-[#101113]"
-      role="status"
-    >
-      <div className="text-center">
-        <span className="mx-auto grid size-10 animate-pulse place-items-center rounded-md border border-brand/20 bg-brand/10 text-brand">
-          <Database className="size-4" />
-        </span>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Mapping the database…
-        </p>
+    <div className="relative h-full overflow-hidden bg-background p-6">
+      <LoadingStatus>Loading database diagram</LoadingStatus>
+      <div
+        aria-hidden="true"
+        className="mx-auto mt-12 grid max-w-3xl grid-cols-2 items-start gap-8"
+      >
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className={`panel space-y-5 p-5 ${i === 1 ? "mt-16" : ""}`}
+          >
+            <Skeleton className="h-5 w-2/3" />
+            {[0, 1, 2, 3, 4].map((j) => (
+              <Skeleton key={j} className="h-3 w-4/5" />
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   );

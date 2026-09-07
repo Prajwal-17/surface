@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { analysisSettingsSchema } from "backend/contracts";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { SettingsLoading } from "@/components/feedback/loading-state";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ScanLine, Pause, Play, RefreshCw, Zap } from "lucide-react";
@@ -35,7 +36,7 @@ export function AnalysisSettings() {
     onError: (e) => toast.error(e.message),
   });
   if (settings.error) return <p role="alert">{settings.error.message}</p>;
-  if (!settings.data) return <p role="status">Loading analysis settings…</p>;
+  if (!settings.data) return <SettingsLoading />;
   const data = settings.data;
   const update = (paused: boolean) =>
     save.mutate({

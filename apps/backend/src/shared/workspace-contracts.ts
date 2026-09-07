@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { profileDetailsSchema } from "./profile-catalogs";
 import { scheduleHoursSchema } from "./work-contracts";
 const text = z.string().trim().max(10000);
+const profileText = z.string().trim().max(100000);
 export const publicUrlSchema = z
   .string()
   .trim()
@@ -14,16 +16,18 @@ export const publicUrlSchema = z
     );
   }, "Use an HTTP(S) URL without credentials.");
 export const projectSchema = z.object({
-  title: text.min(1),
+  title: profileText.min(1),
   url: z.union([publicUrlSchema, z.literal("")]),
-  contribution: text,
-  results: text,
+  technologies: z.string().max(10000).default(""),
+  contribution: profileText,
+  results: profileText,
 });
 export const personalContextSchema = z.object({
-  experience: text.default(""),
+  details: profileDetailsSchema.optional(),
+  experience: profileText.default(""),
   yearsExperience: z.number().min(0).max(80).nullable().default(null),
-  industries: text.default(""),
-  growthInterests: text.default(""),
+  industries: profileText.default(""),
+  growthInterests: profileText.default(""),
   workMode: z.enum(["any", "remote", "hybrid", "onsite"]).default("any"),
   constraints: z
     .object({
@@ -55,16 +59,16 @@ export const personalContextSchema = z.object({
       salaryPeriod: "year",
       employmentTypes: [],
     }),
-  compensationExpectations: text.default(""),
-  eligibilityNotes: text.default(""),
+  compensationExpectations: profileText.default(""),
+  eligibilityNotes: profileText.default(""),
   projects: z.array(projectSchema).max(50).default([]),
 });
 export type PersonalContext = z.infer<typeof personalContextSchema>;
 export const profileInputSchema = z.object({
-  targetRoles: text.min(2),
-  preferredSkills: text,
-  locationPreferences: text,
-  dealBreakers: text,
+  targetRoles: profileText.min(2),
+  preferredSkills: profileText,
+  locationPreferences: profileText,
+  dealBreakers: profileText,
   context: personalContextSchema,
 });
 export type ProfileInput = z.infer<typeof profileInputSchema>;

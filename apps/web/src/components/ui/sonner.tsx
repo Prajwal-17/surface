@@ -1,10 +1,12 @@
 "use client";
-// shadcn/ui Sonner wrapper, adapted to Surface's fixed dark theme.
+// shadcn/ui Sonner wrapper, using Surface's theme tokens.
 import { Toaster as Sonner, type ToasterProps } from "sonner";
+import { useTheme } from "./theme-toggle";
 export function Toaster(props: ToasterProps) {
+  const theme = useTheme();
   return (
     <Sonner
-      theme="dark"
+      theme={theme}
       className="toaster group"
       position="top-right"
       offset={{ top: 64, right: 24, bottom: 24, left: 24 }}

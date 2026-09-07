@@ -11,7 +11,7 @@ export function AppShell({
   return (
     <Suspense>
       <SidebarProvider
-        style={{ "--sidebar-width": "208px" } as React.CSSProperties}
+        style={{ "--sidebar-width": "240px" } as React.CSSProperties}
         className="h-svh min-h-0 overflow-hidden"
       >
         <AppHeader />
@@ -21,8 +21,8 @@ export function AppShell({
             tabIndex={-1}
             className={
               fullBleed
-                ? "min-h-0 flex-1 overflow-hidden pt-11"
-                : "min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-[60px] sm:px-6"
+                ? "min-h-0 flex-1 overflow-hidden pt-14"
+                : "min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-[72px] sm:px-6"
             }
           >
             {children}

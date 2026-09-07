@@ -24,7 +24,7 @@ export function JobStatusTabs({
             <Icon className="size-3.5" />
             {label}
             {status === value && count !== undefined && (
-              <span className="rounded bg-brand/10 px-1.5 py-0.5 text-[10px] leading-none text-brand">
+              <span className="rounded bg-brand/10 px-1.5 py-0.5 text-xs leading-none text-brand">
                 {count}
               </span>
             )}

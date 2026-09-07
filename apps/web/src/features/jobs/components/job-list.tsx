@@ -32,15 +32,41 @@ export function JobList({
 }: JobListProps) {
   if (isLoading) {
     return (
-      <div className="divide-y divide-border" aria-label="Loading jobs">
+      <div
+        className="min-h-0 flex-1 overflow-hidden"
+        role="status"
+        aria-label="Loading jobs"
+      >
+        <span className="sr-only">Loading jobs</span>
         {Array.from({ length: 5 }).map((_, index) => (
-          <Skeleton key={index} className="h-24 rounded-none" />
+          <div key={index} className="job-row" aria-hidden="true">
+            <div className="job-identity">
+              <Skeleton className="size-9 shrink-0" />
+              <div className="flex-1 space-y-3">
+                <Skeleton className={index % 2 ? "h-5 w-2/3" : "h-5 w-4/5"} />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            </div>
+            <div className="job-location">
+              <Skeleton className="h-4 w-20" />
+            </div>
+            <div className="job-assessment">
+              <Skeleton className="h-6 w-28" />
+            </div>
+            <div className="job-date">
+              <Skeleton className="h-4 w-20" />
+            </div>
+            <div className="job-row-actions gap-2">
+              <Skeleton className="size-7" />
+              <Skeleton className="size-7" />
+            </div>
+          </div>
         ))}
       </div>
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return <ErrorState message={error.message} />;
   }
 
@@ -56,6 +82,11 @@ export function JobList({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {error && (
+        <p role="alert" className="border-b px-4 py-3 text-xs text-warning">
+          Couldn’t refresh jobs. Showing the previous results.
+        </p>
+      )}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {data.jobs.map((job) => (
           <JobCard
@@ -82,7 +113,7 @@ export function JobList({
             <Button
               variant="outline"
               size="sm"
-              className="h-7 px-2.5"
+              className="h-9 px-3"
               disabled={page <= 1}
               onClick={() => onPageChange(page - 1)}
             >
@@ -91,7 +122,7 @@ export function JobList({
             <Button
               variant="outline"
               size="sm"
-              className="h-7 px-2.5"
+              className="h-9 px-3"
               disabled={page >= data.pages}
               onClick={() => onPageChange(page + 1)}
             >

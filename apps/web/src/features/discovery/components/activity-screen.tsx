@@ -14,6 +14,8 @@ import {
 } from "backend/contracts";
 import { apiClient } from "@/lib/api-client";
 import { CompaniesScreen } from "@/features/companies/components/companies-screen";
+import { LoadingRows } from "@/components/feedback/loading-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -103,7 +105,13 @@ export function ActivityScreen() {
         ].map(({ label, value }) => (
           <div key={label} className="activity-stat">
             <p>{label}</p>
-            <p>{value ?? "—"}</p>
+            <div className="activity-stat-value">
+              {runs.isPending ? (
+                <Skeleton className="mt-2 h-7 w-12" />
+              ) : (
+                (value ?? "—")
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -125,10 +133,15 @@ export function ActivityScreen() {
           <Button
             size="sm"
             variant="outline"
+            disabled={runs.isFetching}
             onClick={() => void runs.refetch()}
           >
-            <RefreshCw />
-            Refresh
+            <RefreshCw
+              className={
+                runs.isFetching ? "animate-spin motion-reduce:animate-none" : ""
+              }
+            />
+            {runs.isFetching ? "Refreshing…" : "Refresh"}
           </Button>
         </div>
         <TabsContent value="runs">
@@ -140,7 +153,9 @@ export function ActivityScreen() {
               </span>
             </div>
             {runs.error && <p role="alert">{runs.error.message}</p>}
-            {runs.isPending && <p role="status">Loading activity…</p>}
+            {runs.isPending && (
+              <LoadingRows label="Loading activity" count={5} />
+            )}
             {runs.data?.length === 0 && (
               <div className="panel flex flex-col items-center px-6 py-16 text-center">
                 <Clock3 className="mb-4 size-8 text-brand" />
@@ -234,6 +249,10 @@ export function ActivityScreen() {
               source limits and backoff. Missed schedules resume once when the
               backend starts.
             </p>
+            {sources.isPending && (
+              <LoadingRows label="Loading schedules" count={3} />
+            )}
+            {sources.error && <p role="alert">{sources.error.message}</p>}
             {sources.data?.map((source) => (
               <label
                 key={source.id}

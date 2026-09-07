@@ -12,6 +12,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Plus, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { LoadingStatus } from "@/components/feedback/loading-state";
 import { Button } from "@/components/ui/button";
 import { JobDetailSheet } from "@/features/jobs/components/job-detail-sheet";
 import { JobFilters } from "@/features/jobs/components/job-filters";
@@ -69,7 +70,7 @@ export function DiscoveryScreen() {
     >
       <div className="discovery-inbox">
         <h1 data-job-list-heading tabIndex={-1} className="sr-only">
-          Opportunities
+          Jobs
         </h1>
         <div className="inbox-header">
           <div className="inbox-status">
@@ -82,6 +83,13 @@ export function DiscoveryScreen() {
             />
           </div>
           <div className="inbox-header-actions">
+            <span className="inline-flex min-w-5">
+              {jobsQuery.isFetching && !jobsQuery.isPending && (
+                <LoadingStatus>
+                  <span className="sr-only">Updating jobs</span>
+                </LoadingStatus>
+              )}
+            </span>
             <SavedSearches parameters={params.toString()} />
             <Button asChild size="sm">
               <Link href="/companies">
@@ -118,11 +126,6 @@ export function DiscoveryScreen() {
           />
           <AdvancedFilters filters={filters} change={change} />
         </div>
-        {selectedId && selected.isPending && (
-          <p role="status" className="text-xs text-brand min-[1100px]:hidden">
-            Opening opportunity…
-          </p>
-        )}
         <div className="inbox-content">
           <div className="job-list-panel">
             <div className="job-columns" aria-hidden="true">
@@ -151,20 +154,17 @@ export function DiscoveryScreen() {
       </div>
       <JobDetailSheet
         job={selected.data ?? null}
+        loading={!!selectedId && selected.isPending}
         onClose={closeReader}
         onStatusChange={statusChange}
         isUpdating={mutation.isPending}
       />
-      {selectedId && !selected.data && (
+      {selectedId && !selected.data && selected.error && (
         <div
           className="reader-placeholder"
           role={selected.error ? "alert" : "status"}
         >
-          <p>
-            {selected.error
-              ? "Unable to open this role"
-              : "Opening opportunity…"}
-          </p>
+          <p>{selected.error ? "Unable to open this role" : "Opening job…"}</p>
           {selected.error && (
             <>
               <p className="text-sm text-muted-foreground">

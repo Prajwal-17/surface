@@ -18,8 +18,7 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "Surface — Your career workspace",
   icons: { icon: "/icon.svg" },
-  description:
-    "Find, understand, and keep track of opportunities that fit you.",
+  description: "Find, understand, and keep track of jobs that fit you.",
 };
 
 export default function RootLayout({
@@ -28,7 +27,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{const theme=localStorage.getItem('surface-theme');document.documentElement.classList.toggle('dark',theme?theme!=='light':matchMedia('(prefers-color-scheme: dark)').matches)}catch{}`,
+          }}
+        />
+      </head>
       <body className={`${manrope.variable} ${geistMono.variable}`}>
         <Providers>{children}</Providers>
       </body>

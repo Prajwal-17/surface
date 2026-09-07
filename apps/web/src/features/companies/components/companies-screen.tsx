@@ -5,6 +5,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
+import { LoadingCards, LoadingRows } from "@/components/feedback/loading-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CompanyMark } from "@/components/ui/company-mark";
@@ -128,7 +129,7 @@ export function CompaniesScreen({
           {sources.error.message}
         </p>
       )}
-      {sources.isPending && <p role="status">Loading sources…</p>}
+      {sources.isPending && <LoadingRows label="Loading sources" count={3} />}
       {sources.data?.map((source) => (
         <Card
           key={source.id}
@@ -294,7 +295,9 @@ export function CompaniesScreen({
                   {companies.error.message}
                 </p>
               )}
-              {companies.isPending && <p role="status">Loading companies…</p>}
+              {companies.isPending && (
+                <LoadingCards label="Loading companies" />
+              )}
               <div className="company-grid">
                 {companies.data
                   ?.filter((c) => c.archived === showArchived)

@@ -851,3 +851,287 @@ test("review state is independent of saved decisions and content versions", asyn
   expect(restored.status).toBe("saved");
   expect(restored.reviewedAt).toBeNull();
 });
+
+test("profile catalogs provide global locations, distinguish cities, and reject fabricated selections", async () => {
+  const catalogs = await (await app.request("/api/profile/catalogs")).json();
+  expect(catalogs.countries.length).toBeGreaterThan(240);
+  expect(catalogs.currencies).toContain("INR");
+  const india = await (
+    await app.request("/api/profile/locations?country=IN&q=Mumbai")
+  ).json();
+  expect(
+    india.items.some((v: { label: string }) => v.label.includes("Maharashtra")),
+  ).toBe(true);
+  const city = india.items[0];
+  const profile = findProfile()!;
+  const badCity = await request(
+    "profile/context",
+    {
+      ...profile,
+      context: {
+        ...profile.context,
+        details: { residence: { countryCode: "US", cityId: city.cityId } },
+      },
+    },
+    "PUT",
+  );
+  expect(badCity.status).toBe(400);
+  expect(
+    (
+      await request(
+        "profile/context",
+        {
+          ...profile,
+          context: {
+            ...profile.context,
+            details: { roles: ["a made-up dropdown option"] },
+          },
+        },
+        "PUT",
+      )
+    ).status,
+  ).toBe(400);
+  expect((await app.request("/api/profile/locations?country=XX")).status).toBe(
+    400,
+  );
+  expect(
+    (await app.request("/api/profile/locations?country=US&offset=-1")).status,
+  ).toBe(400);
+  const page = await (
+    await app.request("/api/profile/locations?country=US")
+  ).json();
+  expect(page.items.length).toBe(30);
+  expect(page.more).toBe(true);
+});
+
+test("complete personal evidence, including late projects, reaches the assessment and can be cited", async () => {
+  const { db } = await import("../../infrastructure/database/client");
+  const { jobs } = await import("../jobs/jobs.tables");
+  const profile = structuredClone(findProfile()!);
+  profile.context.experience =
+    "Detailed experience. ".repeat(1000) + "Final achievement retained.";
+  profile.context.projects = Array.from({ length: 8 }, (_, i) => ({
+    title: `Project ${i}`,
+    url: "",
+    technologies: "SQLite",
+    contribution: "Built reliable migrations. ".repeat(200),
+    results: `Outcome ${i}`,
+  }));
+  const context = assessmentContext(profile, db.select().from(jobs).get()!);
+  expect(context.profile.experience).toEndWith("Final achievement retained.");
+  expect(context.profile["projects.7"]).toContain("Outcome 7");
+  expect(context.profile["projects.7"]!.length).toBeGreaterThan(3000);
+  const output = outputFixture();
+  output.strengths = [
+    {
+      kind: "fact",
+      text: "Relevant project outcome",
+      jobEvidence: null,
+      profileEvidence: { field: "projects.7", quote: "Outcome 7" },
+    },
+  ];
+  expect(() => validateAssessment(output, context)).not.toThrow();
+});
+
+test("profile updates preserve existing notes and reject stale editors", async () => {
+  const before = findProfile()!;
+  const { profileDetailsSchema } = await import("../../shared/contracts");
+  const details = profileDetailsSchema.parse({
+    roles: ["Backend engineer"],
+    skills: ["TypeScript"],
+    learningSkills: ["Go"],
+  });
+  const result = await request(
+    "profile/context",
+    {
+      ...before,
+      expectedRevision: before.revision,
+      context: { ...before.context, details },
+    },
+    "PUT",
+  );
+  expect(result.status).toBe(200);
+  const after = (await result.json()).profile;
+  expect(after.locationPreferences).toBe(before.locationPreferences);
+  expect(after.dealBreakers).toBe(before.dealBreakers);
+  expect(after.context.details.learningSkills).toEqual(["Go"]);
+  expect(after.revision).toBe(before.revision + 1);
+  expect(
+    (
+      await request(
+        "profile/context",
+        { ...before, expectedRevision: before.revision },
+        "PUT",
+      )
+    ).status,
+  ).toBe(409);
+  expect(findProfile()!.revision).toBe(after.revision);
+});
+
+test("résumé extraction preserves exact evidence and cannot invent facts or preferences", async () => {
+  const { validateResumeExtraction } = await import("../profile/resume");
+  const source =
+    "Alex Smith\nBackend engineer at Example, 2021–2025.\nBuilt APIs in TypeScript.\nBSc Computer Science.";
+  const raw = {
+    name: "Alex Smith",
+    location: null,
+    experience: [
+      "Backend engineer at Example, 2021–2025.",
+      "Built APIs in TypeScript.",
+    ],
+    education: ["BSc Computer Science."],
+    skills: [{ skill: "TypeScript", evidence: "TypeScript" }],
+    projects: [],
+    unmatched: [],
+  };
+  const draft = validateResumeExtraction(raw, source);
+  expect(draft.experience).toContain("2021–2025");
+  expect(draft.skills).toEqual(["TypeScript"]);
+  expect(draft).not.toHaveProperty("targetRoles");
+  expect(draft).not.toHaveProperty("constraints");
+  expect(() =>
+    validateResumeExtraction(
+      { ...raw, experience: ["Managed 100 engineers"] },
+      source,
+    ),
+  ).toThrow();
+  expect(() =>
+    validateResumeExtraction(
+      { ...raw, skills: [{ skill: "TypeScript", evidence: "" }] },
+      source,
+    ),
+  ).toThrow();
+  const previous = findProfile()!;
+  const malformed = new FormData();
+  malformed.append(
+    "file",
+    new File(["not a PDF"], "resume.pdf", { type: "application/pdf" }),
+  );
+  expect(
+    (
+      await app.request("/api/profile/resume", {
+        method: "POST",
+        body: malformed,
+      })
+    ).status,
+  ).toBe(400);
+  expect(findProfile()!.revision).toBe(previous.revision);
+});
+
+test("PDF upload reads text without retaining the file", async () => {
+  const { pdfText } = await import("../profile/resume");
+  const lines = [
+    "Alex Smith",
+    "Backend engineer at Example",
+    "Built APIs with TypeScript and SQLite.",
+  ];
+  const stream = `BT /F1 12 Tf 50 740 Td ${lines.map((line, i) => `${i ? "0 -20 Td " : ""}(${line}) Tj`).join("\n")} ET`;
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  for (const [i, object] of objects.entries()) {
+    offsets.push(pdf.length);
+    pdf += `${i + 1} 0 obj\n${object}\nendobj\n`;
+  }
+  const start = pdf.length;
+  pdf += `xref\n0 6\n0000000000 65535 f \n${offsets
+    .slice(1)
+    .map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`)
+    .join("")}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${start}\n%%EOF`;
+  const text = await pdfText(
+    new File([pdf], "fixture.pdf", { type: "application/pdf" }),
+  );
+  expect(text).toContain("Alex Smith");
+  expect(text).toContain("TypeScript");
+});
+
+test("résumé prefill charges its allowance but leaves the saved profile untouched", async () => {
+  const { prefillResume } = await import("../profile/resume");
+  const before = findProfile()!;
+  saveSettings({ dailyLimit: 1000, timezone: "Asia/Kolkata", paused: true });
+  const used = getSettings().used;
+  const source =
+    "Alex Smith\nLives in Mumbai, Maharashtra, India.\nBuilt backend APIs in TypeScript.";
+  const result = await prefillResume(
+    source,
+    async (schema) => ({
+      model: "fixture",
+      output: schema.parse({
+        name: "Alex Smith",
+        location: {
+          city: "Mumbai",
+          region: "Maharashtra",
+          country: "India",
+          evidence: "Lives in Mumbai, Maharashtra, India.",
+        },
+        experience: ["Built backend APIs in TypeScript."],
+        education: [],
+        skills: [{ skill: "TypeScript", evidence: "TypeScript" }],
+        projects: [],
+        unmatched: [],
+      }),
+    }),
+    true,
+  );
+  expect(result.draft.residence?.countryCode).toBe("IN");
+  expect(result.draft.residence?.cityId).toBeNumber();
+  expect(findProfile()).toEqual(before);
+  expect(getSettings().used).toBe(used + 1);
+  expect(getSettings().paused).toBe(true);
+  await expect(
+    prefillResume(
+      source,
+      async () => {
+        throw new Error("Provider failure");
+      },
+      true,
+    ),
+  ).rejects.toThrow("Provider failure");
+  expect(getSettings().used).toBe(used + 2);
+  expect(findProfile()).toEqual(before);
+});
+
+test("model concurrency is shared by imports and assessments and released after failures", async () => {
+  const { requestModelJson, modelCapacityAvailable } =
+    await import("../../shared/model-client");
+  const originalFetch = globalThis.fetch;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const fakeFetch = async () => {
+    await gate;
+    return Response.json({
+      model: "fixture",
+      choices: [{ message: { content: "not JSON" } }],
+    });
+  };
+  globalThis.fetch = Object.assign(fakeFetch, {
+    preconnect: originalFetch.preconnect,
+  }) as typeof fetch;
+  try {
+    const schema = assessmentOutputSchema;
+    const first = requestModelJson(schema, "test", "test", {}, 100).catch(
+      () => null,
+    );
+    const second = requestModelJson(schema, "test", "test", {}, 100).catch(
+      () => null,
+    );
+    expect(modelCapacityAvailable()).toBe(false);
+    const used = getSettings().used;
+    expect(reserveRequest("resume:busy", true, true)).toBeNull();
+    expect(getSettings().used).toBe(used);
+    release();
+    await Promise.all([first, second]);
+    expect(modelCapacityAvailable()).toBe(true);
+  } finally {
+    release();
+    globalThis.fetch = originalFetch;
+  }
+});
