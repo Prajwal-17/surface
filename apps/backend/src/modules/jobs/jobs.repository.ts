@@ -1,23 +1,23 @@
+import { workspaceRevision } from "../work/events.routes";
+import { assessments } from "../analysis/analysis.tables";
+import { workItems } from "../work/work.tables";
+import { checkEligibility } from "../analysis/eligibility";
+import { findProfile } from "../profile/profile.repository";
+import { assessmentFormatVersion } from "../../shared/contracts";
+import { createHash } from "node:crypto";
+import {
+  duplicateDecisions,
+  jobVersions,
+  observations,
+  snapshots,
+} from "../collection/collection.tables";
 import type {
   Job,
-  JobFit,
   JobsListQuery,
   JobsListResponse,
   JobStatus,
-  SourceKey,
 } from "../../shared/contracts";
-import {
-  and,
-  count,
-  desc,
-  eq,
-  inArray,
-  isNull,
-  like,
-  or,
-  sql,
-  type SQL,
-} from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import {
   canonicalizeUrl,
@@ -32,91 +32,155 @@ interface UpsertResult {
   updatedCount: number;
 }
 
-export interface JobForAnalysis {
-  id: string;
+export function meaningfulContent(row: {
   title: string;
   company: string;
   location: string;
-  isRemote: boolean;
-  employmentType: string | null;
   description: string;
+  employmentType: string | null;
+  workMode?: string;
+  compensation?: unknown;
+  countries?: string[];
+}) {
+  return {
+    title: row.title,
+    company: row.company,
+    location: row.location,
+    description: row.description.replace(/\s+/g, " ").trim(),
+    employmentType: row.employmentType,
+    workMode: row.workMode ?? "unknown",
+    compensation: row.compensation ?? null,
+    countries: row.countries ?? [],
+  };
 }
-
 export function upsertCandidates(candidates: JobCandidate[]): UpsertResult {
-  let insertedCount = 0;
-  let updatedCount = 0;
-  const touchedJobIds = new Set<string>();
-
-  db.transaction((transaction) => {
+  let insertedCount = 0,
+    updatedCount = 0;
+  db.transaction((tx) => {
     for (const candidate of candidates) {
-      const now = new Date().toISOString();
-      const canonicalUrl = canonicalizeUrl(candidate.applyUrl);
-      const dedupeKey = createJobFingerprint(candidate);
-      const sourceRecordKey = createSourceRecordKey(candidate);
-
-      const existingSource = transaction
-        .select({ jobId: jobSources.jobId })
+      const now = new Date().toISOString(),
+        canonicalUrl = canonicalizeUrl(candidate.applyUrl),
+        sourceRecordKey = createSourceRecordKey(candidate);
+      const existingSource = tx
+        .select()
         .from(jobSources)
         .where(eq(jobSources.sourceRecordKey, sourceRecordKey))
         .get();
-
-      const existingJob = existingSource
-        ? transaction
-            .select()
-            .from(jobs)
-            .where(eq(jobs.id, existingSource.jobId))
-            .get()
-        : transaction
+      let existing = existingSource
+        ? tx.select().from(jobs).where(eq(jobs.id, existingSource.jobId)).get()
+        : tx
             .select()
             .from(jobs)
             .where(
-              or(
-                eq(jobs.canonicalUrl, canonicalUrl),
-                eq(jobs.dedupeKey, dedupeKey),
-              ),
+              and(eq(jobs.canonicalUrl, canonicalUrl), isNull(jobs.mergedInto)),
             )
             .get();
-
-      let jobId: string;
-
-      if (existingJob) {
-        jobId = existingJob.id;
-        transaction
-          .update(jobs)
+      const similar = tx
+        .select()
+        .from(jobs)
+        .where(
+          and(
+            eq(jobs.company, candidate.company),
+            eq(jobs.title, candidate.title),
+            eq(jobs.location, candidate.location),
+            isNull(jobs.mergedInto),
+          ),
+        )
+        .all();
+      if (
+        !existing &&
+        candidate.company !== "Company not listed" &&
+        candidate.description.length >= 200
+      ) {
+        existing = similar.find((row) => {
+          if (
+            row.companyId &&
+            candidate.companyId &&
+            row.companyId !== candidate.companyId
+          )
+            return false;
+          if (
+            tx
+              .select()
+              .from(jobSources)
+              .where(eq(jobSources.jobId, row.id))
+              .all()
+              .some(
+                (ref) =>
+                  new URL(ref.sourceUrl).hostname.replace(/^www\./, "") ===
+                  new URL(candidate.sourceUrl).hostname.replace(/^www\./, ""),
+              )
+          )
+            return false;
+          return (
+            row.description.length >= 200 &&
+            createJobFingerprint({
+              ...candidate,
+              description: row.description,
+            }) === createJobFingerprint(candidate)
+          );
+        });
+      }
+      const jobId = existing?.id ?? crypto.randomUUID();
+      const previousSources = existing
+        ? tx.select().from(jobSources).where(eq(jobSources.jobId, jobId)).all()
+        : [];
+      const authoritative = (source: string) =>
+        ["greenhouse", "lever", "ashby", "public-page"].includes(source);
+      const preferContent =
+        !existing ||
+        (authoritative(candidate.source) &&
+          !previousSources.some((s) => authoritative(s.source))) ||
+        previousSources[0]?.source === candidate.source ||
+        existing.canonicalUrl === canonicalUrl;
+      // A feed observation cannot overwrite existing employer/ATS content.
+      const canUpdate =
+        preferContent &&
+        !(
+          existing &&
+          !authoritative(candidate.source) &&
+          previousSources.some((s) => authoritative(s.source))
+        );
+      const fields = {
+        canonicalUrl,
+        title: candidate.title,
+        company: candidate.company,
+        companyId: candidate.companyId ?? existing?.companyId ?? null,
+        location: candidate.location,
+        isRemote: candidate.isRemote,
+        workMode:
+          candidate.workMode ??
+          (candidate.isRemote ? ("remote" as const) : ("unknown" as const)),
+        employmentType: candidate.employmentType,
+        description: candidate.description,
+        descriptionHtml: candidate.descriptionHtml ?? null,
+        applyUrl: candidate.applyUrl,
+        postedAt: candidate.postedAt,
+        compensation: candidate.compensation ?? null,
+        countries: candidate.countries ?? [],
+        evidence: candidate.evidence ?? [],
+      };
+      const changed =
+        !existing ||
+        (canUpdate &&
+          JSON.stringify(meaningfulContent(existing)) !==
+            JSON.stringify(meaningfulContent(fields)));
+      if (existing) {
+        tx.update(jobs)
           .set({
-            dedupeKey,
-            canonicalUrl,
-            title: candidate.title,
-            company: candidate.company,
-            location: candidate.location,
-            isRemote: candidate.isRemote,
-            employmentType: candidate.employmentType,
-            description: candidate.description,
-            applyUrl: candidate.applyUrl,
-            postedAt: candidate.postedAt,
+            ...(canUpdate ? fields : {}),
             lastSeenAt: now,
             updatedAt: now,
           })
           .where(eq(jobs.id, jobId))
           .run();
-
-        if (!touchedJobIds.has(jobId)) updatedCount += 1;
+        updatedCount++;
       } else {
-        jobId = crypto.randomUUID();
-        transaction
-          .insert(jobs)
+        tx.insert(jobs)
           .values({
+            ...fields,
             id: jobId,
-            dedupeKey,
-            canonicalUrl,
-            title: candidate.title,
-            company: candidate.company,
-            location: candidate.location,
-            isRemote: candidate.isRemote,
-            employmentType: candidate.employmentType,
-            description: candidate.description,
-            applyUrl: candidate.applyUrl,
-            postedAt: candidate.postedAt,
+            dedupeKey: sourceRecordKey,
             status: "inbox",
             firstSeenAt: now,
             lastSeenAt: now,
@@ -124,20 +188,20 @@ export function upsertCandidates(candidates: JobCandidate[]): UpsertResult {
             updatedAt: now,
           })
           .run();
-        insertedCount += 1;
+        insertedCount++;
       }
-
-      touchedJobIds.add(jobId);
-
-      transaction
-        .insert(jobSources)
+      const referenceId = existingSource?.id ?? crypto.randomUUID();
+      tx.insert(jobSources)
         .values({
-          id: crypto.randomUUID(),
+          id: referenceId,
           jobId,
           source: candidate.source,
           sourceRecordKey,
           externalId: candidate.externalId,
           sourceUrl: candidate.sourceUrl,
+          configuredSourceId: candidate.configuredSourceId ?? null,
+          availability: "observed",
+          missingChecks: 0,
           firstSeenAt: now,
           lastSeenAt: now,
         })
@@ -145,25 +209,149 @@ export function upsertCandidates(candidates: JobCandidate[]): UpsertResult {
           target: jobSources.sourceRecordKey,
           set: {
             jobId,
-            externalId: candidate.externalId,
             sourceUrl: candidate.sourceUrl,
+            configuredSourceId:
+              candidate.configuredSourceId ??
+              existingSource?.configuredSourceId ??
+              null,
             lastSeenAt: now,
+            availability: "observed",
+            missingChecks: 0,
           },
         })
         .run();
+      const observationId = crypto.randomUUID();
+      tx.insert(observations)
+        .values({
+          id: observationId,
+          jobId,
+          sourceReferenceId: referenceId,
+          resourceId: candidate.resourceId ?? null,
+          snapshotId: candidate.snapshotId ?? null,
+          observedAt: now,
+          method: candidate.method ?? "legacy-feed",
+          evidence: candidate.evidence ?? [],
+          incomplete: candidate.incomplete ?? false,
+        })
+        .run();
+      if (changed) {
+        const id = crypto.randomUUID(),
+          content = meaningfulContent(fields);
+        tx.insert(jobVersions)
+          .values({
+            id,
+            jobId,
+            content,
+            fingerprint: createHash("sha256")
+              .update(JSON.stringify(content))
+              .digest("hex"),
+            createdAt: now,
+            observationId,
+          })
+          .run();
+        tx.update(jobs)
+          .set({ currentVersionId: id, analysisRequested: true })
+          .where(eq(jobs.id, jobId))
+          .run();
+      }
+      if (!existing)
+        for (const other of similar) {
+          const [leftId, rightId] = [other.id, jobId].sort() as [
+            string,
+            string,
+          ];
+          tx.insert(duplicateDecisions)
+            .values({
+              id: `${leftId}:${rightId}`,
+              leftId,
+              rightId,
+              state: "possible",
+              createdAt: now,
+              updatedAt: now,
+            })
+            .onConflictDoNothing()
+            .run();
+        }
     }
   });
-
   return { insertedCount, updatedCount };
 }
 
-function mapJob(row: typeof jobs.$inferSelect, sources: SourceKey[]): Job {
-  const fit =
-    row.fitScore !== null &&
-    row.fitVerdict !== null &&
-    row.fitSummary !== null &&
-    row.fitModel !== null &&
-    row.fitAnalyzedAt !== null
+function mapJob(row: typeof jobs.$inferSelect, details = false): Job {
+  const refs = db
+    .select()
+    .from(jobSources)
+    .where(eq(jobSources.jobId, row.id))
+    .all();
+  refs.sort(
+    (a, b) =>
+      Number(canonicalizeUrl(b.sourceUrl) === row.canonicalUrl) -
+        Number(canonicalizeUrl(a.sourceUrl) === row.canonicalUrl) ||
+      Number(["greenhouse", "lever", "ashby"].includes(b.source)) -
+        Number(["greenhouse", "lever", "ashby"].includes(a.source)),
+  );
+  const obs = details
+    ? db
+        .select()
+        .from(observations)
+        .where(
+          inArray(
+            observations.sourceReferenceId,
+            refs.map((r) => r.id),
+          ),
+        )
+        .all()
+    : [];
+  const profile = findProfile();
+  const history = db
+    .select()
+    .from(assessments)
+    .where(eq(assessments.jobId, row.id))
+    .orderBy(desc(assessments.createdAt))
+    .all();
+  const current = history.find(
+    (a) =>
+      a.jobVersionId === row.currentVersionId &&
+      a.profileRevision === profile?.revision &&
+      a.formatVersion === assessmentFormatVersion,
+  );
+  const latest = db
+    .select()
+    .from(workItems)
+    .where(and(eq(workItems.jobId, row.id), eq(workItems.kind, "analysis")))
+    .orderBy(desc(workItems.createdAt))
+    .get();
+  const assessmentState: Job["assessmentState"] = current
+    ? "current"
+    : latest && ["queued", "running"].includes(latest.state)
+      ? (latest.state as "queued" | "running")
+      : latest?.state === "failed"
+        ? "failed"
+        : history.length
+          ? "stale"
+          : row.fitScore !== null
+            ? "legacy"
+            : "not-assessed";
+  const fit = current
+    ? {
+        score: current.output.score,
+        verdict:
+          current.output.score >= 75
+            ? ("strong" as const)
+            : current.output.score >= 50
+              ? ("possible" as const)
+              : ("weak" as const),
+        summary: current.output.summary,
+        strengths: current.output.strengths.map((s) => s.text),
+        concerns: current.output.concerns.map((s) => s.text),
+        model: current.model,
+        analyzedAt: current.createdAt,
+      }
+    : row.fitScore !== null &&
+        row.fitVerdict !== null &&
+        row.fitSummary !== null &&
+        row.fitModel !== null &&
+        row.fitAnalyzedAt !== null
       ? {
           score: row.fitScore,
           verdict: row.fitVerdict,
@@ -186,22 +374,76 @@ function mapJob(row: typeof jobs.$inferSelect, sources: SourceKey[]): Job {
     applyUrl: row.applyUrl,
     postedAt: row.postedAt,
     status: row.status,
-    sources,
+    reviewedAt: row.reviewedAt,
+    reviewState: row.reviewedAt ? "reviewed" : "unreviewed",
+    sources: [...new Set(refs.map((ref) => ref.source))],
     firstSeenAt: row.firstSeenAt,
     lastSeenAt: row.lastSeenAt,
     fit,
+    eligibility: checkEligibility(row, profile?.context ?? null),
+    assessment: current ?? history[0] ?? null,
+    assessmentHistory: details ? history : [],
+    assessmentState,
+    companyId: row.companyId,
+    descriptionHtml: row.descriptionHtml,
+    workMode: row.workMode,
+    compensation: row.compensation,
+    countries: row.countries,
+    evidence: row.evidence,
+    currentVersionId: row.currentVersionId,
+    availability: refs.some((r) => r.availability === "observed")
+      ? "open"
+      : refs.length && refs.every((r) => r.availability === "closed")
+        ? "closed"
+        : "possibly-closed",
+    sourceReferences: refs,
+    versions: details
+      ? db
+          .select()
+          .from(jobVersions)
+          .where(eq(jobVersions.jobId, row.id))
+          .orderBy(desc(jobVersions.createdAt))
+          .all()
+      : [],
+    observations: obs.map((o) => ({
+      ...o,
+      rawAvailable: Boolean(
+        o.snapshotId &&
+        db
+          .select()
+          .from(snapshots)
+          .where(
+            and(eq(snapshots.id, o.snapshotId), isNull(snapshots.removedAt)),
+          )
+          .get(),
+      ),
+    })),
+    duplicates: details
+      ? db
+          .select()
+          .from(duplicateDecisions)
+          .where(
+            or(
+              eq(duplicateDecisions.leftId, row.id),
+              eq(duplicateDecisions.rightId, row.id),
+            ),
+          )
+          .all()
+      : [],
   };
 }
 
 export function listJobs(input: JobsListQuery): JobsListResponse {
-  const conditions: SQL[] = [eq(jobs.status, input.status)];
+  const conditions: SQL[] = [
+    eq(jobs.status, input.status),
+    isNull(jobs.mergedInto),
+  ];
 
   if (input.search) {
-    const pattern = `%${input.search.replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
     const textCondition = or(
-      like(jobs.title, pattern),
-      like(jobs.company, pattern),
-      like(jobs.location, pattern),
+      sql`instr(lower(${jobs.title}), lower(${input.search})) > 0`,
+      sql`instr(lower(${jobs.company}), lower(${input.search})) > 0`,
+      sql`instr(lower(${jobs.location}), lower(${input.search})) > 0`,
     );
     if (textCondition) conditions.push(textCondition);
   }
@@ -218,52 +460,70 @@ export function listJobs(input: JobsListQuery): JobsListResponse {
     );
   }
 
-  const where = and(...conditions);
-  const offset = (input.page - 1) * input.limit;
-  const query = db.select().from(jobs).where(where);
-  const rows = (
-    input.status === "inbox"
-      ? query.orderBy(
-          sql`${jobs.fitScore} is null`,
-          desc(jobs.fitScore),
-          desc(jobs.postedAt),
-          desc(jobs.firstSeenAt),
-        )
-      : query.orderBy(desc(jobs.postedAt), desc(jobs.firstSeenAt))
-  )
-    .limit(input.limit)
-    .offset(offset)
-    .all();
-
-  const total =
-    db.select({ total: count() }).from(jobs).where(where).get()?.total ?? 0;
-
-  const sourceRows = rows.length
-    ? db
-        .select({ jobId: jobSources.jobId, source: jobSources.source })
-        .from(jobSources)
-        .where(
-          inArray(
-            jobSources.jobId,
-            rows.map((row) => row.id),
+  if (input.sourceIds)
+    conditions.push(
+      inArray(
+        jobs.id,
+        db
+          .select({ jobId: jobSources.jobId })
+          .from(jobSources)
+          .where(
+            inArray(jobSources.configuredSourceId, input.sourceIds.split(",")),
           ),
-        )
-        .all()
-    : [];
-
-  const sourcesByJob = new Map<string, SourceKey[]>();
-  for (const sourceRow of sourceRows) {
-    const current = sourcesByJob.get(sourceRow.jobId) ?? [];
-    if (!current.includes(sourceRow.source)) current.push(sourceRow.source);
-    sourcesByJob.set(sourceRow.jobId, current);
+      ),
+    );
+  if (input.companyId) conditions.push(eq(jobs.companyId, input.companyId));
+  if (input.workMode) conditions.push(eq(jobs.workMode, input.workMode));
+  if (input.postedAfter)
+    conditions.push(sql`${jobs.postedAt} >= ${input.postedAfter}`);
+  if (input.discoveredAfter)
+    conditions.push(sql`${jobs.firstSeenAt} >= ${input.discoveredAfter}`);
+  const where = and(...conditions);
+  // ponytail: eligibility is computed from current profile at read time for this local inbox.
+  // Materialize indexed eligibility when an inbox grows beyond tens of thousands of jobs.
+  let mapped = db
+    .select()
+    .from(jobs)
+    .where(where)
+    .orderBy(desc(jobs.firstSeenAt), desc(jobs.id))
+    .all()
+    .map((row) => mapJob(row));
+  mapped = mapped.filter(
+    (job) =>
+      (!input.reviewState || job.reviewState === input.reviewState) &&
+      (!input.eligibility || job.eligibility.state === input.eligibility) &&
+      (!input.assessment || job.assessmentState === input.assessment) &&
+      (!input.availability || job.availability === input.availability),
+  );
+  if (input.sort === "best-fit") {
+    const priority = (job: Job) =>
+      job.eligibility.state === "conflicts"
+        ? 4
+        : job.assessmentState === "current" && (job.fit?.score ?? 0) >= 50
+          ? job.eligibility.state === "meets"
+            ? 0
+            : 1
+          : 2;
+    mapped.sort(
+      (a, b) =>
+        priority(a) - priority(b) ||
+        (b.assessmentState === "current" ? (b.fit?.score ?? -1) : -1) -
+          (a.assessmentState === "current" ? (a.fit?.score ?? -1) : -1) ||
+        b.firstSeenAt.localeCompare(a.firstSeenAt) ||
+        a.id.localeCompare(b.id),
+    );
   }
-
+  const total = mapped.length;
   return {
-    jobs: rows.map((row) => mapJob(row, sourcesByJob.get(row.id) ?? [])),
+    revision: workspaceRevision(),
+    jobs: mapped.slice(
+      (input.page - 1) * input.limit,
+      input.page * input.limit,
+    ),
     total,
     page: input.page,
     limit: input.limit,
-    pages: total === 0 ? 0 : Math.ceil(total / input.limit),
+    pages: total ? Math.ceil(total / input.limit) : 0,
   };
 }
 
@@ -271,14 +531,7 @@ export function findJobById(id: string): Job | null {
   const row = db.select().from(jobs).where(eq(jobs.id, id)).get();
   if (!row) return null;
 
-  const sources = db
-    .select({ source: jobSources.source })
-    .from(jobSources)
-    .where(eq(jobSources.jobId, id))
-    .all()
-    .map((item) => item.source);
-
-  return mapJob(row, [...new Set(sources)]);
+  return mapJob(row, true);
 }
 
 export function setJobStatus(id: string, status: JobStatus): Job | null {
@@ -295,47 +548,4 @@ export function setJobStatus(id: string, status: JobStatus): Job | null {
     .run();
 
   return findJobById(id);
-}
-
-export function listJobsForAnalysis(limit: number): JobForAnalysis[] {
-  return db
-    .select({
-      id: jobs.id,
-      title: jobs.title,
-      company: jobs.company,
-      location: jobs.location,
-      isRemote: jobs.isRemote,
-      employmentType: jobs.employmentType,
-      description: jobs.description,
-    })
-    .from(jobs)
-    .where(and(eq(jobs.status, "inbox"), isNull(jobs.fitScore)))
-    .orderBy(desc(jobs.postedAt), desc(jobs.firstSeenAt))
-    .limit(limit)
-    .all();
-}
-
-export function saveJobFit(id: string, fit: JobFit): void {
-  db.update(jobs)
-    .set({
-      fitScore: fit.score,
-      fitVerdict: fit.verdict,
-      fitSummary: fit.summary,
-      fitStrengths: fit.strengths,
-      fitConcerns: fit.concerns,
-      fitModel: fit.model,
-      fitAnalyzedAt: fit.analyzedAt,
-    })
-    .where(eq(jobs.id, id))
-    .run();
-}
-
-export function countJobsForAnalysis(): number {
-  return (
-    db
-      .select({ total: count() })
-      .from(jobs)
-      .where(and(eq(jobs.status, "inbox"), isNull(jobs.fitScore)))
-      .get()?.total ?? 0
-  );
 }

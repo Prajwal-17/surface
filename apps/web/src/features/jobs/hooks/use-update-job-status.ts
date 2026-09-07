@@ -8,7 +8,7 @@ export function useUpdateJobStatus() {
 
   return useMutation({
     mutationFn: (input: StatusChange) => updateJobStatus(input),
-    onSuccess: async (job) => {
+    onSuccess: async (job, input) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
       toast.success(
         job.status === "saved"
@@ -16,7 +16,27 @@ export function useUpdateJobStatus() {
           : job.status === "dismissed"
             ? "Job dismissed"
             : "Returned to inbox",
-        { description: job.title },
+        {
+          description: job.title,
+          action:
+            job.status === "dismissed"
+              ? {
+                  label: "Undo",
+                  onClick: () => {
+                    updateJobStatus({
+                      id: job.id,
+                      status: input.previousStatus ?? "inbox",
+                    })
+                      .then(() =>
+                        queryClient.invalidateQueries({
+                          queryKey: queryKeys.jobs.all,
+                        }),
+                      )
+                      .catch((error) => toast.error(error.message));
+                  },
+                }
+              : undefined,
+        },
       );
     },
     onError: (error) => {

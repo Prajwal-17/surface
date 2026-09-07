@@ -1,28 +1,23 @@
-import { sourceLabels } from "../../../shared/contracts";
 import {
-  cleanText,
+  descriptionContent,
+  explicitCountries,
+  salary,
+} from "../../collection/extraction";
+import {
   toIsoDate,
   toStringArray,
   toStringValue,
   type JobCandidate,
 } from "../../../shared/normalization/job-normalization";
-import {
-  asArray,
-  asRecord,
-  fetchJson,
-  type SourceAdapter,
-} from "./source-adapter";
+import { asArray, asRecord, type SourceAdapter } from "./source-adapter";
 
 export const jobicySource: SourceAdapter = {
   key: "jobicy",
-  label: sourceLabels.jobicy,
 
-  async search(input, signal) {
-    const url = new URL("https://jobicy.com/api/v2/remote-jobs");
-    url.searchParams.set("count", "50");
-    url.searchParams.set("tag", input.query);
-
-    const payload = asRecord(await fetchJson(url.toString(), signal));
+  extract(raw) {
+    const payload = asRecord(raw);
+    if (!Array.isArray(payload.jobs))
+      throw new Error("Malformed jobicy response.");
     const items = asArray(payload.jobs);
 
     const jobs = items.flatMap<JobCandidate>((value) => {
@@ -39,8 +34,17 @@ export const jobicySource: SourceAdapter = {
           company: toStringValue(item.companyName, "Company not listed"),
           location: toStringValue(item.jobGeo, "Remote"),
           isRemote: true,
+          countries: explicitCountries(item.jobGeo),
+          compensation: salary({
+            min: item.salaryMin,
+            max: item.salaryMax,
+            currency: item.salaryCurrency,
+            interval: item.salaryPeriod,
+          }),
           employmentType: toStringValue(item.jobType) || null,
-          description: cleanText(item.jobDescription || item.jobExcerpt),
+          ...descriptionContent(
+            toStringValue(item.jobDescription || item.jobExcerpt),
+          ),
           applyUrl,
           sourceUrl: applyUrl,
           postedAt: toIsoDate(item.pubDate),

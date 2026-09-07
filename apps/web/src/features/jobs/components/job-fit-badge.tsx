@@ -1,23 +1,25 @@
 import type { JobFit } from "backend/contracts";
 import { Badge } from "@/components/ui/badge";
-
-const labels: Record<JobFit["verdict"], string> = {
-  strong: "Strong fit",
-  possible: "Possible fit",
-  weak: "Weak fit",
-};
-
-export function JobFitBadge({ fit }: { fit: JobFit }) {
+export function JobFitBadge({
+  fit,
+  stale = false,
+}: {
+  fit: JobFit;
+  stale?: boolean;
+}) {
   return (
     <Badge
-      variant={fit.verdict === "strong" ? "success" : "outline"}
-      className={
-        fit.verdict === "possible"
-          ? "border-accent-border bg-accent text-accent-foreground"
-          : undefined
+      variant={
+        stale ? "outline" : fit.verdict === "strong" ? "success" : "outline"
       }
     >
-      {fit.score} · {labels[fit.verdict]}
+      {stale
+        ? "Legacy assessment · stale"
+        : {
+            strong: "Recommended to review",
+            possible: "Possible fit",
+            weak: "Limited fit",
+          }[fit.verdict]}
     </Badge>
   );
 }

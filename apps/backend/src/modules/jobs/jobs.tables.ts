@@ -28,10 +28,31 @@ export const jobs = sqliteTable(
     lastSeenAt: text("last_seen_at").notNull(),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
-    fitScore: integer("fit_score"),
-    fitVerdict: text("fit_verdict").$type<
-      "strong" | "possible" | "weak"
+    reviewedAt: text("reviewed_at"),
+    analysisRequested: integer("analysis_requested", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    companyId: text("company_id"),
+    descriptionHtml: text("description_html"),
+    workMode: text("work_mode")
+      .$type<"remote" | "hybrid" | "onsite" | "unknown">()
+      .notNull()
+      .default("unknown"),
+    compensation: text("compensation", { mode: "json" }).$type<
+      import("../../shared/contracts").Compensation
     >(),
+    countries: text("countries", { mode: "json" })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    evidence: text("evidence", { mode: "json" })
+      .$type<import("../../shared/contracts").FieldEvidence[]>()
+      .notNull()
+      .default([]),
+    currentVersionId: text("current_version_id"),
+    mergedInto: text("merged_into"),
+    fitScore: integer("fit_score"),
+    fitVerdict: text("fit_verdict").$type<"strong" | "possible" | "weak">(),
     fitSummary: text("fit_summary"),
     fitStrengths: text("fit_strengths", { mode: "json" }).$type<string[]>(),
     fitConcerns: text("fit_concerns", { mode: "json" }).$type<string[]>(),
@@ -54,6 +75,9 @@ export const jobSources = sqliteTable(
       .notNull()
       .references(() => jobs.id, { onDelete: "cascade" }),
     source: text("source").$type<SourceKey>().notNull(),
+    configuredSourceId: text("configured_source_id"),
+    availability: text("availability").notNull().default("unknown"),
+    missingChecks: integer("missing_checks").notNull().default(0),
     sourceRecordKey: text("source_record_key").notNull(),
     externalId: text("external_id"),
     sourceUrl: text("source_url").notNull(),

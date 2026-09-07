@@ -1,15 +1,5 @@
 interface ApiErrorBody {
-  error?: string;
-}
-
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number,
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
+  error?: unknown;
 }
 
 export async function apiClient<T>(
@@ -26,9 +16,10 @@ export async function apiClient<T>(
 
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ApiErrorBody;
-    throw new ApiError(
-      body.error || "The request could not be completed.",
-      response.status,
+    throw new Error(
+      typeof body.error === "string"
+        ? body.error
+        : "Check the submitted fields and try again.",
     );
   }
 

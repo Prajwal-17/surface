@@ -1,26 +1,19 @@
-import { sourceLabels } from "../../../shared/contracts";
+import { descriptionContent } from "../../collection/extraction";
 import {
-  cleanText,
   toIsoDate,
   toStringArray,
   toStringValue,
   type JobCandidate,
 } from "../../../shared/normalization/job-normalization";
-import {
-  asArray,
-  asRecord,
-  fetchJson,
-  type SourceAdapter,
-} from "./source-adapter";
+import { asArray, asRecord, type SourceAdapter } from "./source-adapter";
 
 export const arbeitnowSource: SourceAdapter = {
   key: "arbeitnow",
-  label: sourceLabels.arbeitnow,
 
-  async search(_input, signal) {
-    const payload = asRecord(
-      await fetchJson("https://www.arbeitnow.com/api/job-board-api", signal),
-    );
+  extract(raw) {
+    const payload = asRecord(raw);
+    if (!Array.isArray(payload.data))
+      throw new Error("Malformed arbeitnow response.");
     const items = asArray(payload.data);
 
     const jobs = items.flatMap<JobCandidate>((value) => {
@@ -38,7 +31,7 @@ export const arbeitnowSource: SourceAdapter = {
           location: toStringValue(item.location, "Location not listed"),
           isRemote: item.remote === true,
           employmentType: toStringArray(item.job_types).join(", ") || null,
-          description: cleanText(item.description),
+          ...descriptionContent(toStringValue(item.description)),
           applyUrl,
           sourceUrl: applyUrl,
           postedAt: toIsoDate(item.created_at),

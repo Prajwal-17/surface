@@ -1,19 +1,14 @@
-import { sourceLabels } from "../../../shared/contracts";
-import { XMLParser } from "fast-xml-parser";
+import { descriptionContent } from "../../collection/extraction";
+import { XMLParser, XMLValidator } from "fast-xml-parser";
 import {
-  cleanText,
   toIsoDate,
   toStringValue,
   type JobCandidate,
 } from "../../../shared/normalization/job-normalization";
-import {
-  asArray,
-  asRecord,
-  fetchText,
-  type SourceAdapter,
-} from "./source-adapter";
+import { asRecord, type SourceAdapter } from "./source-adapter";
 
 const parser = new XMLParser({
+  processEntities: false,
   ignoreAttributes: false,
   removeNSPrefix: true,
   trimValues: true,
@@ -21,17 +16,19 @@ const parser = new XMLParser({
 
 export const weWorkRemotelySource: SourceAdapter = {
   key: "we-work-remotely",
-  label: sourceLabels["we-work-remotely"],
 
-  async search(_input, signal) {
-    const xml = await fetchText(
-      "https://weworkremotely.com/remote-jobs.rss",
-      signal,
-    );
-    const document = asRecord(parser.parse(xml));
+  extract(raw) {
+    if (XMLValidator.validate(String(raw)) !== true)
+      throw new Error("Malformed RSS response.");
+    const document = asRecord(parser.parse(String(raw)));
     const rss = asRecord(document.rss);
     const channel = asRecord(rss.channel);
-    const items = asArray(channel.item);
+    if (!channel || !document.rss) throw new Error("Malformed RSS response.");
+    const items = channel.item
+      ? Array.isArray(channel.item)
+        ? channel.item
+        : [channel.item]
+      : [];
 
     const jobs = items.flatMap<JobCandidate>((value) => {
       const item = asRecord(value);
@@ -56,7 +53,7 @@ export const weWorkRemotelySource: SourceAdapter = {
           location: toStringValue(item.region, "Remote"),
           isRemote: true,
           employmentType: toStringValue(item.type) || null,
-          description: cleanText(item.description),
+          ...descriptionContent(toStringValue(item.description)),
           applyUrl: link,
           sourceUrl: link,
           postedAt: toIsoDate(item.pubDate),

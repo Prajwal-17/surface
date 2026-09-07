@@ -13,4 +13,3 @@ sqlite.exec("PRAGMA foreign_keys = ON;");
 sqlite.exec("PRAGMA busy_timeout = 5000;");
 
 export const db = drizzle({ client: sqlite, schema });
-export type DatabaseClient = typeof db;

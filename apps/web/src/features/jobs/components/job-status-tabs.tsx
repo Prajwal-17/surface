@@ -1,37 +1,33 @@
-import { jobStatuses, type JobStatus } from "backend/contracts";
-
-const labels: Record<JobStatus, string> = {
-  inbox: "Inbox",
-  saved: "Saved",
-  dismissed: "Dismissed",
-};
-
-interface JobStatusTabsProps {
+import { type JobStatus } from "backend/contracts";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Inbox, Bookmark, ArchiveX } from "lucide-react";
+export function JobStatusTabs({
+  value,
+  onChange,
+}: {
   value: JobStatus;
   onChange: (value: JobStatus) => void;
-}
-
-export function JobStatusTabs({ value, onChange }: JobStatusTabsProps) {
+}) {
   return (
-    <div
-      aria-label="Job status"
-      className="inline-flex rounded-lg border border-border bg-background p-1"
-    >
-      {jobStatuses.map((status) => (
-        <button
-          key={status}
-          type="button"
-          aria-pressed={value === status}
-          onClick={() => onChange(status)}
-          className={
-            value === status
-              ? "selected-control rounded-md px-3 py-1.5 text-xs text-accent-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
-              : "rounded-md px-3 py-1.5 text-xs text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
-          }
-        >
-          {labels[status]}
-        </button>
-      ))}
-    </div>
+    <Tabs value={value} onValueChange={(v) => onChange(v as JobStatus)}>
+      <TabsList aria-label="Job status" className="h-10 bg-secondary/60 p-1">
+        {(
+          [
+            { value: "inbox", label: "Inbox", icon: Inbox },
+            { value: "saved", label: "Saved", icon: Bookmark },
+            { value: "dismissed", label: "Dismissed", icon: ArchiveX },
+          ] as const
+        ).map(({ value, label, icon: Icon }) => (
+          <TabsTrigger
+            key={value}
+            value={value}
+            className="gap-2 rounded-md px-3 text-xs data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
+          >
+            <Icon className="size-3.5" />
+            {label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   );
 }

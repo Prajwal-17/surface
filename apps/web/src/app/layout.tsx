@@ -16,8 +16,10 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Fieldwork — Personal Job Desk",
-  description: "A local-first job discovery inbox.",
+  title: "Surface — Your career workspace",
+  icons: { icon: "/icon.svg" },
+  description:
+    "Find, understand, and keep track of opportunities that fit you.",
 };
 
 export default function RootLayout({

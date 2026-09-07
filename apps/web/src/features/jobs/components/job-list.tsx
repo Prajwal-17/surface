@@ -15,6 +15,7 @@ interface JobListProps {
   onSelect: (job: Job) => void;
   onStatusChange: (job: Job, status: JobStatus) => void;
   updatingJobId?: string;
+  selectedId: string | null;
 }
 
 export function JobList({
@@ -27,12 +28,13 @@ export function JobList({
   onSelect,
   onStatusChange,
   updatingJobId,
+  selectedId,
 }: JobListProps) {
   if (isLoading) {
     return (
       <div className="space-y-3" aria-label="Loading jobs">
         {Array.from({ length: 5 }).map((_, index) => (
-          <Skeleton key={index} className="h-48 rounded-xl" />
+          <Skeleton key={index} className="h-32 rounded-xl" />
         ))}
       </div>
     );
@@ -44,7 +46,7 @@ export function JobList({
 
   if (!data?.jobs.length) {
     const title = {
-      inbox: "A little room for possibility",
+      inbox: "No jobs match these filters",
       saved: "No saved jobs",
       dismissed: "No dismissed jobs",
     }[status];
@@ -53,12 +55,13 @@ export function JobList({
   }
 
   return (
-    <>
-      <div className="space-y-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {data.jobs.map((job) => (
           <JobCard
             key={job.id}
             job={job}
+            selected={selectedId === job.id}
             onSelect={onSelect}
             onStatusChange={onStatusChange}
             isUpdating={updatingJobId === job.id}
@@ -69,9 +72,9 @@ export function JobList({
       {data.pages > 1 ? (
         <nav
           aria-label="Job pages"
-          className="mt-5 flex items-center justify-between border-t border-border pt-4"
+          className="flex shrink-0 items-center justify-between border-t border-border px-4 py-3"
         >
-          <p className="font-mono text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Page {data.page} of {data.pages}
           </p>
           <div className="flex gap-2">
@@ -94,6 +97,6 @@ export function JobList({
           </div>
         </nav>
       ) : null}
-    </>
+    </div>
   );
 }

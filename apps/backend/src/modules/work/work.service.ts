@@ -1,0 +1,205 @@
+import { and, desc, eq, inArray, lte, or, sql } from "drizzle-orm";
+import { db } from "../../infrastructure/database/client";
+import { configuredSources, companies } from "../workspace/workspace.tables";
+import { runs, workItems, runItems, savedSearches } from "./work.tables";
+import { HttpError } from "../../shared/errors/http-error";
+export const minimumFetchHours = (_provider: string) => 6;
+export function syncRuns() {
+  for (const run of db
+    .select()
+    .from(runs)
+    .where(inArray(runs.state, ["queued", "running"]))
+    .all()) {
+    const items = db
+      .select({ state: workItems.state })
+      .from(runItems)
+      .innerJoin(workItems, eq(runItems.workId, workItems.id))
+      .where(eq(runItems.runId, run.id))
+      .all();
+    const active = items.some(
+      (i) => i.state === "queued" || i.state === "running",
+    );
+    const state = active
+      ? items.some((i) => i.state === "running")
+        ? "running"
+        : "queued"
+      : items.every((i) => i.state === "completed")
+        ? "completed"
+        : items.some((i) => i.state === "completed" || i.state === "partial")
+          ? "partial"
+          : items.some((i) => i.state === "failed")
+            ? "failed"
+            : "interrupted";
+    db.update(runs)
+      .set({ state, completedAt: active ? null : new Date().toISOString() })
+      .where(eq(runs.id, run.id))
+      .run();
+  }
+}
+export function enqueueCollection(
+  sourceIds: string[],
+  label = "Manual refresh",
+) {
+  return db.transaction((tx) => {
+    const now = new Date().toISOString(),
+      id = crypto.randomUUID();
+    const sources = tx
+      .select()
+      .from(configuredSources)
+      .where(inArray(configuredSources.id, [...new Set(sourceIds)]))
+      .all();
+    if (!sources.length || sources.length !== new Set(sourceIds).size)
+      throw new HttpError(400, "Choose valid configured sources.");
+    tx.insert(runs)
+      .values({
+        id,
+        kind: "collection",
+        label,
+        state: "queued",
+        createdAt: now,
+      })
+      .run();
+    for (const source of sources) {
+      const company = source.companyId
+        ? tx
+            .select()
+            .from(companies)
+            .where(eq(companies.id, source.companyId))
+            .get()
+        : null;
+      if (
+        source.paused ||
+        company?.archived ||
+        source.support === "unsupported"
+      )
+        throw new HttpError(
+          409,
+          source.support === "unsupported"
+            ? source.reason
+            : "Resume the source and restore its company before collecting.",
+        );
+      const identity = `source:${source.id}`;
+      let work = tx
+        .select()
+        .from(workItems)
+        .where(
+          and(
+            eq(workItems.identity, identity),
+            inArray(workItems.state, ["queued", "running"]),
+          ),
+        )
+        .get();
+      if (
+        !work &&
+        source.lastSuccessAt &&
+        Date.now() - Date.parse(source.lastSuccessAt) <
+          minimumFetchHours(source.provider) * 3600000
+      ) {
+        work = tx
+          .select()
+          .from(workItems)
+          .where(
+            and(
+              eq(workItems.identity, identity),
+              eq(workItems.state, "completed"),
+            ),
+          )
+          .orderBy(desc(workItems.completedAt))
+          .get();
+      }
+      if (!work) {
+        const retryAt =
+          source.retryAt && source.retryAt > now ? source.retryAt : now;
+        work = tx
+          .insert(workItems)
+          .values({
+            id: crypto.randomUUID(),
+            kind: "collection",
+            sourceId: source.id,
+            identity,
+            state: "queued",
+            retryAt,
+            createdAt: now,
+          })
+          .returning()
+          .get()!;
+      }
+      tx.insert(runItems).values({ runId: id, workId: work.id }).run();
+    }
+    return { runId: id };
+  });
+}
+export function getRun(id: string) {
+  syncRuns();
+  const run = db.select().from(runs).where(eq(runs.id, id)).get();
+  if (!run) throw new HttpError(404, "Run not found.");
+  const items = db
+    .select({ work: workItems })
+    .from(runItems)
+    .innerJoin(workItems, eq(runItems.workId, workItems.id))
+    .where(eq(runItems.runId, id))
+    .all()
+    .map((r) => r.work);
+  return { ...run, items };
+}
+export function enqueueDueSchedules(now = new Date()) {
+  const stamp = now.toISOString();
+  for (const source of db
+    .select()
+    .from(configuredSources)
+    .where(
+      and(
+        eq(configuredSources.paused, false),
+        sql`${configuredSources.scheduleHours} > 0`,
+        or(
+          lte(configuredSources.nextDueAt, stamp),
+          sql`${configuredSources.nextDueAt} IS NULL`,
+        ),
+      ),
+    )
+    .all()) {
+    try {
+      enqueueCollection([source.id], `Monitoring · ${source.label}`);
+    } catch (error) {
+      if (!(error instanceof HttpError)) throw error;
+    }
+    db.update(configuredSources)
+      .set({
+        nextDueAt: new Date(
+          now.getTime() +
+            Math.max(source.scheduleHours, minimumFetchHours(source.provider)) *
+              3600000,
+        ).toISOString(),
+      })
+      .where(eq(configuredSources.id, source.id))
+      .run();
+  }
+  for (const search of db
+    .select()
+    .from(savedSearches)
+    .where(
+      and(
+        eq(savedSearches.paused, false),
+        sql`${savedSearches.scheduleHours} > 0`,
+        or(
+          lte(savedSearches.nextDueAt, stamp),
+          sql`${savedSearches.nextDueAt} IS NULL`,
+        ),
+      ),
+    )
+    .all()) {
+    try {
+      enqueueCollection(search.sourceIds, `Saved search · ${search.name}`);
+    } catch (error) {
+      if (!(error instanceof HttpError)) throw error;
+    }
+    db.update(savedSearches)
+      .set({
+        nextDueAt: new Date(
+          now.getTime() + search.scheduleHours * 3600000,
+        ).toISOString(),
+      })
+      .where(eq(savedSearches.id, search.id))
+      .run();
+  }
+}

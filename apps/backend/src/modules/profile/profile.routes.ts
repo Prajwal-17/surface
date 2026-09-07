@@ -1,19 +1,18 @@
-import { jobPreferencesInputSchema } from "../../shared/contracts";
+import { db } from "../../infrastructure/database/client";
+import { profileRevisions } from "./profile.tables";
+import { profileInputSchema } from "../../shared/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { getJobPreferences, updateJobPreferences } from "./profile.service";
+
+import { findProfile, saveProfile } from "./profile.repository";
 
 export const profileRoutes = new Hono();
 
-profileRoutes.get("/", (context) => {
-  return context.json({ preferences: getJobPreferences() });
-});
+profileRoutes.get("/context", (c) => c.json({ profile: findProfile() }));
+profileRoutes.put("/context", zValidator("json", profileInputSchema), (c) =>
+  c.json({ profile: saveProfile(c.req.valid("json")) }),
+);
 
-profileRoutes.put(
-  "/",
-  zValidator("json", jobPreferencesInputSchema),
-  (context) => {
-    const preferences = updateJobPreferences(context.req.valid("json"));
-    return context.json({ preferences });
-  },
+profileRoutes.get("/history", (c) =>
+  c.json(db.select().from(profileRevisions).all()),
 );

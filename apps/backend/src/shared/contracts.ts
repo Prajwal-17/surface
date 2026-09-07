@@ -1,4 +1,15 @@
 import { z } from "zod";
+import { eligibilitySchema, assessmentSchema } from "./assessment-contracts";
+export * from "./assessment-contracts";
+import {
+  compensationSchema,
+  evidenceSchema,
+  sourceReferenceSchema,
+  jobVersionSchema,
+  observationSchema,
+  duplicateSchema,
+} from "./job-evidence-contracts";
+export * from "./job-evidence-contracts";
 
 export const sourceKeys = [
   "remotive",
@@ -6,12 +17,20 @@ export const sourceKeys = [
   "arbeitnow",
   "remote-ok",
   "we-work-remotely",
+  "greenhouse",
+  "lever",
+  "ashby",
+  "public-page",
 ] as const;
 
 export const sourceKeySchema = z.enum(sourceKeys);
 export type SourceKey = z.infer<typeof sourceKeySchema>;
 
 export const sourceLabels: Record<SourceKey, string> = {
+  greenhouse: "Greenhouse",
+  lever: "Lever",
+  ashby: "Ashby",
+  "public-page": "Public page",
   remotive: "Remotive",
   jobicy: "Jobicy",
   arbeitnow: "Arbeitnow",
@@ -36,43 +55,6 @@ export const discoverySearchSchema = z.object({
     .optional()
     .transform((value) => value || undefined),
 });
-
-export type DiscoverySearchInput = z.infer<typeof discoverySearchSchema>;
-
-export const sourceRunSummarySchema = z.object({
-  source: sourceKeySchema,
-  label: z.string(),
-  status: z.enum(["success", "failed"]),
-  fetchedCount: z.number().int().nonnegative(),
-  acceptedCount: z.number().int().nonnegative(),
-  durationMs: z.number().int().nonnegative(),
-  error: z.string().nullable(),
-});
-
-export type SourceRunSummary = z.infer<typeof sourceRunSummarySchema>;
-
-export const discoveryRunSummarySchema = z.object({
-  id: z.string(),
-  query: z.string(),
-  location: z.string().nullable(),
-  status: z.enum(["completed", "partial", "failed"]),
-  resultCount: z.number().int().nonnegative(),
-  startedAt: z.string(),
-  completedAt: z.string(),
-});
-
-export type DiscoveryRunSummary = z.infer<typeof discoveryRunSummarySchema>;
-
-export const discoverySearchResponseSchema = z.object({
-  run: discoveryRunSummarySchema,
-  sources: z.array(sourceRunSummarySchema),
-  insertedCount: z.number().int().nonnegative(),
-  updatedCount: z.number().int().nonnegative(),
-});
-
-export type DiscoverySearchResponse = z.infer<
-  typeof discoverySearchResponseSchema
->;
 
 export const jobFitVerdicts = ["strong", "possible", "weak"] as const;
 export const jobFitVerdictSchema = z.enum(jobFitVerdicts);
@@ -101,10 +83,36 @@ export const jobSchema = z.object({
   applyUrl: z.string().url(),
   postedAt: z.string().nullable(),
   status: jobStatusSchema,
+  reviewedAt: z.string().nullable(),
+  reviewState: z.enum(["unreviewed", "reviewed"]),
   sources: z.array(sourceKeySchema),
   firstSeenAt: z.string(),
   lastSeenAt: z.string(),
   fit: jobFitSchema.nullable(),
+  eligibility: eligibilitySchema,
+  assessment: assessmentSchema.nullable(),
+  assessmentHistory: z.array(assessmentSchema),
+  assessmentState: z.enum([
+    "not-assessed",
+    "queued",
+    "running",
+    "failed",
+    "current",
+    "stale",
+    "legacy",
+  ]),
+  companyId: z.string().nullable(),
+  descriptionHtml: z.string().nullable(),
+  workMode: z.enum(["remote", "hybrid", "onsite", "unknown"]),
+  compensation: compensationSchema.nullable(),
+  countries: z.array(z.string()),
+  evidence: z.array(evidenceSchema),
+  currentVersionId: z.string().nullable(),
+  availability: z.enum(["open", "possibly-closed", "closed"]),
+  sourceReferences: z.array(sourceReferenceSchema),
+  versions: z.array(jobVersionSchema),
+  observations: z.array(observationSchema),
+  duplicates: z.array(duplicateSchema),
 });
 
 export type Job = z.infer<typeof jobSchema>;
@@ -113,6 +121,26 @@ export const jobsListQuerySchema = z.object({
   status: jobStatusSchema.default("inbox"),
   search: z.string().trim().max(100).optional().default(""),
   source: sourceKeySchema.optional(),
+  reviewState: z.enum(["unreviewed", "reviewed"]).optional(),
+  eligibility: z.enum(["meets", "clarify", "conflicts"]).optional(),
+  assessment: z
+    .enum([
+      "not-assessed",
+      "queued",
+      "running",
+      "failed",
+      "current",
+      "stale",
+      "legacy",
+    ])
+    .optional(),
+  sourceIds: z.string().max(10000).optional(),
+  companyId: z.string().optional(),
+  workMode: z.enum(["remote", "hybrid", "onsite", "unknown"]).optional(),
+  postedAfter: z.string().date().optional(),
+  discoveredAfter: z.string().date().optional(),
+  availability: z.enum(["open", "possibly-closed", "closed"]).optional(),
+  sort: z.enum(["newest", "best-fit"]).default("newest"),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(24),
 });
@@ -121,6 +149,7 @@ export type JobsListQuery = z.infer<typeof jobsListQuerySchema>;
 
 export const jobsListResponseSchema = z.object({
   jobs: z.array(jobSchema),
+  revision: z.string(),
   total: z.number().int().nonnegative(),
   page: z.number().int().positive(),
   limit: z.number().int().positive(),
@@ -135,46 +164,5 @@ export const updateJobStatusSchema = z.object({
 
 export type UpdateJobStatusInput = z.infer<typeof updateJobStatusSchema>;
 
-export const analyzeJobsResponseSchema = z.object({
-  analyzedCount: z.number().int().nonnegative(),
-  failedCount: z.number().int().nonnegative(),
-  remainingCount: z.number().int().nonnegative(),
-});
-
-export type AnalyzeJobsResponse = z.infer<typeof analyzeJobsResponseSchema>;
-
-export const jobPreferencesInputSchema = z.object({
-  targetRoles: z
-    .string()
-    .trim()
-    .min(2, "Enter at least one target role.")
-    .max(1_000, "Keep target roles under 1,000 characters."),
-  preferredSkills: z
-    .string()
-    .trim()
-    .max(2_000, "Keep preferred skills under 2,000 characters."),
-  locationPreferences: z
-    .string()
-    .trim()
-    .max(1_000, "Keep location preferences under 1,000 characters."),
-  dealBreakers: z
-    .string()
-    .trim()
-    .max(2_000, "Keep deal-breakers under 2,000 characters."),
-});
-
-export type JobPreferencesInput = z.infer<typeof jobPreferencesInputSchema>;
-
-export const jobPreferencesSchema = jobPreferencesInputSchema.extend({
-  updatedAt: z.string(),
-});
-
-export type JobPreferences = z.infer<typeof jobPreferencesSchema>;
-
-export const jobPreferencesResponseSchema = z.object({
-  preferences: jobPreferencesSchema.nullable(),
-});
-
-export type JobPreferencesResponse = z.infer<
-  typeof jobPreferencesResponseSchema
->;
+export * from "./workspace-contracts";
+export * from "./work-contracts";

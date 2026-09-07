@@ -18,6 +18,7 @@ export async function updateJobStatus({
 }
 
 export interface StatusChange {
+  previousStatus?: JobStatus;
   id: string;
   status: JobStatus;
 }

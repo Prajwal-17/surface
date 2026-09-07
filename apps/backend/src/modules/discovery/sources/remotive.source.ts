@@ -1,27 +1,22 @@
-import { sourceLabels } from "../../../shared/contracts";
 import {
-  cleanText,
+  descriptionContent,
+  explicitCountries,
+} from "../../collection/extraction";
+import {
   toIsoDate,
   toStringArray,
   toStringValue,
   type JobCandidate,
 } from "../../../shared/normalization/job-normalization";
-import {
-  asArray,
-  asRecord,
-  fetchJson,
-  type SourceAdapter,
-} from "./source-adapter";
+import { asArray, asRecord, type SourceAdapter } from "./source-adapter";
 
 export const remotiveSource: SourceAdapter = {
   key: "remotive",
-  label: sourceLabels.remotive,
 
-  async search(input, signal) {
-    const url = new URL("https://remotive.com/api/remote-jobs");
-    url.searchParams.set("search", input.query);
-
-    const payload = asRecord(await fetchJson(url.toString(), signal));
+  extract(raw) {
+    const payload = asRecord(raw);
+    if (!Array.isArray(payload.jobs))
+      throw new Error("Malformed remotive response.");
     const items = asArray(payload.jobs);
 
     const jobs = items.flatMap<JobCandidate>((value) => {
@@ -38,8 +33,18 @@ export const remotiveSource: SourceAdapter = {
           company: toStringValue(item.company_name, "Company not listed"),
           location: toStringValue(item.candidate_required_location, "Remote"),
           isRemote: true,
+          countries: explicitCountries(item.candidate_required_location),
+          compensation: toStringValue(item.salary)
+            ? {
+                min: null,
+                max: null,
+                currency: null,
+                period: null,
+                original: toStringValue(item.salary),
+              }
+            : null,
           employmentType: toStringValue(item.job_type) || null,
-          description: cleanText(item.description),
+          ...descriptionContent(toStringValue(item.description)),
           applyUrl,
           sourceUrl: applyUrl,
           postedAt: toIsoDate(item.publication_date),

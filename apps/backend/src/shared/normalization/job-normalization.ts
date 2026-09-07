@@ -1,8 +1,21 @@
 import { createHash } from "node:crypto";
-import type { DiscoverySearchInput, SourceKey } from "../contracts";
+import type { SourceKey } from "../contracts";
 
 export interface JobCandidate {
   source: SourceKey;
+  boardIdentity?: string | null;
+  companyId?: string | null;
+  configuredSourceId?: string | null;
+  descriptionHtml?: string | null;
+  workMode?: "remote" | "hybrid" | "onsite" | "unknown";
+  compensation?: import("../contracts").Compensation | null;
+  countries?: string[];
+  evidence?: import("../contracts").FieldEvidence[];
+  method?: string;
+  incomplete?: boolean;
+  snapshotId?: string;
+  resourceId?: string;
+
   externalId: string | null;
   title: string;
   company: string;
@@ -58,7 +71,9 @@ export function toStringArray(value: unknown): string[] {
 
 export function toIsoDate(value: unknown): string | null {
   if (typeof value !== "string" && typeof value !== "number") return null;
-  const date = new Date(value);
+  const date = new Date(
+    typeof value === "number" && value < 1e12 ? value * 1000 : value,
+  );
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
@@ -97,6 +112,9 @@ export function createJobFingerprint(candidate: JobCandidate): string {
     fingerprintPart(candidate.company),
     fingerprintPart(candidate.title),
     fingerprintPart(candidate.location),
+    candidate.description.length >= 200
+      ? fingerprintPart(candidate.description)
+      : canonicalizeUrl(candidate.applyUrl),
   ].join("|");
 
   return createHash("sha256").update(value).digest("hex");
@@ -105,60 +123,10 @@ export function createJobFingerprint(candidate: JobCandidate): string {
 export function createSourceRecordKey(candidate: JobCandidate): string {
   const identity = candidate.externalId || canonicalizeUrl(candidate.sourceUrl);
   return createHash("sha256")
-    .update(`${candidate.source}|${identity}`)
+    .update(
+      `${candidate.source}|${candidate.boardIdentity ? candidate.boardIdentity + "|" : ""}${identity}`,
+    )
     .digest("hex");
-}
-
-function tokenize(value: string): string[] {
-  return value
-    .toLowerCase()
-    .split(/[^a-z0-9+#.]+/)
-    .map((token) => token.trim())
-    .filter((token) => token.length > 1);
-}
-
-export function matchesSearch(
-  candidate: JobCandidate,
-  input: DiscoverySearchInput,
-): boolean {
-  const queryTokens = tokenize(input.query);
-  const title = candidate.title.toLowerCase();
-  const highSignal = [
-    candidate.title,
-    candidate.company,
-    candidate.tags.join(" "),
-  ]
-    .join(" ")
-    .toLowerCase();
-  const allContent = [highSignal, candidate.description]
-    .join(" ")
-    .toLowerCase();
-
-  const highSignalMatches = queryTokens.filter((token) =>
-    highSignal.includes(token),
-  ).length;
-  const contentMatches = queryTokens.filter((token) =>
-    allContent.includes(token),
-  ).length;
-
-  const queryMatches =
-    queryTokens.length === 0 ||
-    highSignalMatches >= Math.max(1, Math.ceil(queryTokens.length / 2)) ||
-    contentMatches === queryTokens.length ||
-    title.includes(input.query.toLowerCase());
-
-  if (!queryMatches) return false;
-  if (!input.location) return true;
-
-  const locationTokens = tokenize(input.location);
-  const location = candidate.location.toLowerCase();
-  return (
-    locationTokens.every((token) => location.includes(token)) ||
-    (candidate.isRemote &&
-      ["worldwide", "global", "anywhere"].some((term) =>
-        location.includes(term),
-      ))
-  );
 }
 
 export function normalizeCandidate(candidate: JobCandidate): JobCandidate {
@@ -174,7 +142,7 @@ export function normalizeCandidate(candidate: JobCandidate): JobCandidate {
     isRemote:
       candidate.isRemote || /\b(remote|worldwide|anywhere)\b/i.test(location),
     employmentType: cleanText(candidate.employmentType) || null,
-    description: cleanText(candidate.description),
+    description: candidate.description.trim(),
     applyUrl,
     sourceUrl,
     tags: candidate.tags.map(cleanText).filter(Boolean),

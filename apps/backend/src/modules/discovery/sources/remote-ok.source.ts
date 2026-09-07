@@ -1,24 +1,18 @@
-import { sourceLabels } from "../../../shared/contracts";
+import { descriptionContent } from "../../collection/extraction";
 import {
-  cleanText,
   toIsoDate,
   toStringArray,
   toStringValue,
   type JobCandidate,
 } from "../../../shared/normalization/job-normalization";
-import {
-  asArray,
-  asRecord,
-  fetchJson,
-  type SourceAdapter,
-} from "./source-adapter";
+import { asArray, asRecord, type SourceAdapter } from "./source-adapter";
 
 export const remoteOkSource: SourceAdapter = {
   key: "remote-ok",
-  label: sourceLabels["remote-ok"],
 
-  async search(_input, signal) {
-    const items = asArray(await fetchJson("https://remoteok.com/api", signal));
+  extract(raw) {
+    if (!Array.isArray(raw)) throw new Error("Malformed RemoteOK response.");
+    const items = asArray(raw);
     const jobItems = items.filter((value) => {
       const item = asRecord(value);
       return Boolean(item.position && item.url);
@@ -40,7 +34,7 @@ export const remoteOkSource: SourceAdapter = {
           location: toStringValue(item.location, "Remote"),
           isRemote: true,
           employmentType: null,
-          description: cleanText(item.description),
+          ...descriptionContent(toStringValue(item.description)),
           applyUrl,
           sourceUrl,
           postedAt: toIsoDate(item.date || item.epoch),

@@ -1,3 +1,7 @@
 export * from "../../modules/discovery/discovery.tables";
 export * from "../../modules/jobs/jobs.tables";
 export * from "../../modules/profile/profile.tables";
+export * from "../../modules/workspace/workspace.tables";
+export * from "../../modules/collection/collection.tables";
+export * from "../../modules/work/work.tables";
+export * from "../../modules/analysis/analysis.tables";

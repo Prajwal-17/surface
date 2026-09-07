@@ -32,11 +32,7 @@ export function JobActions({
 
   return (
     <div
-      className={
-        compact
-          ? "grid grid-cols-2 gap-1.5 sm:grid-cols-1"
-          : "flex flex-wrap gap-2"
-      }
+      className={compact ? "flex items-center gap-1.5" : "flex flex-wrap gap-2"}
     >
       {job.status !== "saved" ? (
         <Button
