@@ -37,6 +37,25 @@ test("URL inspection separates providers, board identity and unsupported URLs", 
   );
   expect(() => inspectSource("file:///etc/passwd")).toThrow();
 });
+test("schema endpoint describes migrated tables and foreign keys", async () => {
+  const response = await app.request("/api/schema");
+  const body = (await response.json()) as {
+    tables: {
+      name: string;
+      columns: { name: string; pk: number }[];
+      foreignKeys: { from: string; table: string; to: string }[];
+    }[];
+  };
+  const jobSources = body.tables.find(({ name }) => name === "job_sources");
+
+  expect(response.status).toBe(200);
+  expect(
+    body.tables.find(({ name }) => name === "jobs")?.columns,
+  ).toContainEqual(expect.objectContaining({ name: "id", pk: 1 }));
+  expect(jobSources?.foreignKeys).toContainEqual(
+    expect.objectContaining({ from: "job_id", table: "jobs", to: "id" }),
+  );
+});
 test("profile revisions only change with relevant context and preserve legacy text and fits", async () => {
   const body = {
     targetRoles: "Engineer",

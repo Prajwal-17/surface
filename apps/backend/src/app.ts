@@ -33,6 +33,43 @@ app.get("/api/health", (context) => {
   });
 });
 
+app.get("/api/schema", (context) => {
+  const tableNames = sqlite
+    .query(
+      "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle_%' ORDER BY name",
+    )
+    .all() as { name: string }[];
+
+  return context.json({
+    tables: tableNames.map(({ name }) => {
+      const identifier = name.replaceAll('"', '""');
+      const columns = sqlite
+        .query(`PRAGMA table_info("${identifier}")`)
+        .all() as {
+        cid: number;
+        name: string;
+        type: string;
+        notnull: 0 | 1;
+        dflt_value: string | number | null;
+        pk: number;
+      }[];
+      const foreignKeys = sqlite
+        .query(`PRAGMA foreign_key_list("${identifier}")`)
+        .all() as {
+        id: number;
+        seq: number;
+        table: string;
+        from: string;
+        to: string;
+        on_update: string;
+        on_delete: string;
+      }[];
+
+      return { name, columns, foreignKeys };
+    }),
+  });
+});
+
 app.route("/api/discovery", discoveryRoutes);
 app.route("/api/jobs", jobsRoutes);
 app.route("/api/profile", profileRoutes);

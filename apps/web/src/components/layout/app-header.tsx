@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Settings2,
   PanelLeft,
+  Database,
 } from "lucide-react";
 import {
   Sidebar,
@@ -42,6 +43,9 @@ const destinations = [
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/profile", label: "My profile", icon: UserRound },
+];
+const referenceDestinations = [
+  { href: "/schema", label: "Schema", icon: Database },
 ];
 export function AppHeader() {
   const pathname = usePathname(),
@@ -77,7 +81,9 @@ export function AppHeader() {
       window.dispatchEvent(new Event("surface-navigation"));
     }
   }, [pathname, params]);
-  const current = destinations.find((d) => d.href === pathname);
+  const current = [...destinations, ...referenceDestinations].find(
+    (d) => d.href === pathname,
+  );
   const accountOpen =
     accountReady &&
     (accountRequestedOpen || (!account && !accountDismissed));
@@ -137,6 +143,31 @@ export function AppHeader() {
                       aria-current={pathname === href ? "page" : undefined}
                     >
                       <Icon className="!size-4" />
+                      <span>{label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+          <SidebarGroup className="mt-auto px-3 pb-2">
+            <SidebarGroupLabel className="px-3 text-[11px] font-medium text-muted-foreground/70">
+              Reference
+            </SidebarGroupLabel>
+            <SidebarMenu className="mt-2">
+              {referenceDestinations.map(({ href, label, icon: Icon }) => (
+                <SidebarMenuItem key={href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === href}
+                    className="h-8 gap-3 rounded-md px-3 text-[12px] font-medium text-sidebar-foreground/80 data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
+                  >
+                    <Link
+                      href={href}
+                      onClick={() => setOpenMobile(false)}
+                      aria-current={pathname === href ? "page" : undefined}
+                    >
+                      <Icon className="!size-3.5" />
                       <span>{label}</span>
                     </Link>
                   </SidebarMenuButton>
