@@ -5,6 +5,18 @@ let activeRequests = 0;
 export function modelCapacityAvailable() {
   return activeRequests < 2;
 }
+export async function withModelSlot<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  if (!modelCapacityAvailable())
+    throw new Error("Two AI requests are already running. Try again shortly.");
+  activeRequests++;
+  try {
+    return await operation();
+  } finally {
+    activeRequests--;
+  }
+}
 export async function requestModelJson<T>(
   schema: z.ZodType<T>,
   name: string,

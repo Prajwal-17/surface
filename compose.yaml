@@ -2,11 +2,16 @@ services:
   backend:
     build:
       context: .
-      target: backend
+      dockerfile: apps/backend/Dockerfile
     environment:
       DB_FILE_NAME: /data/job-search.sqlite
       PORT: "4000"
-      OMNIROUTE_BASE_URL: ${OMNIROUTE_BASE_URL:-http://host.docker.internal:20128/v1}
+      SEARXNG_BASE_URL: http://searxng:8080
+      CRAWLER_BASE_URL: http://crawler:4100
+      SOURCE_TIMEOUT_MS: ${SOURCE_TIMEOUT_MS:-12000}
+      # 127.0.0.1 is the container here; use the Docker-specific override when
+      # OmniRoute is running somewhere other than the host gateway.
+      OMNIROUTE_BASE_URL: ${OMNIROUTE_DOCKER_BASE_URL:-http://host.docker.internal:20128/v1}
       OMNIROUTE_API_KEY: ${OMNIROUTE_API_KEY:-}
       OMNIROUTE_MODEL: ${OMNIROUTE_MODEL:-auto}
       TZ: ${TZ:-Asia/Kolkata}
@@ -16,17 +21,55 @@ services:
       - host.docker.internal:host-gateway
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "bun", "-e", "fetch('http://localhost:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "fetch('http://localhost:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
   web:
     build:
       context: .
-      target: web
+      dockerfile: apps/web/Dockerfile
+    environment:
+      BACKEND_URL: http://backend:4000
     ports:
       - "127.0.0.1:${FIELDWORK_WEB_PORT:-3000}:3000"
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
+
+  searxng:
+    image: searxng/searxng:2026.9.8-3fdc6d753
+    volumes:
+      - ./services/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-surface-local-company-research}
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+  crawler:
+    build:
+      context: .
+      dockerfile: apps/crawler/Dockerfile
+    init: true
+    shm_size: 1gb
+    ports:
+      - "127.0.0.1:4100:4100"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:4100/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AiLoadingState } from "@/components/ai/loading-state";
 import { StreamingText } from "@/components/ai/streaming-text";
 import { streamSummary } from "../summary-stream";
@@ -215,6 +216,13 @@ export function JobDetailSheet({
   );
   const headerActions = (
     <div className="flex shrink-0 items-center gap-0.5">
+      <Button asChild variant="ghost" size="sm" className="h-8">
+        <Link
+          href={`/research?q=${encodeURIComponent(job.companyWebsite || job.company)}`}
+        >
+          Research company
+        </Link>
+      </Button>
       <JobActions
         job={job}
         compact

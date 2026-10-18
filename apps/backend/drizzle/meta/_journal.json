@@ -15,6 +15,20 @@
       "when": 1788794082162,
       "tag": "0001_job_description_summary",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788935023138,
+      "tag": "0002_lush_chimera",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788940713034,
+      "tag": "0003_silky_jasper_sitwell",
+      "breakpoints": true
     }
   ]
 }

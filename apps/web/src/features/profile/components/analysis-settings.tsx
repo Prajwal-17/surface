@@ -1,158 +1,60 @@
 "use client";
-import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { analysisSettingsSchema } from "backend/contracts";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { SettingsLoading } from "@/components/feedback/loading-state";
-import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ScanLine, Pause, Play, Zap } from "lucide-react";
+import { ScanLine, Pause, Play } from "lucide-react";
 export function AnalysisSettings() {
   const client = useQueryClient();
   const settings = useQuery({
     queryKey: ["analysis-settings"],
     queryFn: async () =>
       analysisSettingsSchema.parse(await apiClient("/api/analysis/settings")),
-    refetchInterval: (q) => (q.state.data?.queued ? 5000 : false),
   });
-  const [limit, setLimit] = useState<string | null>(null),
-    [timezone, setTimezone] = useState<string | null>(null);
   const save = useMutation({
-    mutationFn: ({
-      path,
-      body,
-      method,
-    }: {
-      path: string;
-      body: unknown;
-      method: string;
-    }) => apiClient(path, { method, body: JSON.stringify(body) }),
+    mutationFn: (paused: boolean) =>
+      apiClient("/api/analysis/settings", {
+        method: "PUT",
+        body: JSON.stringify({ paused }),
+      }),
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ["analysis-settings"] });
-      await client.invalidateQueries({ queryKey: ["runs"] });
-      toast.success("Analysis settings updated");
+      toast.success("AI settings updated");
     },
     onError: (e) => toast.error(e.message),
   });
   if (settings.error) return <p role="alert">{settings.error.message}</p>;
   if (!settings.data) return <SettingsLoading />;
   const data = settings.data;
-  const update = (paused: boolean) =>
-    save.mutate({
-      path: "/api/analysis/settings",
-      method: "PUT",
-      body: {
-        dailyLimit: Number(limit ?? data.dailyLimit),
-        timezone: timezone ?? data.timezone,
-        paused,
-      },
-    });
   return (
-    <section className="mx-auto mt-8 mb-4 max-w-5xl space-y-4 border-t border-border pt-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-base font-semibold">
-          <ScanLine className="size-5 text-brand" />
-          Job assessment
-        </h2>
-        <span
-          className={`status-pill ${!data.configured || data.paused ? "tone-amber" : "tone-mint"}`}
-        >
-          {!data.configured
-            ? "Not configured"
-            : data.paused
-              ? "Paused"
-              : "Enabled"}
-        </span>
-      </div>
-      <p className="text-sm text-muted-foreground">
+    <section className="mx-auto mt-8 max-w-3xl space-y-5">
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <ScanLine className="size-5 text-brand" /> AI settings
+      </h2>
+      <p className="text-muted-foreground">
         {!data.configured
-          ? "OmniRoute is not configured. Collection and filtering remain available."
-          : data.paused
-            ? "Analysis is paused. Existing results remain available."
-            : "Assessments run only when you click Assess this job in the job reader."}
+          ? "OmniRoute is not configured. Add its endpoint, model, and API key to the backend environment."
+          : "OmniRoute is connected. Research, summaries, and assessments run when you request them."}
       </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border bg-card p-4">
-          <p className="mb-2 text-xs text-muted-foreground">Daily allowance</p>
-          <p className="text-2xl font-bold tracking-tight">
-            {data.used}
-            <span className="text-sm font-normal text-muted-foreground">
-              {" "}
-              / {data.dailyLimit} requests used
-            </span>
-          </p>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary"
-              style={{
-                width: `${data.dailyLimit ? Math.min(100, (data.used / data.dailyLimit) * 100) : 0}%`,
-              }}
-            />
-          </div>
-        </div>
-        <div className="rounded-lg border bg-card p-4">
-          <p className="mb-2 text-xs text-muted-foreground">
-            Waiting for assessment
-          </p>
-          <p className="text-2xl font-bold tracking-tight">
-            {data.queued}
-            <span className="text-sm font-normal text-muted-foreground">
-              {" "}
-              jobs in queue
-            </span>
-          </p>
-          <p className="mt-3 flex items-center gap-1.5 text-xs text-brand">
-            <Zap className="size-3" />
-            Up to two requests at a time
-          </p>
-        </div>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Next reset:{" "}
-        {new Date(data.nextResetAt).toLocaleString(undefined, {
-          timeZone: data.timezone,
-        })}{" "}
-        ({data.timezone}). Failed requests and retries count toward the
-        allowance.
-      </p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="grid gap-2 text-sm">
-          Daily request limit
-          <Input
-            type="number"
-            min={0}
-            max={1000}
-            value={limit ?? data.dailyLimit}
-            onChange={(e) => setLimit(e.target.value)}
-          />
-        </label>
-        <label className="grid gap-2 text-sm">
-          Local timezone
-          <Input
-            value={timezone ?? data.timezone}
-            onChange={(e) => setTimezone(e.target.value)}
-          />
-        </label>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Button disabled={save.isPending} onClick={() => update(data.paused)}>
-          Save analysis settings
-        </Button>
+      <div className="rounded-lg border bg-card p-5 space-y-3">
+        <p className="font-medium">
+          {data.paused ? "AI is paused" : "AI is available"}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Pause new research, summaries, and assessments. Saved results remain
+          available. Résumé imports can still be requested explicitly.
+        </p>
         <Button
           variant="outline"
           disabled={save.isPending}
-          onClick={() => update(!data.paused)}
+          onClick={() => save.mutate(!data.paused)}
         >
           {data.paused ? <Play /> : <Pause />}
-          {data.paused ? "Resume analysis" : "Pause analysis"}
+          {data.paused ? "Resume AI" : "Pause AI"}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Jobs are assessed only when you request it. If the daily allowance is
-        exhausted, retry after it resets. Timezone changes take effect after the
-        current allowance resets.
-      </p>
     </section>
   );
 }

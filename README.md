@@ -2,7 +2,7 @@
 
 A local job-review workspace: what is worth reviewing, why it fits, and where to act.
 Jobs, Companies, Activity and Profile share a Next.js/shadcn interface backed by
-Hono, Bun, Drizzle and SQLite. No crawler service or external database is needed.
+Hono, Bun, Drizzle and SQLite. Company research uses bundled SearXNG and Crawlee services; application data stays in SQLite.
 
 ## Development
 
@@ -84,8 +84,7 @@ facts. Summary text streams as the provider responds, renders as Markdown headin
 lists, emphasis and links, and is saved after validation; **Regenerate** requests
 a fresh summary. Providers returning buffered JSON still work. Older summary formats
 are marked for regeneration with the improved prompt.
-Changed descriptions mark old summaries as outdated. Summaries use the shared AI
-allowance and never include your profile or run automatically.
+Changed descriptions mark old summaries as outdated. Summaries never include your profile or run automatically.
 
 ## OmniRoute assessment
 
@@ -106,10 +105,9 @@ request an assessment for an Inbox, Saved, or Dismissed job, including roles out
 your targets. Missing or incomparable facts need clarification.
 Free-text preferences and deal-breakers remain advisory.
 
-The default allowance is **20 dispatched model requests per day**, with at most
-**two concurrent requests**, initially in **Asia/Kolkata**. Failed calls and retries
-consume the same persisted allowance. Settings offers a limit, timezone and pause control. Assessments are started
-from the job reader. Changing timezone does not reset the current allowance.
+AI requests have no daily quota or reset schedule. Settings retains configuration status
+and the pause control. Two model requests can run concurrently to keep the local service
+responsive. Assessments are started from the job reader.
 No analysis backfill runs during migration. Collection works without AI.
 
 Assessments cite supplied job/profile excerpts, distinguish interpretation from
@@ -122,9 +120,18 @@ OmniRoute memory is disabled; its configured upstream models may receive prompts
 ## Docker
 
 ```sh
-# Set OmniRoute environment variables in your shell or a root .env first.
+# Set these in a root .env first if you want AI assessments.
+# OMNIROUTE_DOCKER_BASE_URL=http://host.docker.internal:20128/v1
+# OMNIROUTE_API_KEY=your-local-endpoint-key
+# OMNIROUTE_MODEL=auto
 docker compose up --build -d
 ```
+
+Compose builds `apps/backend/Dockerfile` and `apps/web/Dockerfile` separately.
+The backend reaches a host-running OmniRoute through `host.docker.internal` by
+default. Use `OMNIROUTE_DOCKER_BASE_URL` when OmniRoute is reachable elsewhere;
+keep the local-development `OMNIROUTE_BASE_URL` value separate because
+`127.0.0.1` inside a container refers to that container.
 
 Separate web/backend services persist SQLite, backups and snapshots under `./data`.
 Set `FIELDWORK_DATA_DIR` for a different local mount and `FIELDWORK_WEB_PORT` for a
@@ -171,9 +178,8 @@ fields use the existing JSON context column, so no SQL migration is required.
 `{ "text": "..." }`. Text-based PDFs are limited to 10 MB and 30 pages; scanned or
 locked files offer a pasted-text/manual fallback. OmniRoute proposes exact document
 excerpts and catalog matches. Review selects replacements before anything reaches
-the saved profile. Uploaded files are not retained. Explicit imports share the
-persisted daily request allowance and two-request concurrency limit; they can run
-while automatic job analysis is paused. Failed dispatched requests count too.
+the saved profile. Uploaded files are not retained. Explicit imports share the two-request concurrency control and can run
+while automatic job analysis is paused.
 
 The browser keeps an unsaved profile draft in tab session storage, keyed by the
 saved revision. Saving clears that draft. Profile writes can include
@@ -190,3 +196,84 @@ remain visible; the app does not silently shorten the profile.
 Location data: [Countries States Cities Database](https://github.com/dr5hn/countries-states-cities-database),
 ODbL 1.0. The derived snapshot, checksum, attribution and license are in
 `apps/backend/src/modules/profile/data`.
+
+## Company research
+
+Open **Research**, enter a company name or URL, and confirm the company. Its name is
+the library entry; reports, source snapshots, and Q&A belong to its stable company ID.
+A known domain or unambiguous saved name reopens existing research. Same-name companies
+on different domains remain separate, and renaming a company preserves its research.
+Existing company cards and job readers also link to Research.
+
+The company bar shows only links selected by an AI review after a fresh Crawlee inspection.
+Use **Verify links** on an older report, or recheck the saved selection later. The custom
+`inspect_company_link` and `publish_company_links` tools reject uninspected, blocked,
+empty and duplicate destinations; the model filters out unrelated and unhelpful pages.
+Reviews are saved independently, and a failed recheck retains the previous selection.
+New report runs also review discovered links.
+
+The collapsible Q&A pane extends alongside the company bar. Questions and answers have
+distinct labels and separate copy controls.
+
+The main pane contains a cited Markdown briefing covering products, open-source and
+license evidence, hiring from India, careers, engineering, and useful links. A company
+Q&A panel uses saved evidence by default. **Search web** explicitly enables our custom
+SearXNG search and Crawlee read tools for one question; it resets off after sending.
+Company research does not use provider-hosted search or automatically include your profile.
+New companies are saved, but career pages do not become monitoring sources until you
+connect them through Companies → Sources → Inspect sources.
+
+Reports are versioned. Refresh gathers fresh sources and retains the previous report
+until a valid replacement finishes. Stop cancels model and crawler work. Reloading
+reconnects to persisted events; backend restarts mark unfinished work interrupted, with
+sources retained for an explicit retry. Failed or partial drafts are labeled and do
+not replace successful reports. Public source text is untrusted evidence; citations
+and supplied URLs are validated before publishing the result.
+
+Start the research dependencies:
+
+```sh
+docker compose up -d --build searxng crawler
+bun run --parallel --filter web --filter backend dev
+```
+
+When using the Docker crawler, start only the web/backend dev scripts as shown above;
+the root dev command also starts a local crawler on the same port.
+
+For a fully local crawler, install Chromium once using
+`bun --cwd apps/crawler x playwright install chromium`, run SearXNG with Docker,
+and use `bun run dev`. The crawler runs on Node.js; the API continues to use Bun.
+The crawler service binds to loopback outside Docker. Docker provides Chromium and its
+OS dependencies in a pinned Playwright image. Crawlee uses Cheerio for static pages and
+Playwright when rendering is needed. A local egress proxy validates and pins public DNS
+addresses for HTTP and browser traffic; standard HTTP(S) ports only. Browser requests
+block downloads, WebSockets, non-read methods, and private-network destinations.
+
+Backend configuration defaults:
+
+```dotenv
+SEARXNG_BASE_URL=http://127.0.0.1:8080
+CRAWLER_BASE_URL=http://127.0.0.1:4100
+RESEARCH_MAX_ROUNDS=30
+RESEARCH_MAX_PAGES=60
+RESEARCH_TIMEOUT_MS=900000
+```
+
+Compose uses service hostnames internally. The SearXNG JSON API is enabled by the
+checked-in settings. Search and crawling errors appear in research progress and sources.
+Research runs have bounded execution and page counts, not a daily AI allowance.
+
+The API provides `/api/research` (company library), `/api/research/resolve` and
+`/api/research/confirm`, plus `/api/companies/:id/research` for detail/refresh,
+`/questions` with `{ question, webSearch: false }`, and `/runs/:runId/events` and
+`/runs/:runId/cancel` for replayable SSE and cancellation.
+
+Verification:
+
+```sh
+bun test apps/backend/src/modules/research/research.test.ts
+bun --cwd apps/crawler run test
+bun run lint
+bun run check-types
+bun run build
+```

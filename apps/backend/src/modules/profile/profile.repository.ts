@@ -1,4 +1,4 @@
-import { enableAnalysis } from "../analysis/allowance";
+import { enableAnalysis } from "../analysis/settings";
 import {
   personalContextSchema,
   type ProfileInput,

@@ -7,8 +7,7 @@ import {
 import { HttpError } from "../../shared/errors/http-error";
 import { partialSummaryText } from "../../shared/model-stream";
 import { requestModelJson } from "../../shared/model-client";
-import { getSettings, reserveRequest } from "../analysis/allowance";
-import { aiUsage } from "../analysis/analysis.tables";
+import { getSettings, canRequestModel } from "../analysis/settings";
 import { jobs } from "./jobs.tables";
 
 const pending = new Set<string>();
@@ -85,16 +84,7 @@ export async function summariseJob(
   const settings = getSettings();
   if (settings.paused)
     throw new HttpError(409, "AI is paused. Resume it in Settings first.");
-  if (settings.used >= settings.dailyLimit)
-    throw new HttpError(
-      429,
-      "Daily AI limit reached. Try after the allowance resets or update it in Settings.",
-    );
-  const usage = reserveRequest(
-    `summary:${id}:${crypto.randomUUID()}`,
-    configured,
-    true,
-  );
+  const usage = canRequestModel(configured, true);
   if (!usage)
     throw new HttpError(
       409,
@@ -142,16 +132,9 @@ export async function summariseJob(
         409,
         "The job changed while summarising. Try again for the updated description.",
       );
-    db.update(aiUsage)
-      .set({ outcome: "completed" })
-      .where(eq(aiUsage.id, usage))
-      .run();
+
     return summary;
   } catch (error) {
-    db.update(aiUsage)
-      .set({ outcome: "failed" })
-      .where(eq(aiUsage.id, usage))
-      .run();
     if (error instanceof HttpError) throw error;
     throw new HttpError(
       502,

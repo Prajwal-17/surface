@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { matchResumeLocation } from "./locations";
 import { getDocumentProxy, extractText } from "unpdf";
-import { eq } from "drizzle-orm";
-import { db } from "../../infrastructure/database/client";
-import { aiUsage } from "../analysis/analysis.tables";
-import { reserveRequest } from "../analysis/allowance";
+import { canRequestModel } from "../analysis/settings";
 import { requestModelJson } from "../../shared/model-client";
 import {
   skillOptions,
@@ -124,15 +121,11 @@ export async function prefillResume(
       400,
       "Provide between 40 and 100,000 characters of résumé text.",
     );
-  const usage = reserveRequest(
-    `resume:${crypto.randomUUID()}`,
-    configured,
-    true,
-  );
+  const usage = canRequestModel(configured, true);
   if (!usage)
     throw new HttpError(
       409,
-      "Résumé prefill is unavailable: check OmniRoute configuration and the daily allowance in Settings, or wait for current AI requests to finish. Manual entry is always available.",
+      "Résumé prefill is unavailable: check OmniRoute configuration in Settings, or wait for current AI requests to finish. Manual entry is always available.",
     );
   try {
     const response = await model(
@@ -143,16 +136,9 @@ export async function prefillResume(
       16000,
     );
     const draft = validateResumeExtraction(response.output, source.data);
-    db.update(aiUsage)
-      .set({ outcome: "completed" })
-      .where(eq(aiUsage.id, usage))
-      .run();
+
     return { draft, sourceText: source.data, model: response.model };
   } catch (error) {
-    db.update(aiUsage)
-      .set({ outcome: "failed" })
-      .where(eq(aiUsage.id, usage))
-      .run();
     throw new HttpError(
       502,
       error instanceof Error

@@ -13,6 +13,8 @@ import { workRoutes } from "./modules/work/work.routes";
 import { collectionRoutes } from "./modules/collection/collection.routes";
 import { workspaceRoutes } from "./modules/workspace/workspace.routes";
 
+import { researchRoutes } from "./modules/research/research.routes";
+
 export const app = new Hono();
 
 app.use("*", requestLogger());
@@ -70,6 +72,7 @@ app.get("/api/schema", (context) => {
   });
 });
 
+app.route("/api", researchRoutes);
 app.route("/api/discovery", discoveryRoutes);
 app.route("/api/jobs", jobsRoutes);
 app.route("/api/profile", profileRoutes);

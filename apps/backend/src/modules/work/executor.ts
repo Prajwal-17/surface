@@ -1,5 +1,5 @@
 import { executeAnalysis } from "../analysis/analysis.service";
-import { getSettings } from "../analysis/allowance";
+import { getSettings } from "../analysis/settings";
 import { and, eq, inArray, lte, sql } from "drizzle-orm";
 import { db, sqlite } from "../../infrastructure/database/client";
 import { configuredSources, companies } from "../workspace/workspace.tables";

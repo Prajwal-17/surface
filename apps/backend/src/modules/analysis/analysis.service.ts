@@ -4,8 +4,8 @@ import { env } from "../../config/env";
 import { jobs } from "../jobs/jobs.tables";
 import { findProfile } from "../profile/profile.repository";
 import { workItems, runs, runItems } from "../work/work.tables";
-import { assessments, aiUsage } from "./analysis.tables";
-import { getSettings, reserveRequest } from "./allowance";
+import { assessments } from "./analysis.tables";
+import { getSettings, canRequestModel } from "./settings";
 import {
   requestAssessment,
   validateAssessment,
@@ -77,16 +77,7 @@ export async function assessJobNow(id: string) {
       409,
       "Assessment is paused. Resume it in Settings first.",
     );
-  if (settings.used >= settings.dailyLimit)
-    throw new HttpError(
-      429,
-      "Daily AI limit reached. Try after the allowance resets or update it in Settings.",
-    );
-  const usageId = reserveRequest(
-    `assessment:${id}:${crypto.randomUUID()}`,
-    settings.configured,
-    true,
-  );
+  const usageId = canRequestModel(settings.configured, true);
   if (!usageId)
     throw new HttpError(
       409,
@@ -141,21 +132,8 @@ export async function assessJobNow(id: string) {
         .set({ analysisRequested: false })
         .where(eq(jobs.id, id))
         .run();
-      tx.update(aiUsage)
-        .set({ outcome: "completed" })
-        .where(eq(aiUsage.id, usageId))
-        .run();
     });
   } catch (error) {
-    db.update(aiUsage)
-      .set({
-        outcome:
-          error instanceof HttpError && error.status === 409
-            ? "stale"
-            : "failed",
-      })
-      .where(eq(aiUsage.id, usageId))
-      .run();
     if (error instanceof HttpError) throw error;
     throw new HttpError(
       502,
@@ -274,15 +252,13 @@ export async function executeAnalysis(
       .returning()
       .get();
     if (!claimed) return null;
-    const usageId = reserveRequest(item.id, configured, true);
+    const usageId = canRequestModel(configured, true);
     if (!usageId) {
-      const settings = getSettings();
       tx.update(workItems)
         .set({
           state: "queued",
           startedAt: null,
-          retryAt:
-            settings.used >= settings.dailyLimit ? settings.nextResetAt : now,
+          retryAt: now,
         })
         .where(eq(workItems.id, item.id))
         .run();
@@ -319,10 +295,7 @@ export async function executeAnalysis(
           })
           .where(eq(workItems.id, item.id))
           .run();
-        tx.update(aiUsage)
-          .set({ outcome: "stale" })
-          .where(eq(aiUsage.id, reservation))
-          .run();
+
         return;
       }
       tx.insert(assessments)
@@ -351,10 +324,6 @@ export async function executeAnalysis(
         })
         .where(eq(workItems.id, item.id))
         .run();
-      tx.update(aiUsage)
-        .set({ outcome: "completed" })
-        .where(eq(aiUsage.id, reservation))
-        .run();
     });
   } catch (error) {
     const row = db
@@ -374,10 +343,6 @@ export async function executeAnalysis(
         completedAt: retry ? null : new Date().toISOString(),
       })
       .where(eq(workItems.id, item.id))
-      .run();
-    db.update(aiUsage)
-      .set({ outcome: "failed" })
-      .where(eq(aiUsage.id, reservation))
       .run();
   }
   syncRuns();

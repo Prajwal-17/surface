@@ -37,15 +37,4 @@ export const analysisSettings = sqliteTable("analysis_settings", {
   id: text("id").primaryKey(),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
   paused: integer("paused", { mode: "boolean" }).notNull().default(false),
-  dailyLimit: integer("daily_limit").notNull().default(20),
-  timezone: text("timezone").notNull().default("Asia/Kolkata"),
-  used: integer("used").notNull().default(0),
-  nextResetAt: text("next_reset_at").notNull(),
-});
-export const aiUsage = sqliteTable("ai_usage", {
-  id: text("id").primaryKey(),
-  workId: text("work_id").notNull(),
-  dispatchedAt: text("dispatched_at").notNull(),
-  resetAt: text("reset_at").notNull(),
-  outcome: text("outcome").notNull().default("dispatched"),
 });

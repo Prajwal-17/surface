@@ -13,6 +13,7 @@ import {
   Settings2,
   PanelLeft,
   Database,
+  Telescope,
 } from "lucide-react";
 import {
   Sidebar,
@@ -27,11 +28,11 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useProfile } from "@/features/profile/profile-query";
 
 const destinations = [
   { href: "/", label: "Jobs", icon: BriefcaseBusiness },
+  { href: "/research", label: "Research", icon: Telescope },
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/profile", label: "My profile", icon: UserRound },
@@ -90,7 +91,9 @@ export function AppHeader() {
     }
   }, [pathname, params]);
   const current = [...destinations, ...referenceDestinations].find(
-    (d) => d.href === pathname,
+    (d) =>
+      d.href === pathname ||
+      (d.href === "/research" && pathname.startsWith("/research/")),
   );
   return (
     <>
@@ -123,7 +126,11 @@ export function AppHeader() {
                 <SidebarMenuItem key={href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === href}
+                    isActive={
+                      pathname === href ||
+                      (href === "/research" &&
+                        pathname.startsWith("/research/"))
+                    }
                     className="h-11 gap-3 rounded-md px-3 text-sm font-medium data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
                   >
                     <Link
@@ -148,7 +155,11 @@ export function AppHeader() {
                 <SidebarMenuItem key={href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === href}
+                    isActive={
+                      pathname === href ||
+                      (href === "/research" &&
+                        pathname.startsWith("/research/"))
+                    }
                     className="h-11 gap-3 rounded-md px-3 text-xs font-medium text-sidebar-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
                   >
                     <Link
@@ -222,18 +233,21 @@ export function AppHeader() {
         >
           <PanelLeft />
         </Button>
-        <span className="hidden text-xs text-muted-foreground sm:inline">
+        <Link
+          href={jobsUrl}
+          className="hidden text-xs text-muted-foreground hover:text-foreground sm:inline"
+        >
           Workspace
-        </span>
+        </Link>
         <ChevronRight className="hidden size-3 text-muted-foreground sm:block" />
-        <span className="text-xs font-semibold">
+        <Link
+          href={pathname === "/settings" ? "/settings" : (current?.href ?? "/")}
+          className="text-xs font-semibold hover:text-brand"
+        >
           {pathname === "/settings"
             ? "Settings"
             : (current?.label ?? "Surface")}
-        </span>
-        <div className="ml-auto">
-          <ThemeToggle />
-        </div>
+        </Link>
       </header>
     </>
   );

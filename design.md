@@ -10,7 +10,7 @@ Surface is a personal job-review workspace. Its design prioritizes scanning role
 
 ## Themes and readability
 
-The header and onboarding provide a Light mode / Dark mode switch. The choice is
+Settings and onboarding provide a Light mode / Dark mode switch. The choice is
 stored on this device and applied before paint; the system preference is used
 until a choice is made. Light mode uses a soft gray canvas, white panels, dark
 slate text and a deeper violet accent. Both themes use the same semantic tokens,

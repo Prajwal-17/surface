@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import {
   Collapsible,
   CollapsibleContent,
@@ -336,6 +337,17 @@ export function CompaniesScreen({
                           <Pencil />
                         </Button>
                       </div>
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="mt-4 self-start"
+                      >
+                        <Link href={`/research/${company.id}`}>
+                          Research company
+                          <ArrowUpRight />
+                        </Link>
+                      </Button>
                       <p className="my-5 flex-1 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
                         {company.watchReason ||
                           "Add a reason for watching this company."}

@@ -43,25 +43,9 @@ export const assessmentSchema = z.object({
   createdAt: z.string(),
 });
 export type Assessment = z.infer<typeof assessmentSchema>;
-export const analysisSettingsInputSchema = z.object({
-  dailyLimit: z.number().int().min(0).max(1000),
-  paused: z.boolean(),
-  timezone: z
-    .string()
-    .max(100)
-    .refine((value) => {
-      try {
-        new Intl.DateTimeFormat("en", { timeZone: value }).format();
-        return true;
-      } catch {
-        return false;
-      }
-    }, "Enter a valid IANA timezone."),
-});
+export const analysisSettingsInputSchema = z.object({ paused: z.boolean() });
 export const analysisSettingsSchema = analysisSettingsInputSchema.extend({
   enabled: z.boolean(),
   configured: z.boolean(),
-  used: z.number(),
-  nextResetAt: z.string(),
   queued: z.number(),
 });

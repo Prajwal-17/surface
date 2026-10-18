@@ -213,7 +213,7 @@ export function ResumeImport({
             )}
             <p className="border-t pt-4 text-xs leading-5 text-muted-foreground">
               Only extracted text is sent to your AI provider, using one request
-              from your daily allowance. Your PDF is not stored.
+              through OmniRoute. Your PDF is not stored.
             </p>
           </>
         )}
