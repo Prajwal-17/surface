@@ -1,5 +1,4 @@
-"use client";
-import Link from "next/link";
+import { Link } from "react-router";
 import {
   Collapsible,
   CollapsibleContent,
@@ -343,7 +342,9 @@ export function CompaniesScreen({
                         size="sm"
                         className="mt-4 self-start"
                       >
-                        <Link href={`/research/${company.id}`}>
+                        <Link
+                          to={`/research/${encodeURIComponent(company.id)}`}
+                        >
                           Research company
                           <ArrowUpRight />
                         </Link>

@@ -14,4 +14,4 @@ const server = Bun.serve({
   fetch: app.fetch,
 });
 
-console.info(`Job Search API listening on http://localhost:${server.port}`);
+console.info(`Surface API listening on http://localhost:${server.port}`);

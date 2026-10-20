@@ -1,4 +1,3 @@
-"use client";
 import { useState } from "react";
 import type { Job } from "backend/contracts";
 import {

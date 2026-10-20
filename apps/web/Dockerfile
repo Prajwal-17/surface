@@ -10,19 +10,13 @@ RUN bun install --frozen-lockfile --ignore-scripts
 FROM dependencies AS build
 COPY apps/backend apps/backend
 COPY apps/web apps/web
-ENV BACKEND_URL=http://backend:4000 \
-    NEXT_TELEMETRY_DISABLED=1
 RUN bun run --cwd apps/web build
 
-FROM dependencies AS runtime
-WORKDIR /app/apps/web
-COPY --from=build /app/apps/web/.next ./.next
-COPY --from=build /app/apps/web/public ./public
-COPY --from=build /app/apps/web/next.config.js ./next.config.js
+FROM nginx:alpine AS runtime
+COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+COPY apps/web/nginx.conf.template /etc/nginx/surface.conf.template
+COPY apps/web/configure-nginx.sh /docker-entrypoint.d/40-configure-nginx.sh
+RUN chmod +x /docker-entrypoint.d/40-configure-nginx.sh
 
-ENV NODE_ENV=production \
-    BACKEND_URL=http://backend:4000 \
-    NEXT_TELEMETRY_DISABLED=1
+ENV BACKEND_URL=http://backend:4000
 EXPOSE 3000
-
-CMD ["bun", "run", "start"]

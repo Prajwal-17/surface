@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "react-router";
 import { AiLoadingState } from "@/components/ai/loading-state";
 import { StreamingText } from "@/components/ai/streaming-text";
 import { streamSummary } from "../summary-stream";
@@ -218,7 +218,7 @@ export function JobDetailSheet({
     <div className="flex shrink-0 items-center gap-0.5">
       <Button asChild variant="ghost" size="sm" className="h-8">
         <Link
-          href={`/research?q=${encodeURIComponent(job.companyWebsite || job.company)}`}
+          to={`/research?q=${encodeURIComponent(job.companyWebsite || job.company)}`}
         >
           Research company
         </Link>
@@ -490,12 +490,12 @@ export function JobDetailSheet({
               <h3 className="font-medium">
                 Duplicate review · {duplicate.state}
               </h3>
-              <a
+              <Link
                 className="text-sm underline"
-                href={`/?job=${duplicate.leftId === job.id ? duplicate.rightId : duplicate.leftId}`}
+                to={`/?job=${encodeURIComponent(duplicate.leftId === job.id ? duplicate.rightId : duplicate.leftId)}`}
               >
                 Inspect other listing
-              </a>
+              </Link>
               <div className="flex flex-wrap gap-2">
                 {duplicate.state === "merged" ? (
                   <Button

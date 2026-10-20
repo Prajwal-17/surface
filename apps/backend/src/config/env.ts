@@ -5,7 +5,7 @@ import { z } from "zod";
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 const defaultDatabasePath = resolve(
   currentDirectory,
-  "../../../../data/job-search.sqlite",
+  "../../../../data/surface.sqlite",
 );
 
 const envSchema = z.object({

@@ -1,4 +1,5 @@
 import { ProfileScreen } from "@/features/profile/components/profile-screen";
-export default function OnboardingPage() {
+
+export function Component() {
   return <ProfileScreen onboarding />;
 }

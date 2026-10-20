@@ -1,7 +1,5 @@
-"use client";
-import Link from "next/link";
+import { Link, useLocation, useNavigate } from "react-router";
 import { profileDetailsSchema } from "backend/contracts";
-import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
 import {
   BriefcaseBusiness,
@@ -36,13 +34,13 @@ const destinations = [
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/profile", label: "My profile", icon: UserRound },
-];
+] as const;
 const referenceDestinations = [
   { href: "/schema", label: "Schema", icon: Database },
-];
+] as const;
 export function AppHeader() {
-  const pathname = usePathname(),
-    params = useSearchParams();
+  const location = useLocation();
+  const pathname = location.pathname;
   const { toggleSidebar, setOpenMobile, state } = useSidebar();
   const profile = useProfile();
   const legacyEmail = useSyncExternalStore(
@@ -63,7 +61,7 @@ export function AppHeader() {
     () => "",
   );
   const email = profile.data?.context.details?.email || legacyEmail;
-  const router = useRouter();
+  const navigate = useNavigate();
   useEffect(() => {
     if (pathname !== "/" || !profile.isSuccess || profile.data) return;
     try {
@@ -71,9 +69,9 @@ export function AppHeader() {
     } catch {
       return;
     }
-    router.replace("/onboarding");
-  }, [pathname, profile.isSuccess, profile.data, router]);
-  const jobsUrl = useSyncExternalStore(
+    void navigate("/onboarding", { replace: true });
+  }, [pathname, profile.isSuccess, profile.data, navigate]);
+  const savedJobsUrl = useSyncExternalStore(
     subscribe,
     () =>
       sessionStorage.getItem("surface-jobs-url") ||
@@ -81,15 +79,20 @@ export function AppHeader() {
       "/",
     () => "/",
   );
+  const jobsUrl =
+    savedJobsUrl.startsWith("/") && !savedJobsUrl.startsWith("//")
+      ? savedJobsUrl
+      : "/";
   useEffect(() => {
     if (pathname === "/") {
+      const params = new URLSearchParams(location.search);
       sessionStorage.setItem(
         "surface-jobs-url",
         params.size ? `/?${params}` : "/",
       );
       window.dispatchEvent(new Event("surface-navigation"));
     }
-  }, [pathname, params]);
+  }, [pathname, location.search]);
   const current = [...destinations, ...referenceDestinations].find(
     (d) =>
       d.href === pathname ||
@@ -106,7 +109,7 @@ export function AppHeader() {
       <Sidebar collapsible="offcanvas" className="border-sidebar-border">
         <SidebarHeader className="px-5 py-5">
           <Link
-            href={jobsUrl}
+            to={jobsUrl}
             onClick={() => setOpenMobile(false)}
             className="flex items-center gap-3 text-lg font-semibold tracking-tight text-foreground"
           >
@@ -126,17 +129,15 @@ export function AppHeader() {
                 <SidebarMenuItem key={href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={
-                      pathname === href ||
-                      (href === "/research" &&
-                        pathname.startsWith("/research/"))
-                    }
+                    isActive={destinationIsActive(pathname, href)}
                     className="h-11 gap-3 rounded-md px-3 text-sm font-medium data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
                   >
                     <Link
-                      href={href === "/" ? jobsUrl : href}
+                      to={href === "/" ? jobsUrl : href}
                       onClick={() => setOpenMobile(false)}
-                      aria-current={pathname === href ? "page" : undefined}
+                      aria-current={
+                        destinationIsActive(pathname, href) ? "page" : undefined
+                      }
                     >
                       <Icon className="!size-4" />
                       <span>{label}</span>
@@ -155,15 +156,11 @@ export function AppHeader() {
                 <SidebarMenuItem key={href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={
-                      pathname === href ||
-                      (href === "/research" &&
-                        pathname.startsWith("/research/"))
-                    }
+                    isActive={pathname === href}
                     className="h-11 gap-3 rounded-md px-3 text-xs font-medium text-sidebar-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
                   >
                     <Link
-                      href={href}
+                      to={href}
                       onClick={() => setOpenMobile(false)}
                       aria-current={pathname === href ? "page" : undefined}
                     >
@@ -185,7 +182,7 @@ export function AppHeader() {
                 className="h-11 gap-3 rounded-md px-3 text-sm"
               >
                 <Link
-                  href="/settings"
+                  to="/settings"
                   onClick={() => setOpenMobile(false)}
                   aria-current={pathname === "/settings" ? "page" : undefined}
                 >
@@ -196,7 +193,7 @@ export function AppHeader() {
             </SidebarMenuItem>
           </SidebarMenu>
           <Link
-            href="/profile"
+            to="/profile"
             onClick={() => setOpenMobile(false)}
             className="flex min-w-0 w-full items-center gap-2 rounded-md border-t border-sidebar-border px-1 pt-3 text-left transition-colors hover:text-sidebar-accent-foreground"
             aria-label="View your profile"
@@ -234,14 +231,14 @@ export function AppHeader() {
           <PanelLeft />
         </Button>
         <Link
-          href={jobsUrl}
+          to={jobsUrl}
           className="hidden text-xs text-muted-foreground hover:text-foreground sm:inline"
         >
           Workspace
         </Link>
         <ChevronRight className="hidden size-3 text-muted-foreground sm:block" />
         <Link
-          href={pathname === "/settings" ? "/settings" : (current?.href ?? "/")}
+          to={pathname === "/settings" ? "/settings" : (current?.href ?? "/")}
           className="text-xs font-semibold hover:text-brand"
         >
           {pathname === "/settings"
@@ -250,6 +247,12 @@ export function AppHeader() {
         </Link>
       </header>
     </>
+  );
+}
+function destinationIsActive(pathname: string, href: string) {
+  return (
+    pathname === href ||
+    (href === "/research" && pathname.startsWith("/research/"))
   );
 }
 function subscribe(callback: () => void) {

@@ -1,4 +1,3 @@
-"use client";
 import { useState } from "react";
 import type { ResearchSource } from "backend/contracts";
 import { ResearchMarkdown } from "./research-markdown";

@@ -1,4 +1,3 @@
-"use client";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { profileSchema } from "backend/contracts";

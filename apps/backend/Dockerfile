@@ -13,7 +13,7 @@ COPY apps/backend apps/backend
 
 WORKDIR /app/apps/backend
 ENV NODE_ENV=production \
-    DB_FILE_NAME=/data/job-search.sqlite \
+    DB_FILE_NAME=/data/surface.sqlite \
     PORT=4000
 EXPOSE 4000
 

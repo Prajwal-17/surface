@@ -1,4 +1,3 @@
-"use client";
 import { useDeferredValue, useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronDown, MapPin, Search, X } from "lucide-react";

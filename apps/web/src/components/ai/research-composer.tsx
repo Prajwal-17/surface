@@ -1,4 +1,3 @@
-"use client";
 import { useLayoutEffect, useRef, useState } from "react";
 import { ArrowUp, Globe2, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";

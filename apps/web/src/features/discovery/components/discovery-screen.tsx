@@ -1,15 +1,13 @@
-"use client";
 import { useEffect, useState } from "react";
 import {
-  jobsListQuerySchema,
   jobSchema,
   type Job,
   type JobStatus,
+  type JobsListQuery,
 } from "backend/contracts";
 import { AdvancedFilters } from "@/features/jobs/components/advanced-filters";
 import { SavedSearches } from "@/features/jobs/components/saved-searches";
-import { useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { Link } from "react-router";
 import { Plus, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingStatus } from "@/components/feedback/loading-state";
@@ -21,8 +19,17 @@ import { JobStatusTabs } from "@/features/jobs/components/job-status-tabs";
 import { useJobs } from "@/features/jobs/hooks/use-jobs";
 import { useUpdateJobStatus } from "@/features/jobs/hooks/use-update-job-status";
 import { apiClient } from "@/lib/api-client";
-export function DiscoveryScreen() {
-  const params = useSearchParams();
+export function DiscoveryScreen({
+  filters,
+  parameters,
+  selectedId,
+  change,
+}: {
+  filters: JobsListQuery;
+  parameters: string;
+  selectedId: string | null;
+  change: (patch: Record<string, string | undefined>) => void;
+}) {
   const [revision, setRevision] = useState<string | null>(null);
   useEffect(() => {
     const events = new EventSource("/api/events");
@@ -30,9 +37,6 @@ export function DiscoveryScreen() {
     events.addEventListener("revision", update);
     return () => events.close();
   }, []);
-  const input = jobsListQuerySchema.safeParse(Object.fromEntries(params));
-  const filters = input.success ? input.data : jobsListQuerySchema.parse({});
-  const selectedId = params.get("job");
   const jobsQuery = useJobs(filters);
   const mutation = useUpdateJobStatus();
   const selected = useQuery({
@@ -45,14 +49,6 @@ export function DiscoveryScreen() {
         ? 2000
         : false,
   });
-  function change(patch: Record<string, string | undefined>) {
-    const next = new URLSearchParams(params);
-    for (const [key, value] of Object.entries(patch)) {
-      if (value) next.set(key, value);
-      else next.delete(key);
-    }
-    window.history.replaceState(null, "", `/?${next}`);
-  }
   function closeReader() {
     change({ job: undefined });
     const target = selectedId
@@ -94,9 +90,14 @@ export function DiscoveryScreen() {
                 </LoadingStatus>
               )}
             </span>
-            <SavedSearches parameters={params.toString()} />
+            <SavedSearches
+              parameters={parameters}
+              onSelectSearch={(filters) =>
+                change({ ...filters, page: "1", job: undefined })
+              }
+            />
             <Button asChild size="sm">
-              <Link href="/companies">
+              <Link to="/companies">
                 <Plus /> <span className="max-sm:sr-only">Add sources</span>
               </Link>
             </Button>

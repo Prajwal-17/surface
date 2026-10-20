@@ -1,4 +1,3 @@
-"use client";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -19,7 +18,13 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Bookmark } from "lucide-react";
-export function SavedSearches({ parameters }: { parameters: string }) {
+export function SavedSearches({
+  parameters,
+  onSelectSearch,
+}: {
+  parameters: string;
+  onSelectSearch: (filters: Record<string, string>) => void;
+}) {
   const client = useQueryClient(),
     [name, setName] = useState(""),
     [selected, setSelected] = useState<string[]>([]);
@@ -80,7 +85,7 @@ export function SavedSearches({ parameters }: { parameters: string }) {
                   const params = new URLSearchParams(search.filters);
                   params.set("search", search.query);
                   params.set("sourceIds", search.sourceIds.join(","));
-                  window.history.replaceState(null, "", `/?${params}`);
+                  onSelectSearch(Object.fromEntries(params.entries()));
                 }}
               >
                 {search.name}

@@ -1,5 +1,4 @@
-"use client";
-import Link from "next/link";
+import { Link } from "react-router";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -185,7 +184,7 @@ export function CompanyResearch({ companyId }: { companyId: string }) {
   if (detail.error || !detail.data)
     return (
       <div className="p-8">
-        <Link href="/research" className="text-brand">
+        <Link to="/research" className="text-brand">
           Back to research
         </Link>
         <p role="alert" className="mt-5 text-destructive">
@@ -272,7 +271,7 @@ export function CompanyResearch({ companyId }: { companyId: string }) {
         >
           <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2">
             <Button asChild variant="ghost" size="icon" className="size-7">
-              <Link href="/research" aria-label="Back to company research">
+              <Link to="/research" aria-label="Back to company research">
                 <ArrowLeft className="size-4" />
               </Link>
             </Button>

@@ -1,7 +1,5 @@
-"use client";
-import Link from "next/link";
+import { Link, useNavigate } from "react-router";
 import { z } from "zod";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -106,7 +104,7 @@ function ProfileEditor({
   initial: Profile | null;
   onboarding: boolean;
 }) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const client = useQueryClient();
   const [revision, setRevision] = useState(initial?.revision ?? 0);
   const [saved, setSaved] = useState(() => editorProfile(initial));
@@ -217,7 +215,7 @@ function ProfileEditor({
       void client.invalidateQueries({ queryKey: ["jobs"], refetchType: "all" });
       void client.invalidateQueries({ queryKey: ["analysis-settings"] });
       toast.success("Profile saved");
-      if (onboarding) router.push("/");
+      if (onboarding) void navigate("/");
     },
     onError: (e) => setError(e.message),
   });
@@ -227,7 +225,7 @@ function ProfileEditor({
     } catch {
       /* Browsing remains available. */
     }
-    router.push("/");
+    void navigate("/");
   }
   const pageTitle = onboarding
     ? [
@@ -256,7 +254,7 @@ function ProfileEditor({
       {onboarding && (
         <header className="onboarding-top">
           <Link
-            href="/"
+            to="/"
             onClick={() => {
               try {
                 localStorage.setItem("surface-onboarding-skipped", "true");
@@ -425,7 +423,7 @@ function ProfileEditor({
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => router.push("/onboarding")}
+                    onClick={() => void navigate("/onboarding")}
                   >
                     Set up your profile
                     <ArrowRight />

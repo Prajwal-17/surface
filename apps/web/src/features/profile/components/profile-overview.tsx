@@ -1,4 +1,3 @@
-"use client";
 import { type ReactNode } from "react";
 import { ProfileMarkdown } from "@/components/ui/profile-markdown";
 import { Pencil } from "lucide-react";

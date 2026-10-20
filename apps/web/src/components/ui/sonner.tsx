@@ -1,4 +1,3 @@
-"use client";
 // shadcn/ui Sonner wrapper, using Surface's theme tokens.
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 import { useTheme } from "./theme-toggle";

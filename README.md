@@ -1,8 +1,9 @@
 # Surface
 
 A local job-review workspace: what is worth reviewing, why it fits, and where to act.
-Jobs, Companies, Activity and Profile share a Next.js/shadcn interface backed by
-Hono, Bun, Drizzle and SQLite. Company research uses bundled SearXNG and Crawlee services; application data stays in SQLite.
+Jobs, Companies, Activity and Profile share a Vite, React, React Router,
+TanStack Query and shadcn interface backed by Hono, Bun, Drizzle and SQLite.
+Company research uses bundled SearXNG and Crawlee services; application data stays in SQLite.
 
 ## Development
 
@@ -17,9 +18,10 @@ bun run db:migrate
 bun run dev
 ```
 
-Open http://localhost:3000. Next proxies `/api` to the backend on port 4000.
+Open http://localhost:3000. Vite proxies `/api` to the backend on port 4000
+during development. The Docker web server also proxies `/api` to the backend.
 Use `BACKEND_URL` for a different backend. SQLite defaults to
-`data/job-search.sqlite`; raw content-addressed snapshots live beside it.
+`data/surface.sqlite`; raw content-addressed snapshots live beside it.
 The backend performs monitoring and analysis while the browser is closed.
 Run one backend executor per data directory.
 

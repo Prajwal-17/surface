@@ -1,9 +1,9 @@
-import { AppShell } from "@/components/layout/app-shell";
-import { AnalysisSettings } from "@/features/profile/components/analysis-settings";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-export default function SettingsPage() {
+import { AnalysisSettings } from "@/features/profile/components/analysis-settings";
+
+export function Component() {
   return (
-    <AppShell>
+    <>
       <h1 className="sr-only">Settings</h1>
       <section className="mb-6 flex items-center justify-between gap-4 rounded-lg border bg-card p-4">
         <div>
@@ -15,6 +15,6 @@ export default function SettingsPage() {
         <ThemeToggle />
       </section>
       <AnalysisSettings />
-    </AppShell>
+    </>
   );
 }

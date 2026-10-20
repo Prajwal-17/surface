@@ -1,5 +1,4 @@
 // Adapted from shadcn/ui (MIT). See components/ui/LICENSE.md.
-"use client";
 
 import * as React from "react";
 import * as SheetPrimitive from "@radix-ui/react-dialog";

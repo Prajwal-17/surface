@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: apps/backend/Dockerfile
     environment:
-      DB_FILE_NAME: /data/job-search.sqlite
+      DB_FILE_NAME: /data/surface.sqlite
       PORT: "4000"
       SEARXNG_BASE_URL: http://searxng:8080
       CRAWLER_BASE_URL: http://crawler:4100

@@ -1,4 +1,3 @@
-"use client";
 
 import { useMemo, useRef, useState } from "react";
 import dagre from "@dagrejs/dagre";

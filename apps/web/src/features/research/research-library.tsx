@@ -1,6 +1,4 @@
-"use client";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Link } from "react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Building2, Search, BookOpen } from "lucide-react";
@@ -17,10 +15,14 @@ import { ResearchComposer } from "@/components/ai/research-composer";
 import { AiLoadingState } from "@/components/ai/loading-state";
 import { LoadingRows } from "@/components/feedback/loading-state";
 import { toast } from "sonner";
-export function ResearchLibrary() {
-  const router = useRouter(),
-    params = useSearchParams(),
-    client = useQueryClient();
+export function ResearchLibrary({
+  initialQuery,
+  navigateToCompany,
+}: {
+  initialQuery: string;
+  navigateToCompany: (companyId: string) => void | Promise<void>;
+}) {
+  const client = useQueryClient();
   const [filter, setFilter] = useState(""),
     [candidates, setCandidates] = useState<ResearchCandidate[]>([]);
   const library = useQuery({
@@ -39,7 +41,7 @@ export function ResearchLibrary() {
         }),
       ),
     onSuccess: (result) => {
-      if (result.companyId) router.push(`/research/${result.companyId}`);
+      if (result.companyId) void navigateToCompany(result.companyId);
       else setCandidates(result.candidates);
     },
     onError: (e) => toast.error(e.message),
@@ -67,7 +69,7 @@ export function ResearchLibrary() {
             method: "POST",
           }).catch((e) => toast.error(e.message));
       }
-      router.push(`/research/${company.id}`);
+      await navigateToCompany(company.id);
     },
     onError: (e) => toast.error(e.message),
   });
@@ -90,7 +92,7 @@ export function ResearchLibrary() {
         <div className="w-full lg:max-w-md">
           <ResearchComposer
             placeholder="Company name or website…"
-            initialValue={params.get("q") ?? ""}
+            initialValue={initialQuery}
             busy={resolve.isPending || confirm.isPending}
             onSend={async (text) => {
               setCandidates([]);
@@ -182,7 +184,7 @@ export function ResearchLibrary() {
           {rows?.map(({ company, report, run }) => (
             <Link
               key={company.id}
-              href={`/research/${company.id}`}
+              to={`/research/${encodeURIComponent(company.id)}`}
               className="group flex min-w-0 flex-col rounded-lg border bg-card p-6 transition-colors hover:border-brand/60 focus-visible:outline-2 focus-visible:outline-ring"
             >
               <div className="flex items-center gap-3">
