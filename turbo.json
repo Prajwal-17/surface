@@ -5,6 +5,7 @@
     ".prettierrc.json",
     "packages/typescript-config/**/*.json"
   ],
+  "ui": "tui",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

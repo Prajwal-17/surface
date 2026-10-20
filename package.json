@@ -4,7 +4,7 @@
   "packageManager": "bun@1.4.1",
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "turbo run dev --ui=tui",
     "lint": "turbo run lint",
     "lint:fix": "oxlint --fix .",
     "format": "prettier --write .",
