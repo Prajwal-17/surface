@@ -3,7 +3,7 @@ import {
   personalContextSchema,
   type ProfileInput,
   type Profile,
-} from "../../shared/contracts";
+} from "@surface/contracts";
 import { eq } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import { jobPreferences, profileRevisions } from "./profile.tables";

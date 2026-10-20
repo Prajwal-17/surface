@@ -1,4 +1,4 @@
-import { sourceLabels, type Job, type JobStatus } from "backend/contracts";
+import { sourceLabels, type Job, type JobStatus } from "@surface/contracts";
 import { Bookmark, ArchiveX, ArrowUpRight } from "lucide-react";
 import { formatDate, formatCompensation } from "@/lib/utils";
 import { CompanyMark } from "@/components/ui/company-mark";

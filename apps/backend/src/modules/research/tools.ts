@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { HttpError } from "../../shared/errors/http-error";
 import { env } from "../../config/env";
-import { publicUrlSchema } from "../../shared/contracts";
+import { publicUrlSchema } from "@surface/contracts";
 import type { ToolDefinition } from "./model";
 export const searchInput = z
   .object({
@@ -125,6 +125,7 @@ export async function crawlPage(
     if (error instanceof TypeError)
       throw new Error(
         "Cannot reach Crawlee. Start the crawler service and check CRAWLER_BASE_URL.",
+        { cause: error },
       );
     throw error;
   } finally {

@@ -32,7 +32,7 @@ export const observations = sqliteTable(
     observedAt: text("observed_at").notNull(),
     method: text("method").notNull(),
     evidence: text("evidence", { mode: "json" })
-      .$type<import("../../shared/contracts").FieldEvidence[]>()
+      .$type<import("@surface/contracts").FieldEvidence[]>()
       .notNull(),
     incomplete: integer("incomplete", { mode: "boolean" })
       .notNull()

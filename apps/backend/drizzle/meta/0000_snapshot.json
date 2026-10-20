@@ -77,9 +77,7 @@
       "indexes": {
         "discovery_runs_started_at_idx": {
           "name": "discovery_runs_started_at_idx",
-          "columns": [
-            "started_at"
-          ],
+          "columns": ["started_at"],
           "isUnique": false
         }
       },
@@ -161,16 +159,12 @@
       "indexes": {
         "discovery_source_runs_run_id_idx": {
           "name": "discovery_source_runs_run_id_idx",
-          "columns": [
-            "run_id"
-          ],
+          "columns": ["run_id"],
           "isUnique": false
         },
         "discovery_source_runs_source_idx": {
           "name": "discovery_source_runs_source_idx",
-          "columns": [
-            "source"
-          ],
+          "columns": ["source"],
           "isUnique": false
         }
       },
@@ -179,12 +173,8 @@
           "name": "discovery_source_runs_run_id_discovery_runs_id_fk",
           "tableFrom": "discovery_source_runs",
           "tableTo": "discovery_runs",
-          "columnsFrom": [
-            "run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["run_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -279,23 +269,17 @@
       "indexes": {
         "job_sources_record_key_unique": {
           "name": "job_sources_record_key_unique",
-          "columns": [
-            "source_record_key"
-          ],
+          "columns": ["source_record_key"],
           "isUnique": true
         },
         "job_sources_job_id_idx": {
           "name": "job_sources_job_id_idx",
-          "columns": [
-            "job_id"
-          ],
+          "columns": ["job_id"],
           "isUnique": false
         },
         "job_sources_source_idx": {
           "name": "job_sources_source_idx",
-          "columns": [
-            "source"
-          ],
+          "columns": ["source"],
           "isUnique": false
         }
       },
@@ -304,12 +288,8 @@
           "name": "job_sources_job_id_jobs_id_fk",
           "tableFrom": "job_sources",
           "tableTo": "jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -564,30 +544,22 @@
       "indexes": {
         "jobs_dedupe_key_unique": {
           "name": "jobs_dedupe_key_unique",
-          "columns": [
-            "dedupe_key"
-          ],
+          "columns": ["dedupe_key"],
           "isUnique": true
         },
         "jobs_canonical_url_idx": {
           "name": "jobs_canonical_url_idx",
-          "columns": [
-            "canonical_url"
-          ],
+          "columns": ["canonical_url"],
           "isUnique": false
         },
         "jobs_status_idx": {
           "name": "jobs_status_idx",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         },
         "jobs_posted_at_idx": {
           "name": "jobs_posted_at_idx",
-          "columns": [
-            "posted_at"
-          ],
+          "columns": ["posted_at"],
           "isUnique": false
         }
       },
@@ -896,9 +868,7 @@
       "indexes": {
         "configured_sources_url_unique": {
           "name": "configured_sources_url_unique",
-          "columns": [
-            "url"
-          ],
+          "columns": ["url"],
           "isUnique": true
         }
       },
@@ -907,12 +877,8 @@
           "name": "configured_sources_company_id_companies_id_fk",
           "tableFrom": "configured_sources",
           "tableTo": "companies",
-          "columnsFrom": [
-            "company_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["company_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -981,12 +947,8 @@
           "name": "duplicate_decisions_left_id_jobs_id_fk",
           "tableFrom": "duplicate_decisions",
           "tableTo": "jobs",
-          "columnsFrom": [
-            "left_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["left_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -994,12 +956,8 @@
           "name": "duplicate_decisions_right_id_jobs_id_fk",
           "tableFrom": "duplicate_decisions",
           "tableTo": "jobs",
-          "columnsFrom": [
-            "right_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["right_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1057,9 +1015,7 @@
       "indexes": {
         "versions_job_idx": {
           "name": "versions_job_idx",
-          "columns": [
-            "job_id"
-          ],
+          "columns": ["job_id"],
           "isUnique": false
         }
       },
@@ -1068,12 +1024,8 @@
           "name": "job_versions_job_id_jobs_id_fk",
           "tableFrom": "job_versions",
           "tableTo": "jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1081,12 +1033,8 @@
           "name": "job_versions_observation_id_observations_id_fk",
           "tableFrom": "job_versions",
           "tableTo": "observations",
-          "columnsFrom": [
-            "observation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["observation_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1166,9 +1114,7 @@
       "indexes": {
         "observations_job_idx": {
           "name": "observations_job_idx",
-          "columns": [
-            "job_id"
-          ],
+          "columns": ["job_id"],
           "isUnique": false
         }
       },
@@ -1177,12 +1123,8 @@
           "name": "observations_job_id_jobs_id_fk",
           "tableFrom": "observations",
           "tableTo": "jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1190,12 +1132,8 @@
           "name": "observations_source_reference_id_job_sources_id_fk",
           "tableFrom": "observations",
           "tableTo": "job_sources",
-          "columnsFrom": [
-            "source_reference_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_reference_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1203,12 +1141,8 @@
           "name": "observations_resource_id_resources_id_fk",
           "tableFrom": "observations",
           "tableTo": "resources",
-          "columnsFrom": [
-            "resource_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["resource_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1216,12 +1150,8 @@
           "name": "observations_snapshot_id_snapshots_id_fk",
           "tableFrom": "observations",
           "tableTo": "snapshots",
-          "columnsFrom": [
-            "snapshot_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["snapshot_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1258,9 +1188,7 @@
       "indexes": {
         "resources_url_unique": {
           "name": "resources_url_unique",
-          "columns": [
-            "url"
-          ],
+          "columns": ["url"],
           "isUnique": true
         }
       },
@@ -1335,12 +1263,8 @@
           "name": "snapshots_resource_id_resources_id_fk",
           "tableFrom": "snapshots",
           "tableTo": "resources",
-          "columnsFrom": [
-            "resource_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["resource_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1404,12 +1328,8 @@
           "name": "run_items_run_id_runs_id_fk",
           "tableFrom": "run_items",
           "tableTo": "runs",
-          "columnsFrom": [
-            "run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["run_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1417,22 +1337,15 @@
           "name": "run_items_work_id_work_items_id_fk",
           "tableFrom": "run_items",
           "tableTo": "work_items",
-          "columnsFrom": [
-            "work_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["work_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "run_items_run_id_work_id_pk": {
-          "columns": [
-            "run_id",
-            "work_id"
-          ],
+          "columns": ["run_id", "work_id"],
           "name": "run_items_run_id_work_id_pk"
         }
       },
@@ -1674,17 +1587,12 @@
       "indexes": {
         "work_queue_idx": {
           "name": "work_queue_idx",
-          "columns": [
-            "state",
-            "retry_at"
-          ],
+          "columns": ["state", "retry_at"],
           "isUnique": false
         },
         "work_active_identity": {
           "name": "work_active_identity",
-          "columns": [
-            "identity"
-          ],
+          "columns": ["identity"],
           "isUnique": true,
           "where": "\"work_items\".\"state\" IN ('queued','running')"
         }
@@ -1881,12 +1789,8 @@
           "name": "assessments_job_id_jobs_id_fk",
           "tableFrom": "assessments",
           "tableTo": "jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1894,12 +1798,8 @@
           "name": "assessments_job_version_id_job_versions_id_fk",
           "tableFrom": "assessments",
           "tableTo": "job_versions",
-          "columnsFrom": [
-            "job_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

@@ -3,10 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import { jobs } from "./jobs.tables";
 import { assessJobNow } from "../analysis/analysis.service";
-import {
-  jobsListQuerySchema,
-  updateJobStatusSchema,
-} from "../../shared/contracts";
+import { jobsListQuerySchema, updateJobStatusSchema } from "@surface/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { stream } from "hono/streaming";

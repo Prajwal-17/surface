@@ -5,7 +5,7 @@ import {
 } from "@/components/ui/collapsible";
 // Adapted from Beautiful UI TaskRows.tsx, Copyright (c) 2026 Shane Levine.
 // MIT license: ./LICENSE.md. Actual persisted states replace the demo sequence.
-import type { WorkItem } from "backend/contracts";
+import type { WorkItem } from "@surface/contracts";
 import { Check, Circle, LoaderCircle, TriangleAlert } from "lucide-react";
 export function TaskRows({
   items,

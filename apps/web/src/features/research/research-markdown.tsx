@@ -1,5 +1,5 @@
 import Markdown from "react-markdown";
-import type { ResearchSource } from "backend/contracts";
+import type { ResearchSource } from "@surface/contracts";
 export function ResearchMarkdown({
   text,
   sources,

@@ -1,4 +1,4 @@
-import type { JobsListQuery, JobStatus } from "../../shared/contracts";
+import type { JobsListQuery, JobStatus } from "@surface/contracts";
 import { HttpError } from "../../shared/errors/http-error";
 import { findJobById, listJobs, setJobStatus } from "./jobs.repository";
 

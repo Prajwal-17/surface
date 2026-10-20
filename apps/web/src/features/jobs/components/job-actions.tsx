@@ -1,4 +1,4 @@
-import type { Job, JobStatus } from "backend/contracts";
+import type { Job, JobStatus } from "@surface/contracts";
 import { Button } from "@/components/ui/button";
 import { ArchiveX, Bookmark, Inbox } from "lucide-react";
 

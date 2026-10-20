@@ -17,7 +17,8 @@ eventsRoutes.get("/events", (c) =>
     stream.onAbort(() => {
       aborted = true;
     });
-    while (!aborted) {
+    for (;;) {
+      if (aborted) break;
       const revision = workspaceRevision();
       if (revision !== previous) {
         await stream.writeSSE({ event: "revision", data: revision });

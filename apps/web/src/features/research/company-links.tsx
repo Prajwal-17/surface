@@ -8,7 +8,7 @@ import {
   ChevronDown,
   ListChecks,
 } from "lucide-react";
-import type { VerifiedCompanyLink } from "backend/contracts";
+import type { VerifiedCompanyLink } from "@surface/contracts";
 import { Button } from "@/components/ui/button";
 import {
   Popover,

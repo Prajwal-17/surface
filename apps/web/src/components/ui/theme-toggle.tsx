@@ -1,4 +1,3 @@
-
 import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "./button";

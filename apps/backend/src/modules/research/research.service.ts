@@ -20,7 +20,7 @@ import { HttpError } from "../../shared/errors/http-error";
 import {
   researchCandidateSchema,
   type ResearchSource,
-} from "../../shared/research-contracts";
+} from "@surface/contracts";
 import { researchModel, type ModelMessage } from "./model";
 import {
   crawlInput,
@@ -39,7 +39,7 @@ import {
 import { verifyCompanyLinks } from "./verified-links";
 const controllers = new Map<string, AbortController>();
 const now = () => new Date().toISOString();
-const id = () => crypto.randomUUID();
+const newId = () => crypto.randomUUID();
 export function company(id: string) {
   const row = db.select().from(companies).where(eq(companies.id, id)).get();
   if (!row) throw new HttpError(404, "Company not found.");
@@ -84,21 +84,21 @@ export function library() {
     .select()
     .from(companies)
     .all()
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((company) => ({
-      company,
+    .toSorted((a, b) => a.name.localeCompare(b.name))
+    .map((companyRecord) => ({
+      company: companyRecord,
       report:
         db
           .select()
           .from(researchReports)
-          .where(eq(researchReports.companyId, company.id))
+          .where(eq(researchReports.companyId, companyRecord.id))
           .orderBy(desc(researchReports.createdAt))
           .get() ?? null,
       run:
         db
           .select()
           .from(researchRuns)
-          .where(eq(researchRuns.companyId, company.id))
+          .where(eq(researchRuns.companyId, companyRecord.id))
           .orderBy(desc(researchRuns.createdAt))
           .get() ?? null,
     }));
@@ -189,7 +189,7 @@ export function confirmCompany(input: z.infer<typeof researchCandidateSchema>) {
     );
   if (existing[0]) return existing[0];
   const row = {
-    id: id(),
+    id: newId(),
     name: input.name,
     website: input.website,
     notes: "",
@@ -261,7 +261,7 @@ export function startResearch(
   )
     throw new HttpError(409, "Research is already running for this company.");
   const run = {
-    id: id(),
+    id: newId(),
     companyId,
     kind: linksOnly
       ? ("links" as const)
@@ -280,7 +280,7 @@ export function startResearch(
     if (question)
       tx.insert(researchMessages)
         .values({
-          id: id(),
+          id: newId(),
           companyId,
           runId: run.id,
           question: question.question,
@@ -357,7 +357,12 @@ async function executeResearch(
   function saveSource(
     value: Omit<ResearchSource, "id" | "companyId" | "runId">,
   ) {
-    const source = { ...value, id: id(), companyId: owner.id, runId: run.id };
+    const source = {
+      ...value,
+      id: newId(),
+      companyId: owner.id,
+      runId: run.id,
+    };
     db.insert(researchSources).values(source).run();
     evidence.set(source.id, source);
     return source;
@@ -592,7 +597,7 @@ async function executeResearch(
         else
           tx.insert(researchReports)
             .values({
-              id: id(),
+              id: newId(),
               companyId: owner.id,
               runId: run.id,
               ...result,

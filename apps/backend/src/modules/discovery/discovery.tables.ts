@@ -1,4 +1,4 @@
-import type { SourceKey } from "../../shared/contracts";
+import type { SourceKey } from "@surface/contracts";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const discoveryRuns = sqliteTable(

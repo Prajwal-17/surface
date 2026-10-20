@@ -3,7 +3,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { jobSchema, type Job } from "backend/contracts";
+import { jobSchema, type Job } from "@surface/contracts";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/lib/api-client";
 import { AiLoadingState } from "@/components/ai/loading-state";

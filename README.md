@@ -3,14 +3,17 @@
 A local job-review workspace: what is worth reviewing, why it fits, and where to act.
 Jobs, Companies, Activity and Profile share a Vite, React, React Router,
 TanStack Query and shadcn interface backed by Hono, Bun, Drizzle and SQLite.
-Company research uses bundled SearXNG and Crawlee services; application data stays in SQLite.
+Turborepo coordinates builds and checks across the Bun workspaces. API contracts
+and TypeScript presets are shared from `packages/`; company research uses bundled
+SearXNG and Crawlee services, and application data stays in SQLite.
 
 ## Development
 
-Use Bun 1.4.1 or newer and Node 24 or newer. Root scripts use
-[Bun workspace filters](https://bun.sh/docs/pm/filter); development uses
-`--parallel` so both servers start despite the web-to-backend contract dependency.
-ESLint and TypeScript configuration live directly in `apps/web`.
+Use Bun 1.4.1 or newer and Node 24 or newer. Root scripts use Turborepo for
+workspace task scheduling and caching. Oxlint and Prettier provide repository-wide
+linting and formatting. Shared TypeScript presets live in
+`packages/typescript-config`; browser-safe API contracts live in
+`packages/contracts`.
 
 ```sh
 bun install
@@ -158,7 +161,7 @@ Browser review remains manual: desktop/mobile, keyboard, long titles, reader foc
 empty/error states, source links and stability during background updates.
 
 Frontend features own their UI; browser-safe Zod contracts are exported through
-`backend/contracts`. General controls live in `components/ui`; selected Beautiful
+`@surface/contracts`. General controls live in `components/ui`; selected Beautiful
 UI structures live in `components/ai` with attribution and the MIT license.
 See [design.md](design.md) for tokens and interaction rules.
 

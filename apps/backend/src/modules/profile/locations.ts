@@ -6,7 +6,7 @@ import type {
   ProfileInput,
   ProfileLocation,
   LocationOption,
-} from "../../shared/contracts";
+} from "@surface/contracts";
 import { HttpError } from "../../shared/errors/http-error";
 const data = JSON.parse(
   gunzipSync(
@@ -18,7 +18,7 @@ const data = JSON.parse(
   countries: { code: string; name: string }[];
   cities: [number, string, string, string][];
 };
-export const countries = data.countries.sort((a, b) =>
+export const countries = data.countries.toSorted((a, b) =>
   a.name.localeCompare(b.name),
 );
 const names = new Map(countries.map((c) => [c.code, c.name]));

@@ -4,7 +4,7 @@ import {
   type Job,
   type JobStatus,
   type JobsListQuery,
-} from "backend/contracts";
+} from "@surface/contracts";
 import { AdvancedFilters } from "@/features/jobs/components/advanced-filters";
 import { SavedSearches } from "@/features/jobs/components/saved-searches";
 import { Link } from "react-router";
@@ -92,8 +92,8 @@ export function DiscoveryScreen({
             </span>
             <SavedSearches
               parameters={parameters}
-              onSelectSearch={(filters) =>
-                change({ ...filters, page: "1", job: undefined })
+              onSelectSearch={(savedFilters) =>
+                change({ ...savedFilters, page: "1", job: undefined })
               }
             />
             <Button asChild size="sm">

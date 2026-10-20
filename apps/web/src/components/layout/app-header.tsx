@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router";
-import { profileDetailsSchema } from "backend/contracts";
+import { profileDetailsSchema } from "@surface/contracts";
 import { useEffect, useSyncExternalStore } from "react";
 import {
   BriefcaseBusiness,

@@ -1,4 +1,4 @@
-import { jobsListResponseSchema, type JobsListQuery } from "backend/contracts";
+import { jobsListResponseSchema, type JobsListQuery } from "@surface/contracts";
 import { apiClient } from "@/lib/api-client";
 
 export async function getJobs(input: JobsListQuery) {

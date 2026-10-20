@@ -31,7 +31,7 @@ backend URL. Shared imports use the `@/` alias for `src/`.
 - `src/components/ui/` contains locally installed and customized shadcn/ui source.
 - `components.json` maps the shadcn UI alias to `@/components/ui`.
 - `src/lib/utils.ts` provides `cn` and date formatting.
-- `backend/contracts` supplies browser-safe Zod schemas and types.
+- `@surface/contracts` supplies browser-safe Zod schemas and types shared with the API.
 - [Design guide](../../design.md) documents the approved styling and component workflow.
 
 Add a needed component from this directory with `bunx shadcn@latest add <component>`.

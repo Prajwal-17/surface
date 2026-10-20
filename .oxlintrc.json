@@ -1,0 +1,76 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "eslint",
+    "typescript",
+    "react",
+    "import",
+    "unicorn",
+    "jsx-a11y",
+    "oxc"
+  ],
+  "env": {
+    "builtin": true,
+    "node": true
+  },
+  "globals": {
+    "Bun": "readonly"
+  },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "pedantic": "off",
+    "perf": "off",
+    "style": "off",
+    "restriction": "off",
+    "nursery": "off"
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.next/**",
+    "**/.turbo/**",
+    "**/coverage/**"
+  ],
+  "rules": {
+    "typescript/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "ignoreRestSiblings": true
+      }
+    ],
+    "react/react-in-jsx-scope": "off",
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "react/no-unstable-nested-components": ["warn", { "allowAsProps": true }],
+    "jsx_a11y/prefer-tag-over-role": "off",
+    "unicorn/consistent-function-scoping": "off"
+  },
+  "overrides": [
+    {
+      "files": ["apps/web/src/**/*.{ts,tsx}"],
+      "env": {
+        "browser": true
+      }
+    },
+    {
+      "files": ["apps/web/vite.config.ts"],
+      "env": {
+        "node": true
+      }
+    }
+  ],
+  "settings": {
+    "jsx-a11y": {
+      "components": {
+        "Input": "input",
+        "Textarea": "textarea",
+        "Checkbox": "input",
+        "SelectTrigger": "select"
+      }
+    }
+  }
+}

@@ -7,7 +7,7 @@ import { db } from "../../infrastructure/database/client";
 import {
   researchCandidateSchema,
   researchQuestionInputSchema,
-} from "../../shared/research-contracts";
+} from "@surface/contracts";
 import {
   cancelResearch,
   company,
@@ -70,7 +70,8 @@ researchRoutes.get("/companies/:id/research/runs/:runId/events", (c) => {
     stream.onAbort(() => {
       aborted = true;
     });
-    while (!aborted) {
+    for (;;) {
+      if (aborted) break;
       const events = db
         .select()
         .from(researchEvents)

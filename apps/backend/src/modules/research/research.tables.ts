@@ -7,10 +7,7 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import { companies } from "../workspace/workspace.tables";
-import type {
-  VerifiedCompanyLink,
-  ResearchSource,
-} from "../../shared/research-contracts";
+import type { VerifiedCompanyLink, ResearchSource } from "@surface/contracts";
 const companyId = () =>
   text("company_id")
     .notNull()

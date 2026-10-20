@@ -1,2 +1,5 @@
-apps/web/dist/
-apps/web/.next/
+**/dist/
+**/build/
+**/.next/
+**/.turbo/
+**/coverage/

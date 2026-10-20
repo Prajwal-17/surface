@@ -1,4 +1,4 @@
-import type { Job, JobsListResponse, JobStatus } from "backend/contracts";
+import type { Job, JobsListResponse, JobStatus } from "@surface/contracts";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/feedback/empty-state";

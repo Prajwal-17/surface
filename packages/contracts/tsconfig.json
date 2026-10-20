@@ -1,0 +1,4 @@
+{
+  "extends": "@surface/typescript-config/bundler.json",
+  "include": ["src"]
+}

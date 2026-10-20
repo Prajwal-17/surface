@@ -1,6 +1,6 @@
 import { db } from "../../infrastructure/database/client";
 import { profileRevisions } from "./profile.tables";
-import { profileInputSchema } from "../../shared/contracts";
+import { profileInputSchema } from "@surface/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
@@ -57,7 +57,7 @@ profileRoutes.get("/catalogs", (c) =>
         ...Intl.supportedValuesOf("timeZone"),
         "Asia/Kolkata",
       ]),
-    ].sort(),
+    ].toSorted(),
   }),
 );
 profileRoutes.get("/locations", (c) => {

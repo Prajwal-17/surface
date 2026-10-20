@@ -5,7 +5,7 @@ import {
 } from "@/components/ui/collapsible";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { configuredSourceSchema, savedSearchSchema } from "backend/contracts";
+import { configuredSourceSchema, savedSearchSchema } from "@surface/contracts";
 import { useState } from "react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";

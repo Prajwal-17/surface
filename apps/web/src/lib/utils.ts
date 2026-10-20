@@ -19,7 +19,7 @@ export function formatDate(value: string | null): string {
 }
 
 export function formatCompensation(
-  value: import("backend/contracts").Compensation | null,
+  value: import("@surface/contracts").Compensation | null,
 ): string {
   if (!value) return "Unknown";
   if (value.min === null && value.max === null) return value.original;

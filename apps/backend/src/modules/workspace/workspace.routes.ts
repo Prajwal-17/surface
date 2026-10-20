@@ -6,7 +6,7 @@ import {
   companyInputSchema,
   inspectUrlsSchema,
   sourceInputSchema,
-} from "../../shared/contracts";
+} from "@surface/contracts";
 import { HttpError } from "../../shared/errors/http-error";
 import { companies, configuredSources } from "./workspace.tables";
 import { minimumFetchHours } from "../work/work.service";

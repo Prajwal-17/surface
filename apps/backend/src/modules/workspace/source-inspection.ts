@@ -1,5 +1,5 @@
 import { canonicalizeUrl } from "../../shared/normalization/job-normalization";
-import { publicUrlSchema, type SourceInspection } from "../../shared/contracts";
+import { publicUrlSchema, type SourceInspection } from "@surface/contracts";
 export function inspectSource(input: string): SourceInspection {
   const url = new URL(canonicalizeUrl(publicUrlSchema.parse(input)));
   url.hash = "";

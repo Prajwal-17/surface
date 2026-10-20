@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Job } from "backend/contracts";
+import type { Job } from "@surface/contracts";
 import {
   ArrowLeftRight,
   Building2,

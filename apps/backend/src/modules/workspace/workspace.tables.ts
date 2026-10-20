@@ -21,11 +21,11 @@ export const configuredSources = sqliteTable("configured_sources", {
   url: text("url").notNull().unique(),
   endpoint: text("endpoint").notNull(),
   provider: text("provider")
-    .$type<import("../../shared/contracts").SourceInspection["provider"]>()
+    .$type<import("@surface/contracts").SourceInspection["provider"]>()
     .notNull(),
   boardIdentity: text("board_identity"),
   support: text("support")
-    .$type<import("../../shared/contracts").SourceInspection["support"]>()
+    .$type<import("@surface/contracts").SourceInspection["support"]>()
     .notNull(),
   reason: text("reason").notNull(),
   paused: integer("paused", { mode: "boolean" }).notNull().default(false),

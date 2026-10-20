@@ -1,4 +1,4 @@
-import type { JobFit } from "backend/contracts";
+import type { JobFit } from "@surface/contracts";
 import { Badge } from "@/components/ui/badge";
 export function JobFitBadge({
   fit,

@@ -10,7 +10,7 @@ import {
   sponsorshipOptions,
   type ProfileInput,
   type ProfileDetails,
-} from "backend/contracts";
+} from "@surface/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -126,8 +126,10 @@ export function ProfileSections({
     constraints = c.constraints;
   const catalogs = useLocationCatalogs();
   const countries =
-    catalogs.data?.countries.map((c) => ({ value: c.code, label: c.name })) ??
-    [];
+    catalogs.data?.countries.map((country) => ({
+      value: country.code,
+      label: country.name,
+    })) ?? [];
   const details = (patch: Partial<ProfileDetails>) =>
     onChange({ ...form, context: { ...c, details: { ...d, ...patch } } });
   const context = (patch: Partial<ProfileInput["context"]>) =>
@@ -166,7 +168,9 @@ export function ProfileSections({
             hint="Leave empty if you are open to any type."
             options={employmentTypes}
             value={d.employmentTypes}
-            onChange={(employmentTypes) => details({ employmentTypes })}
+            onChange={(selectedTypes) =>
+              details({ employmentTypes: selectedTypes })
+            }
           />
         </Group>
         <Group
@@ -519,7 +523,9 @@ export function ProfileSections({
           hint="Select only confirmed eligibility. Leave unknown countries unselected."
           options={countries}
           value={constraints.countries}
-          onChange={(countries) => required({ countries })}
+          onChange={(selectedCountries) =>
+            required({ countries: selectedCountries })
+          }
         />
         <Choice
           label="Do you need sponsorship?"
@@ -575,7 +581,9 @@ export function ProfileSections({
           hint="Leave empty for no requirement."
           options={employmentTypes}
           value={constraints.employmentTypes}
-          onChange={(employmentTypes) => required({ employmentTypes })}
+          onChange={(selectedTypes) =>
+            required({ employmentTypes: selectedTypes })
+          }
         />
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="Minimum compensation">

@@ -40,7 +40,7 @@ export function runMigrations(): void {
     const test = new Database(verification);
     try {
       const tables = ["jobs", "job_sources", "job_preferences"];
-      const columns = tables
+      const tableColumns = tables
         .map((table) => ({
           table,
           columns: (
@@ -54,7 +54,7 @@ export function runMigrations(): void {
         .filter((entry) => entry.columns.length);
       const preserved = (database: Database) =>
         JSON.stringify(
-          columns.map(({ table, columns }) =>
+          tableColumns.map(({ table, columns }) =>
             database
               .query(
                 `SELECT ${columns.map((name) => `"${name}"`).join(",")} FROM ${table} ORDER BY id`,

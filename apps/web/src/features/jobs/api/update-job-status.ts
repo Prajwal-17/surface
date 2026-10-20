@@ -2,7 +2,7 @@ import {
   jobSchema,
   type JobStatus,
   type UpdateJobStatusInput,
-} from "backend/contracts";
+} from "@surface/contracts";
 import { apiClient } from "@/lib/api-client";
 
 export async function updateJobStatus({

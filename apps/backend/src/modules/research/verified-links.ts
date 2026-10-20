@@ -4,7 +4,7 @@ import { crawlPage } from "./tools";
 import {
   verifiedCompanyLinkSchema,
   type ResearchSource,
-} from "../../shared/research-contracts";
+} from "@surface/contracts";
 
 const inspectInput = z.object({ url: z.string().url() }).strict();
 const selectionInput = z

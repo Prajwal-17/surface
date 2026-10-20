@@ -1,7 +1,7 @@
 import {
   descriptionSummarySchema,
   type DescriptionSummary,
-} from "backend/contracts";
+} from "@surface/contracts";
 
 export async function streamSummary(
   id: string,

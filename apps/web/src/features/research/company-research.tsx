@@ -20,7 +20,7 @@ import {
   researchEventSchema,
   type ResearchEvent,
   type ResearchSource,
-} from "backend/contracts";
+} from "@surface/contracts";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { CopyMessage } from "./copy-message";

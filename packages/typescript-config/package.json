@@ -1,0 +1,15 @@
+{
+  "name": "@surface/typescript-config",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "*.json"
+  ],
+  "exports": {
+    "./base.json": "./base.json",
+    "./bun.json": "./bun.json",
+    "./bundler.json": "./bundler.json",
+    "./node.json": "./node.json",
+    "./react.json": "./react.json"
+  }
+}

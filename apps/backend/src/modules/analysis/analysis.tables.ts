@@ -19,7 +19,7 @@ export const assessments = sqliteTable(
     profileRevision: integer("profile_revision").notNull(),
     formatVersion: integer("format_version").notNull(),
     output: text("output", { mode: "json" })
-      .$type<import("../../shared/contracts").AssessmentOutput>()
+      .$type<import("@surface/contracts").AssessmentOutput>()
       .notNull(),
     model: text("model").notNull(),
     createdAt: text("created_at").notNull(),

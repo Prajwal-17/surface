@@ -1,4 +1,4 @@
-import type { ConfiguredSource } from "../../shared/contracts";
+import type { ConfiguredSource } from "@surface/contracts";
 import { eq } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import { companies } from "../workspace/workspace.tables";

@@ -1,4 +1,4 @@
-import type { ProfileInput } from "../../shared/contracts";
+import type { ProfileInput } from "@surface/contracts";
 
 function words(text: string): string[] {
   return (

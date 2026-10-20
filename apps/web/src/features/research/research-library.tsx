@@ -7,7 +7,7 @@ import {
   researchResolveSchema,
   companySchema,
   type ResearchCandidate,
-} from "backend/contracts";
+} from "@surface/contracts";
 import { apiClient } from "@/lib/api-client";
 import { Input } from "@/components/ui/input";
 import { CompanyMark } from "@/components/ui/company-mark";

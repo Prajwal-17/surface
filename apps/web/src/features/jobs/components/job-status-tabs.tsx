@@ -1,4 +1,4 @@
-import { type JobStatus } from "backend/contracts";
+import { type JobStatus } from "@surface/contracts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Inbox, Bookmark, ArchiveX } from "lucide-react";
 export function JobStatusTabs({

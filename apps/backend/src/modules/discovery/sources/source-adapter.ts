@@ -1,4 +1,4 @@
-import type { SourceKey } from "../../../shared/contracts";
+import type { SourceKey } from "@surface/contracts";
 import type { JobCandidate } from "../../../shared/normalization/job-normalization";
 
 interface SourceSearchResult {

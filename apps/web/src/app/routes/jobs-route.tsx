@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router";
-import { jobsListQuerySchema } from "backend/contracts";
+import { jobsListQuerySchema } from "@surface/contracts";
 import { DiscoveryScreen } from "@/features/discovery/components/discovery-screen";
 
 export function Component() {

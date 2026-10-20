@@ -7,7 +7,7 @@ import { db } from "../../infrastructure/database/client";
 import { runs, savedSearches } from "./work.tables";
 import { configuredSources } from "../workspace/workspace.tables";
 import { enqueueCollection, getRun, syncRuns } from "./work.service";
-import { savedSearchInputSchema } from "../../shared/contracts";
+import { savedSearchInputSchema } from "@surface/contracts";
 import { HttpError } from "../../shared/errors/http-error";
 export const workRoutes = new Hono();
 workRoutes.get("/runs", (c) => {

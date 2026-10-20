@@ -2,7 +2,7 @@ import { useDeferredValue, useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronDown, MapPin, Search, X } from "lucide-react";
 import { z } from "zod";
-import { locationOptionSchema, type ProfileLocation } from "backend/contracts";
+import { locationOptionSchema, type ProfileLocation } from "@surface/contracts";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

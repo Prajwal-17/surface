@@ -7,7 +7,7 @@ import {
   skillOptions,
   resumeDraftSchema,
   type ResumeDraft,
-} from "../../shared/contracts";
+} from "@surface/contracts";
 import { HttpError } from "../../shared/errors/http-error";
 const excerpt = z.string().max(100000);
 // Extract exact evidence, then arrange it deterministically. The model cannot create preferences or hard requirements.

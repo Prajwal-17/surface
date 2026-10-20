@@ -8,11 +8,13 @@
     "start": "bun run src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun",
     "check-types": "tsc --noEmit",
+    "lint": "oxlint --config ../../.oxlintrc.json .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun run src/infrastructure/database/migrate.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@surface/contracts": "workspace:*",
     "@hono/zod-validator": "latest",
     "drizzle-orm": "latest",
     "fast-xml-parser": "latest",
@@ -23,14 +25,12 @@
     "zod": "latest"
   },
   "devDependencies": {
+    "@surface/typescript-config": "workspace:*",
     "@types/bun": "latest",
     "@types/node": "26.3.0",
     "@types/sanitize-html": "^2.16.1",
     "better-sqlite3": "^13.0.3",
     "drizzle-kit": "latest",
     "typescript": "npm:typescript@6.0.2"
-  },
-  "exports": {
-    "./contracts": "./src/shared/contracts.ts"
   }
 }

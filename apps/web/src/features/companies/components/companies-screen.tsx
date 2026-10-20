@@ -35,7 +35,7 @@ import {
   type Company,
   type ConfiguredSource,
   type SourceInspection,
-} from "backend/contracts";
+} from "@surface/contracts";
 import {
   Archive,
   ArrowUpRight,

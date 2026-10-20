@@ -1,4 +1,4 @@
-import type { Eligibility, PersonalContext } from "../../shared/contracts";
+import type { Eligibility, PersonalContext } from "@surface/contracts";
 import type { jobs } from "../jobs/jobs.tables";
 const aliases: Record<string, string> = {
   india: "IN",

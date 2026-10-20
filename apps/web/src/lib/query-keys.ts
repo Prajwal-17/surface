@@ -1,4 +1,4 @@
-import type { JobsListQuery } from "backend/contracts";
+import type { JobsListQuery } from "@surface/contracts";
 
 export const queryKeys = {
   jobs: {

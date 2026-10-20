@@ -7,7 +7,7 @@ import { workItems } from "../work/work.tables";
 import { checkEligibility } from "../analysis/eligibility";
 import { findProfile } from "../profile/profile.repository";
 import { roleMatcher } from "./relevance";
-import { assessmentFormatVersion } from "../../shared/contracts";
+import { assessmentFormatVersion } from "@surface/contracts";
 import { createHash } from "node:crypto";
 import {
   duplicateDecisions,
@@ -20,7 +20,7 @@ import type {
   JobsListQuery,
   JobsListResponse,
   JobStatus,
-} from "../../shared/contracts";
+} from "@surface/contracts";
 import { and, desc, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import {
@@ -260,7 +260,7 @@ export function upsertCandidates(candidates: JobCandidate[]): UpsertResult {
       }
       if (!existing)
         for (const other of similar) {
-          const [leftId, rightId] = [other.id, jobId].sort() as [
+          const [leftId, rightId] = [other.id, jobId].toSorted() as [
             string,
             string,
           ];

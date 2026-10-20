@@ -239,8 +239,10 @@ export const profileDetailsSchema = z.object({
         !v ||
         (() => {
           try {
-            new Intl.DateTimeFormat("en", { timeZone: v });
-            return true;
+            return Boolean(
+              new Intl.DateTimeFormat("en", { timeZone: v }).resolvedOptions()
+                .timeZone,
+            );
           } catch {
             return false;
           }

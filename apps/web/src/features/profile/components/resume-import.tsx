@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FileText, Upload, ArrowRight } from "lucide-react";
 import { AiLoadingState } from "@/components/ai/loading-state";
-import { resumeResponseSchema, type ResumeDraft } from "backend/contracts";
+import { resumeResponseSchema, type ResumeDraft } from "@surface/contracts";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";

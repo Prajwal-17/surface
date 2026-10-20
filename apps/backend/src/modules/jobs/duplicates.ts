@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import { duplicateDecisions } from "../collection/collection.tables";
 import { jobs, jobSources } from "./jobs.tables";
@@ -68,11 +68,11 @@ export function decideDuplicate(
           409,
           "A job is already merged. Undo that merge first.",
         );
-      const authoritative = (id: string) =>
+      const authoritative = (jobId: string) =>
         tx
           .select()
           .from(jobSources)
-          .where(eq(jobSources.jobId, id))
+          .where(eq(jobSources.jobId, jobId))
           .all()
           .some((ref) => ["greenhouse", "lever", "ashby"].includes(ref.source));
       if (!authoritative(decision.leftId) && authoritative(decision.rightId)) {

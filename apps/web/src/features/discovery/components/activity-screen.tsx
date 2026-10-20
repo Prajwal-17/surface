@@ -10,7 +10,7 @@ import {
   runDetailSchema,
   configuredSourceSchema,
   savedSearchSchema,
-} from "backend/contracts";
+} from "@surface/contracts";
 import { apiClient } from "@/lib/api-client";
 import { CompaniesScreen } from "@/features/companies/components/companies-screen";
 import { LoadingRows } from "@/components/feedback/loading-state";

@@ -1,4 +1,4 @@
-import type { JobStatus, SourceKey } from "../../shared/contracts";
+import type { JobStatus, SourceKey } from "@surface/contracts";
 import {
   index,
   integer,
@@ -22,7 +22,7 @@ export const jobs = sqliteTable(
     employmentType: text("employment_type"),
     description: text("description").notNull().default(""),
     descriptionSummary: text("description_summary", { mode: "json" }).$type<
-      import("../../shared/contracts").DescriptionSummary
+      import("@surface/contracts").DescriptionSummary
     >(),
     applyUrl: text("apply_url").notNull(),
     postedAt: text("posted_at"),
@@ -42,14 +42,14 @@ export const jobs = sqliteTable(
       .notNull()
       .default("unknown"),
     compensation: text("compensation", { mode: "json" }).$type<
-      import("../../shared/contracts").Compensation
+      import("@surface/contracts").Compensation
     >(),
     countries: text("countries", { mode: "json" })
       .$type<string[]>()
       .notNull()
       .default([]),
     evidence: text("evidence", { mode: "json" })
-      .$type<import("../../shared/contracts").FieldEvidence[]>()
+      .$type<import("@surface/contracts").FieldEvidence[]>()
       .notNull()
       .default([]),
     currentVersionId: text("current_version_id"),

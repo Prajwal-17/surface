@@ -1,6 +1,6 @@
 import { executeAnalysis } from "../analysis/analysis.service";
 import { getSettings } from "../analysis/settings";
-import { and, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, eq, lte, sql } from "drizzle-orm";
 import { db, sqlite } from "../../infrastructure/database/client";
 import { configuredSources, companies } from "../workspace/workspace.tables";
 import { jobSources } from "../jobs/jobs.tables";
@@ -17,7 +17,7 @@ import {
   syncRuns,
 } from "./work.service";
 import { createSourceRecordKey } from "../../shared/normalization/job-normalization";
-import { configuredSourceSchema, type WorkItem } from "../../shared/contracts";
+import { configuredSourceSchema, type WorkItem } from "@surface/contracts";
 export function recordInventory(sourceId: string, result: CollectionResult) {
   if (!result.complete || result.error) return;
   const observed = new Set(result.candidates.map(createSourceRecordKey));
@@ -100,7 +100,7 @@ export async function executeCollection(
       .all()
       .map((s) => s.retryAt)
       .filter((v): v is string => Boolean(v))
-      .sort()
+      .toSorted()
       .at(-1);
     if (latest && latest > now) {
       db.update(workItems)
@@ -130,7 +130,7 @@ export async function executeCollection(
     .run();
   try {
     const result = await collector(configuredSourceSchema.parse(source));
-    const counts = db.transaction(() => {
+    const outcomes = db.transaction(() => {
       const counts = upsertCandidates(result.candidates);
       recordInventory(source.id, result);
       return counts;
@@ -139,7 +139,7 @@ export async function executeCollection(
       .set({
         state: result.error ? "partial" : "completed",
         result: {
-          ...counts,
+          ...outcomes,
           completeInventory: result.complete,
           observedCount: result.candidates.length,
         },

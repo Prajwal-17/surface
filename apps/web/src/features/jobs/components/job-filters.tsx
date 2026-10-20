@@ -1,4 +1,4 @@
-import { sourceKeys, sourceLabels, type SourceKey } from "backend/contracts";
+import { sourceKeys, sourceLabels, type SourceKey } from "@surface/contracts";
 import {
   Select,
   SelectTrigger,

@@ -7,9 +7,12 @@ COPY package.json bun.lock ./
 COPY apps/backend/package.json apps/backend/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/crawler/package.json apps/crawler/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/typescript-config/package.json packages/typescript-config/package.json
 RUN bun install --frozen-lockfile --ignore-scripts
 
 COPY apps/backend apps/backend
+COPY packages packages
 
 WORKDIR /app/apps/backend
 ENV NODE_ENV=production \

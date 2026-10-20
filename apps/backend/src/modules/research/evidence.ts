@@ -1,4 +1,4 @@
-import type { ResearchSource } from "../../shared/research-contracts";
+import type { ResearchSource } from "@surface/contracts";
 export function normalizedName(name: string) {
   return name
     .normalize("NFKC")
@@ -44,22 +44,22 @@ export function evidenceForQuestion(
       0,
     );
   const latest = new Map<string, ResearchSource>();
-  for (const source of [...sources].sort((a, b) =>
+  for (const source of sources.toSorted((a, b) =>
     b.retrievedAt.localeCompare(a.retrievedAt),
   ))
     if (!latest.has(`${source.kind}:${source.url}`))
       latest.set(`${source.kind}:${source.url}`, source);
   return [...latest.values()]
-    .sort((a, b) => score(b.title + b.text) - score(a.title + a.text))
+    .toSorted((a, b) => score(b.title + b.text) - score(a.title + a.text))
     .slice(0, 24)
     .map((source) => {
       if (source.text.length <= 20000) return source;
       const paragraphs = source.text.match(/[\s\S]{1,4000}/g) ?? [];
       const chosen = paragraphs
         .map((text, index) => ({ text, index }))
-        .sort((a, b) => score(b.text) - score(a.text))
+        .toSorted((a, b) => score(b.text) - score(a.text))
         .slice(0, 4)
-        .sort((a, b) => a.index - b.index);
+        .toSorted((a, b) => a.index - b.index);
       return {
         ...source,
         text: `[Selected passages from stored page; other passages are not included.]\n${source.text.slice(0, 4000)}\n${chosen.map((p) => p.text).join("\n…\n")}`,

@@ -15,7 +15,7 @@ import {
   DESCRIPTION_SUMMARY_FORMAT_VERSION,
   type Job,
   type JobStatus,
-} from "backend/contracts";
+} from "@surface/contracts";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { ReaderLoadingContent } from "@/components/feedback/loading-state";
 import { Skeleton } from "@/components/ui/skeleton";

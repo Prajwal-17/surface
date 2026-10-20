@@ -1,0 +1,24 @@
+{
+  "name": "@surface/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "oxlint --config ../../.oxlintrc.json ."
+  },
+  "dependencies": {
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@surface/typescript-config": "workspace:*",
+    "typescript": "npm:typescript@6.0.2"
+  }
+}

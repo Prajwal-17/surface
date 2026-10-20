@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { analysisSettingsSchema } from "backend/contracts";
+import { analysisSettingsSchema } from "@surface/contracts";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { SettingsLoading } from "@/components/feedback/loading-state";

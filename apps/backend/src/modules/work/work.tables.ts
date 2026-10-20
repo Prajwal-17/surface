@@ -12,7 +12,7 @@ export const runs = sqliteTable("runs", {
   kind: text("kind").$type<"collection" | "analysis">().notNull(),
   label: text("label").notNull(),
   state: text("state")
-    .$type<import("../../shared/contracts").WorkItem["state"]>()
+    .$type<import("@surface/contracts").WorkItem["state"]>()
     .notNull(),
   createdAt: text("created_at").notNull(),
   completedAt: text("completed_at"),
@@ -26,7 +26,7 @@ export const workItems = sqliteTable(
     jobId: text("job_id"),
     identity: text("identity").notNull(),
     state: text("state")
-      .$type<import("../../shared/contracts").WorkItem["state"]>()
+      .$type<import("@surface/contracts").WorkItem["state"]>()
       .notNull(),
     attempts: integer("attempts").notNull().default(0),
     retryAt: text("retry_at").notNull(),

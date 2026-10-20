@@ -3,7 +3,7 @@ import { db } from "../../infrastructure/database/client";
 import {
   descriptionSummarySchema,
   DESCRIPTION_SUMMARY_FORMAT_VERSION,
-} from "../../shared/contracts";
+} from "@surface/contracts";
 import { HttpError } from "../../shared/errors/http-error";
 import { partialSummaryText } from "../../shared/model-stream";
 import { requestModelJson } from "../../shared/model-client";

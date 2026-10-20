@@ -19,6 +19,7 @@ coverage
 build/
 dist/
 .vite/
+.turbo/
 dist
 
 

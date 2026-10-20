@@ -1,6 +1,6 @@
 import Markdown from "react-markdown";
 
-export function ProfileMarkdown({ children }: { children: string }) {
+export function ProfileMarkdown({ children: markdown }: { children: string }) {
   return (
     <div className="profile-markdown">
       <Markdown
@@ -17,7 +17,7 @@ export function ProfileMarkdown({ children }: { children: string }) {
           img: ({ alt }) => <span>{alt}</span>,
         }}
       >
-        {children}
+        {markdown}
       </Markdown>
     </div>
   );

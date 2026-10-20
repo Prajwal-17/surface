@@ -11,7 +11,7 @@ import {
   validateAssessment,
   assessmentContext,
 } from "./model";
-import { assessmentFormatVersion, type WorkItem } from "../../shared/contracts";
+import { assessmentFormatVersion, type WorkItem } from "@surface/contracts";
 import { syncRuns } from "../work/work.service";
 import { HttpError } from "../../shared/errors/http-error";
 export function analysisIdentity(

@@ -2,7 +2,7 @@ import { lookup } from "node:dns/promises";
 import { isIP, BlockList } from "node:net";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { publicUrlSchema } from "../../shared/contracts";
+import { publicUrlSchema } from "@surface/contracts";
 import { env } from "../../config/env";
 const blocked = new BlockList();
 const blocked6 = new BlockList();

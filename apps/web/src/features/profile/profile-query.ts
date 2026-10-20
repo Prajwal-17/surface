@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { profileSchema } from "backend/contracts";
+import { profileSchema } from "@surface/contracts";
 import { apiClient } from "@/lib/api-client";
 export const profileResponseSchema = z.object({
   profile: profileSchema.nullable(),

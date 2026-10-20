@@ -26,6 +26,8 @@ export function ResearchComposer({
   const [text, setText] = useState(initialValue);
   const [webSearch, setWebSearch] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
+  // Text changes trigger textarea measurement; the effect reads the DOM value.
+  // oxlint-disable-next-line react/exhaustive-deps
   useLayoutEffect(() => {
     if (!input.current) return;
     input.current.style.height = "36px";

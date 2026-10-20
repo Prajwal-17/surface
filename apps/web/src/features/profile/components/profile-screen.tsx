@@ -19,7 +19,7 @@ import {
   personalContextSchema,
   profileInputSchema,
   type Profile,
-} from "backend/contracts";
+} from "@surface/contracts";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";

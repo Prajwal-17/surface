@@ -4,7 +4,7 @@ import {
   companySchema,
   configuredSourceSchema,
   type JobsListQuery,
-} from "backend/contracts";
+} from "@surface/contracts";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

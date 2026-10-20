@@ -4,7 +4,7 @@ import {
   assessmentOutputSchema,
   type Profile,
   type AssessmentOutput,
-} from "../../shared/contracts";
+} from "@surface/contracts";
 import type { jobs } from "../jobs/jobs.tables";
 export function assessmentContext(
   profile: Profile,

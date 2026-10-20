@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ResearchSource } from "backend/contracts";
+import type { ResearchSource } from "@surface/contracts";
 import { ResearchMarkdown } from "./research-markdown";
 
 export function ClarificationAnswer({

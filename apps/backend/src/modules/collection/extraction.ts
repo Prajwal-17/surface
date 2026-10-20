@@ -14,7 +14,7 @@ import type {
   Compensation,
   ConfiguredSource,
   FieldEvidence,
-} from "../../shared/contracts";
+} from "@surface/contracts";
 export function descriptionContent(raw: string): {
   description: string;
   descriptionHtml: string;

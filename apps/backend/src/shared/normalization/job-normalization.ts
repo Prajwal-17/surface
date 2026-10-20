@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { SourceKey } from "../contracts";
+import type { SourceKey } from "@surface/contracts";
 
 export interface JobCandidate {
   source: SourceKey;
@@ -8,9 +8,9 @@ export interface JobCandidate {
   configuredSourceId?: string | null;
   descriptionHtml?: string | null;
   workMode?: "remote" | "hybrid" | "onsite" | "unknown";
-  compensation?: import("../contracts").Compensation | null;
+  compensation?: import("@surface/contracts").Compensation | null;
   countries?: string[];
-  evidence?: import("../contracts").FieldEvidence[];
+  evidence?: import("@surface/contracts").FieldEvidence[];
   method?: string;
   incomplete?: boolean;
   snapshotId?: string;
@@ -84,7 +84,7 @@ export function canonicalizeUrl(value: string): string {
   }
 
   url.hash = "";
-  for (const parameter of [...url.searchParams.keys()]) {
+  for (const parameter of Array.from(url.searchParams.keys())) {
     if (
       trackingParameters.has(parameter.toLowerCase()) ||
       parameter.toLowerCase().startsWith("utm_")

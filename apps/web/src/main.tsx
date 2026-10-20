@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
 import { router } from "@/app/router";
 import { createAppQueryClient } from "@/lib/query-client";
+// oxlint-disable-next-line import/no-unassigned-import -- load global application styles
 import "@/styles/globals.css";
 
 const rootElement = document.getElementById("root");

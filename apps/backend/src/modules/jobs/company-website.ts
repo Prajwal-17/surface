@@ -1,4 +1,4 @@
-import type { FieldEvidence } from "../../shared/contracts";
+import type { FieldEvidence } from "@surface/contracts";
 
 function website(value: unknown, homepageOnly = false): string | null {
   if (typeof value !== "string" || !value.trim()) return null;

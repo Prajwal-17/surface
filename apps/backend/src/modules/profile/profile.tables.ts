@@ -7,7 +7,7 @@ export const jobPreferences = sqliteTable("job_preferences", {
   locationPreferences: text("location_preferences").notNull().default(""),
   dealBreakers: text("deal_breakers").notNull().default(""),
   context: text("context", { mode: "json" }).$type<
-    import("../../shared/contracts").PersonalContext
+    import("@surface/contracts").PersonalContext
   >(),
   revision: integer("revision").notNull().default(1),
   updatedAt: text("updated_at").notNull(),
@@ -16,7 +16,7 @@ export const jobPreferences = sqliteTable("job_preferences", {
 export const profileRevisions = sqliteTable("profile_revisions", {
   revision: integer("revision").primaryKey(),
   content: text("content", { mode: "json" })
-    .$type<import("../../shared/contracts").ProfileInput>()
+    .$type<import("@surface/contracts").ProfileInput>()
     .notNull(),
   createdAt: text("created_at").notNull(),
 });

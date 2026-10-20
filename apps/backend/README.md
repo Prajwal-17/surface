@@ -15,11 +15,13 @@ src/
 │   ├── discovery/          # Routes, service, repository, tables, sources
 │   └── jobs/               # Routes, service, repository, and tables
 └── shared/
-    ├── contracts.ts          # Browser-safe Zod API schemas and inferred types
     ├── errors/
     ├── http/
     └── normalization/
 ```
+
+Browser-safe API schemas and inferred types live in `packages/contracts` and are
+imported through `@surface/contracts`.
 
 Each module exposes its public API through its own `index.ts`. Cross-module
 imports use those entry points rather than reaching into module internals.
@@ -55,7 +57,6 @@ Job-fit analysis uses an OpenAI-compatible OmniRoute endpoint. Configure:
 
 ## API schemas
 
-`src/shared/contracts.ts` is exported as `backend/contracts` for the frontend.
-Keep this module browser-safe: only Zod, constants, and inferred types belong
-here. Do not import database clients, environment configuration, Bun APIs, or
-server modules into it. Backend modules use relative imports to this file.
+`@surface/contracts` is the workspace package for browser-safe API schemas,
+constants, and inferred types shared by the backend and frontend. Keep server
+modules, Bun APIs, database clients, and environment configuration out of it.

@@ -1,6 +1,6 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
-import { desc, eq, inArray, isNull } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import { snapshots } from "./collection.tables";
 import { snapshotDirectory } from "./snapshots";

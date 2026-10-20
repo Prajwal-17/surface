@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { discoverySearchSchema } from "../../shared/contracts";
+import { discoverySearchSchema } from "@surface/contracts";
 import { db } from "../../infrastructure/database/client";
 import { configuredSources } from "../workspace/workspace.tables";
 import { enqueueCollection } from "../work/work.service";

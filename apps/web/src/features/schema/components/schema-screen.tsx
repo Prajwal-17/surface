@@ -1,6 +1,5 @@
-
 import { useMemo, useRef, useState } from "react";
-import dagre from "@dagrejs/dagre";
+import { graphlib, layout } from "@dagrejs/dagre";
 import {
   Background,
   BackgroundVariant,
@@ -397,7 +396,7 @@ function TableNodeCard({ data, selected }: NodeProps<TableNode>) {
 }
 
 function createGraph(tables: SchemaTable[], direction: Direction) {
-  const graph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+  const graph = new graphlib.Graph().setDefaultEdgeLabel(() => ({}));
   graph.setGraph({
     rankdir: direction,
     nodesep: 48,
@@ -431,7 +430,7 @@ function createGraph(tables: SchemaTable[], direction: Direction) {
     });
   }
   for (const edge of edges) graph.setEdge(edge.source, edge.target);
-  dagre.layout(graph);
+  layout(graph);
 
   return {
     nodes: nodes.map((node) => {
