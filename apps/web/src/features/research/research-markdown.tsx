@@ -27,7 +27,7 @@ export function ResearchMarkdown({
       .join(" "),
   );
   return (
-    <div className="research-markdown min-w-0 break-words text-sm leading-6">
+    <div className="research-markdown min-w-0 break-words text-prose leading-[1.65]">
       <Markdown
         skipHtml
         components={{
@@ -60,12 +60,12 @@ export function ResearchMarkdown({
             </h2>
           ),
           h2: ({ children }) => (
-            <h2 className="mb-2 mt-5 text-sm font-semibold tracking-tight">
+            <h2 className="mb-2 mt-5 text-base font-semibold tracking-tight">
               {children}
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 className="mb-2 mt-4 text-sm font-semibold">{children}</h3>
+            <h3 className="mb-2 mt-4 text-base font-semibold">{children}</h3>
           ),
           p: ({ children }) => <p className="my-2">{children}</p>,
           ul: ({ children }) => (

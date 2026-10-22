@@ -79,7 +79,7 @@ export function CompanyLinks({
                     <span className="mt-1 block text-xs text-muted-foreground">
                       {link.reason}
                     </span>
-                    <span className="mt-1 block truncate text-[11px] text-muted-foreground">
+                    <span className="mt-1 block truncate text-caption text-muted-foreground">
                       {link.url}
                     </span>
                   </span>
@@ -113,7 +113,7 @@ export function CompanyLinks({
         </TooltipContent>
       </Tooltip>
       {checkedAt && !links.length && (
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-caption text-muted-foreground">
           No useful links verified
         </span>
       )}

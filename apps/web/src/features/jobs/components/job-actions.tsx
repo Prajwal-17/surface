@@ -21,7 +21,7 @@ export function JobActions({
         type="button"
         variant="outline"
         size={compact ? "icon" : "default"}
-        className={compact ? "size-8" : undefined}
+
         disabled={isPending}
         title="Restore to Inbox"
         onClick={() => onChange("inbox")}
@@ -41,7 +41,7 @@ export function JobActions({
           type="button"
           variant="secondary"
           size={compact ? "icon" : "default"}
-          className={compact ? "size-8" : undefined}
+
           disabled={isPending}
           title="Save job"
           onClick={() => onChange("saved")}
@@ -54,7 +54,7 @@ export function JobActions({
           type="button"
           variant="outline"
           size={compact ? "icon" : "default"}
-          className={compact ? "size-8" : undefined}
+
           disabled={isPending}
           title="Move to Inbox"
           onClick={() => onChange("inbox")}
@@ -67,7 +67,7 @@ export function JobActions({
         type="button"
         variant="ghost"
         size={compact ? "icon" : "default"}
-        className={compact ? "size-8" : undefined}
+
         disabled={isPending}
         title="Dismiss job"
         onClick={() => onChange("dismissed")}

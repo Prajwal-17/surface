@@ -13,7 +13,7 @@ export function StreamingText({
   if (markdown) {
     return (
       <div
-        className="text-sm leading-7 [&_h4]:mt-6 [&_h4]:text-base [&_h4]:tracking-tight"
+        className="max-w-[76ch] text-prose leading-[1.65] [&_h4]:mt-6 [&_h4]:text-base [&_h4]:tracking-tight"
         aria-busy={streaming}
       >
         <ProfileMarkdown>{text}</ProfileMarkdown>
@@ -28,7 +28,7 @@ export function StreamingText({
   }
   return (
     <p
-      className="whitespace-pre-wrap break-words text-sm leading-7"
+      className="whitespace-pre-wrap break-words max-w-[76ch] text-prose leading-[1.65]"
       aria-busy={streaming}
     >
       {streaming

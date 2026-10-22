@@ -8,6 +8,7 @@ export async function apiClient<T>(
 ): Promise<T> {
   const response = await fetch(path, {
     ...init,
+    credentials: "same-origin",
     headers: {
       ...(init?.body instanceof FormData
         ? {}
@@ -18,6 +19,13 @@ export async function apiClient<T>(
 
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ApiErrorBody;
+    if (
+      response.status === 401 &&
+      !path.startsWith("/api/auth/") &&
+      typeof window !== "undefined"
+    ) {
+      window.dispatchEvent(new Event("surface-auth-expired"));
+    }
     throw new Error(
       typeof body.error === "string"
         ? body.error

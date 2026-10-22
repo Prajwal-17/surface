@@ -9,6 +9,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { JobLocation } from "./job-location";
+import { useState } from "react";
 interface JobCardProps {
   job: Job;
   selected: boolean;
@@ -23,6 +24,7 @@ export function JobCard({
   onStatusChange,
   isUpdating,
 }: JobCardProps) {
+  const [now] = useState(() => Date.now());
   const sites = [
     ...new Set(
       job.sourceReferences.map((ref) =>
@@ -30,42 +32,53 @@ export function JobCard({
       ),
     ),
   ];
-  const current = job.assessmentState === "current";
-  const score = job.assessment?.output.score ?? 0;
+  const score =
+    job.assessmentState === "current"
+      ? (job.assessment?.output.score ?? null)
+      : null;
   const tone =
-    job.eligibility.state === "conflicts"
-      ? "tone-rose"
-      : current && score >= 75
+    score !== null
+      ? score >= 75
         ? "tone-mint"
-        : current
+        : "tone-blue"
+      : job.assessmentState === "failed"
+        ? "tone-rose"
+        : ["queued", "running"].includes(job.assessmentState)
           ? "tone-blue"
-          : job.assessmentState === "running" ||
-              job.assessmentState === "queued"
-            ? "tone-blue"
+          : ["stale", "legacy"].includes(job.assessmentState)
+            ? "tone-amber"
             : "tone-muted";
   const label =
-    job.eligibility.state === "conflicts"
-      ? "Constraint conflict"
-      : current
-        ? score >= 75
-          ? "Strong fit"
-          : score >= 50
-            ? "Possible fit"
-            : "Limited fit"
-        : (
-            {
-              "not-assessed": "Not assessed",
-              queued: "Queued for analysis",
-              running: "Analyzing",
-              failed: "Analysis failed",
-              stale: "Assessment outdated",
-              legacy: "Assessment outdated",
-            } as Record<string, string>
-          )[job.assessmentState];
+    score !== null
+      ? score >= 75
+        ? "Strong fit"
+        : score >= 50
+          ? "Possible fit"
+          : "Limited fit"
+      : {
+          "not-assessed": "Not assessed",
+          current: "Not assessed",
+          queued: "Queued",
+          running: "Assessing",
+          failed: "Assessment failed",
+          stale: "Outdated",
+          legacy: "Outdated",
+        }[job.assessmentState];
+  const eligibility = {
+    meets: "Meets constraints",
+    clarify: "Clarify eligibility",
+    conflicts: "Constraint conflict",
+  }[job.eligibility.state];
+  const age = job.postedAt
+    ? Math.max(
+        0,
+        Math.floor((now - new Date(job.postedAt).getTime()) / 86400000),
+      )
+    : null;
   return (
     <article className="job-row" data-selected={selected}>
       <div className="job-identity">
-        <CompanyMark name={job.company} className="size-9 text-xs" />
+        <CompanyMark name={job.company} className="size-7 text-caption" />
         <div className="min-w-0">
           <h2 className="job-title">
             <Button
@@ -127,27 +140,43 @@ export function JobCard({
       </div>
       <div className="job-location">
         <JobLocation job={job} showLabel />
-        {job.compensation && (
-          <span className="block text-xs text-muted-foreground">
-            {formatCompensation(job.compensation)}
-          </span>
+      </div>
+      <div className="job-compensation">
+        {job.compensation ? (
+          formatCompensation(job.compensation)
+        ) : (
+          <span className="text-muted-foreground">Not listed</span>
         )}
       </div>
       <div className="job-assessment">
-        <span className={`status-pill ${tone}`}>{label}</span>
+        <span className={`status-pill ${tone}`}>
+          {score !== null && (
+            <span className="font-mono tabular-nums">
+              {score}
+              <span className="font-sans font-normal">/100</span>
+            </span>
+          )}
+          {label}
+        </span>
+        <span
+          className={`job-eligibility ${job.eligibility.state === "conflicts" ? "text-destructive" : job.eligibility.state === "meets" ? "text-success" : "text-muted-foreground"}`}
+          title={job.eligibility.reasons.join(" · ")}
+        >
+          {eligibility}
+        </span>
       </div>
       <time
         className="job-date"
         dateTime={job.postedAt ?? undefined}
-        title={`First discovered ${formatDate(job.firstSeenAt)}`}
+        title={`Posted ${job.postedAt ? formatDate(job.postedAt) : "date unknown"} · First discovered ${formatDate(job.firstSeenAt)}`}
       >
-        {job.postedAt ? formatDate(job.postedAt) : "Unknown"}
+        {age === null ? "Unknown" : age === 0 ? "Today" : `${age}d`}
       </time>
       <div className="job-row-actions">
         <Button
           size="icon"
           variant="ghost"
-          className={job.status === "saved" ? "size-8 text-brand" : "size-8"}
+          className={job.status === "saved" ? "text-brand" : ""}
           disabled={isUpdating}
           aria-label={`${job.status === "saved" ? "Unsave" : "Save"} ${job.title}`}
           title={job.status === "saved" ? "Move to inbox" : "Save job"}
@@ -160,7 +189,6 @@ export function JobCard({
         <Button
           size="icon"
           variant="ghost"
-          className="size-8"
           disabled={isUpdating}
           aria-label={`${job.status === "dismissed" ? "Restore" : "Dismiss"} ${job.title}`}
           title={

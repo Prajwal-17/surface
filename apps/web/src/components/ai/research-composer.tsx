@@ -30,7 +30,7 @@ export function ResearchComposer({
   // oxlint-disable-next-line react/exhaustive-deps
   useLayoutEffect(() => {
     if (!input.current) return;
-    input.current.style.height = "36px";
+    input.current.style.height = "32px";
     input.current.style.height = `${Math.min(input.current.scrollHeight, 160)}px`;
   }, [text]);
   async function submit() {
@@ -45,7 +45,7 @@ export function ResearchComposer({
   }
   return (
     <form
-      className="flex items-end gap-1 rounded-lg border border-input bg-card p-1.5 focus-within:ring-2 focus-within:ring-ring/30"
+      className="flex items-end gap-1 rounded-lg border border-input bg-card p-1 focus-within:ring-2 focus-within:ring-ring/30"
       onSubmit={(e) => {
         e.preventDefault();
         void submit();
@@ -59,7 +59,7 @@ export function ResearchComposer({
         rows={1}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        className="min-h-9 flex-1 resize-none rounded-none border-0 bg-transparent px-2 py-1.5 leading-6 shadow-none focus-visible:ring-0"
+        className="min-h-8 flex-1 resize-none rounded-none border-0 bg-transparent px-2 py-1.5 leading-5 shadow-none focus-visible:ring-0"
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
@@ -78,7 +78,7 @@ export function ResearchComposer({
               aria-pressed={webSearch}
               disabled={busy}
               onClick={() => setWebSearch(!webSearch)}
-              className={`size-9 shrink-0 ${webSearch ? "text-brand" : "text-muted-foreground"}`}
+              className={`shrink-0 ${webSearch ? "text-brand" : "text-muted-foreground"}`}
             >
               <Globe2 className="size-4" />
             </Button>
@@ -95,7 +95,7 @@ export function ResearchComposer({
           type="button"
           size="icon"
           variant="outline"
-          className="size-9 shrink-0"
+          className="shrink-0"
           aria-label="Stop research"
           onClick={onStop}
         >
@@ -105,7 +105,7 @@ export function ResearchComposer({
         <Button
           type="submit"
           size="icon"
-          className="size-9 shrink-0"
+          className="shrink-0"
           disabled={busy || !text.trim()}
           aria-label={searchOption ? "Ask about company" : "Find company"}
         >

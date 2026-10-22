@@ -3,7 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-    <link rel="alternate icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
@@ -19,7 +18,16 @@
             ? theme !== "light"
             : matchMedia("(prefers-color-scheme: dark)").matches,
         );
-      } catch {}
+        matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
+          try {
+            if (localStorage.getItem("surface-theme")) return;
+          } catch {}
+          document.documentElement.classList.toggle("dark", event.matches);
+          window.dispatchEvent(new Event("surface-theme"));
+        });
+      } catch {
+        document.documentElement.classList.toggle("dark", matchMedia("(prefers-color-scheme: dark)").matches);
+      }
     </script>
   </head>
   <body>

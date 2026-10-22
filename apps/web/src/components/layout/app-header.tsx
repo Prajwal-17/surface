@@ -6,12 +6,12 @@ import {
   Building2,
   Activity,
   UserRound,
-  Layers2,
   ChevronRight,
   Settings2,
   PanelLeft,
   Database,
   Telescope,
+  LogOut,
 } from "lucide-react";
 import {
   Sidebar,
@@ -19,29 +19,36 @@ import {
   SidebarHeader,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { SurfaceLogo } from "@/components/ui/surface-logo";
 import { useProfile } from "@/features/profile/profile-query";
+import { useAuth } from "@/features/auth/auth-context";
 
 const destinations = [
   { href: "/", label: "Jobs", icon: BriefcaseBusiness },
   { href: "/research", label: "Research", icon: Telescope },
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/activity", label: "Activity", icon: Activity },
-  { href: "/profile", label: "My profile", icon: UserRound },
 ] as const;
 const referenceDestinations = [
   { href: "/schema", label: "Schema", icon: Database },
+  { href: "/settings", label: "Settings", icon: Settings2 },
 ] as const;
+const profileDestination = {
+  href: "/profile",
+  label: "My profile",
+  icon: UserRound,
+} as const;
 export function AppHeader() {
   const location = useLocation();
   const pathname = location.pathname;
   const { toggleSidebar, setOpenMobile, state } = useSidebar();
+  const auth = useAuth();
   const profile = useProfile();
   const legacyEmail = useSyncExternalStore(
     subscribeAccount,
@@ -60,7 +67,8 @@ export function AppHeader() {
     },
     () => "",
   );
-  const email = profile.data?.context.details?.email || legacyEmail;
+  const email =
+    profile.data?.context.details?.email || auth.email || legacyEmail;
   const navigate = useNavigate();
   useEffect(() => {
     if (pathname !== "/" || !profile.isSuccess || profile.data) return;
@@ -73,10 +81,17 @@ export function AppHeader() {
   }, [pathname, profile.isSuccess, profile.data, navigate]);
   const savedJobsUrl = useSyncExternalStore(
     subscribe,
-    () =>
-      sessionStorage.getItem("surface-jobs-url") ||
-      sessionStorage.getItem("fieldwork-jobs-url") ||
-      "/",
+    () => {
+      try {
+        return (
+          sessionStorage.getItem("surface-jobs-url") ||
+          sessionStorage.getItem("fieldwork-jobs-url") ||
+          "/"
+        );
+      } catch {
+        return "/";
+      }
+    },
     () => "/",
   );
   const jobsUrl =
@@ -86,14 +101,22 @@ export function AppHeader() {
   useEffect(() => {
     if (pathname === "/") {
       const params = new URLSearchParams(location.search);
-      sessionStorage.setItem(
-        "surface-jobs-url",
-        params.size ? `/?${params}` : "/",
-      );
+      try {
+        sessionStorage.setItem(
+          "surface-jobs-url",
+          params.size ? `/?${params}` : "/",
+        );
+      } catch {
+        /* Navigation remains usable without browser storage. */
+      }
       window.dispatchEvent(new Event("surface-navigation"));
     }
   }, [pathname, location.search]);
-  const current = [...destinations, ...referenceDestinations].find(
+  const current = [
+    ...destinations,
+    ...referenceDestinations,
+    profileDestination,
+  ].find(
     (d) =>
       d.href === pathname ||
       (d.href === "/research" && pathname.startsWith("/research/")),
@@ -106,31 +129,29 @@ export function AppHeader() {
       >
         Skip to content
       </a>
-      <Sidebar collapsible="offcanvas" className="border-sidebar-border">
-        <SidebarHeader className="px-5 py-5">
+      <Sidebar collapsible="icon" variant="sidebar">
+        <SidebarHeader className="h-11 justify-center border-b border-sidebar-border px-2 py-0">
           <Link
             to={jobsUrl}
             onClick={() => setOpenMobile(false)}
-            className="flex items-center gap-3 text-lg font-semibold tracking-tight text-foreground"
+            aria-label="Surface career workspace"
+            className="surface-brand flex h-8 min-w-0 items-center gap-2.5 rounded-md px-1.5 text-foreground hover:bg-hover"
           >
-            <span className="grid size-7 place-items-center rounded-md border border-brand/25 bg-brand/10 text-brand">
-              <Layers2 className="size-4" />
+            <SurfaceLogo className="size-5 shrink-0" />
+            <span className="truncate text-sm font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
+              Surface
             </span>
-            Surface
           </Link>
         </SidebarHeader>
-        <SidebarContent>
-          <SidebarGroup className="px-3 pt-7">
-            <SidebarGroupLabel className="px-3 text-xs font-medium text-muted-foreground">
-              Workspace
-            </SidebarGroupLabel>
-            <SidebarMenu className="mt-2 gap-1">
+        <SidebarContent className="gap-0">
+          <SidebarGroup className="p-2">
+            <SidebarMenu className="gap-0.5">
               {destinations.map(({ href, label, icon: Icon }) => (
                 <SidebarMenuItem key={href}>
                   <SidebarMenuButton
                     asChild
                     isActive={destinationIsActive(pathname, href)}
-                    className="h-11 gap-3 rounded-md px-3 text-sm font-medium data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
+                    tooltip={label}
                   >
                     <Link
                       to={href === "/" ? jobsUrl : href}
@@ -138,33 +159,9 @@ export function AppHeader() {
                       aria-current={
                         destinationIsActive(pathname, href) ? "page" : undefined
                       }
+                      aria-label={label}
                     >
-                      <Icon className="!size-4" />
-                      <span>{label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroup>
-          <SidebarGroup className="mt-auto px-3 pb-2">
-            <SidebarGroupLabel className="px-3 text-xs font-medium text-muted-foreground">
-              Reference
-            </SidebarGroupLabel>
-            <SidebarMenu className="mt-2">
-              {referenceDestinations.map(({ href, label, icon: Icon }) => (
-                <SidebarMenuItem key={href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === href}
-                    className="h-11 gap-3 rounded-md px-3 text-xs font-medium text-sidebar-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
-                  >
-                    <Link
-                      to={href}
-                      onClick={() => setOpenMobile(false)}
-                      aria-current={pathname === href ? "page" : undefined}
-                    >
-                      <Icon className="!size-3.5" />
+                      <Icon />
                       <span>{label}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -173,59 +170,61 @@ export function AppHeader() {
             </SidebarMenu>
           </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter className="gap-3 px-3 pb-4">
-          <SidebarMenu>
+        <SidebarFooter className="gap-2 p-2">
+          <SidebarMenu className="gap-0.5">
+            {referenceDestinations.map(({ href, label, icon: Icon }) => (
+              <SidebarMenuItem key={href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === href}
+                  tooltip={label}
+                >
+                  <Link
+                    to={href}
+                    onClick={() => setOpenMobile(false)}
+                    aria-current={pathname === href ? "page" : undefined}
+                    aria-label={label}
+                  >
+                    <Icon />
+                    <span>{label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+          <SidebarMenu className="border-t border-sidebar-border pt-2">
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive={pathname === "/settings"}
-                className="h-11 gap-3 rounded-md px-3 text-sm"
+                isActive={pathname === "/profile"}
+                tooltip="My profile"
               >
                 <Link
-                  to="/settings"
+                  to="/profile"
                   onClick={() => setOpenMobile(false)}
-                  aria-current={pathname === "/settings" ? "page" : undefined}
+                  aria-label="View your profile"
+                  aria-current={pathname === "/profile" ? "page" : undefined}
+                  title={email || undefined}
                 >
-                  <Settings2 className="!size-4" />
-                  <span>Settings</span>
+                  <UserRound />
+                  <span className="min-w-0 truncate">
+                    {profile.data?.context.details?.name || "My profile"}
+                  </span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
-          <Link
-            to="/profile"
-            onClick={() => setOpenMobile(false)}
-            className="flex min-w-0 w-full items-center gap-2 rounded-md border-t border-sidebar-border px-1 pt-3 text-left transition-colors hover:text-sidebar-accent-foreground"
-            aria-label="View your profile"
-          >
-            <span className="grid size-7 shrink-0 place-items-center rounded-full border border-border bg-secondary text-muted-foreground">
-              <UserRound className="size-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p
-                className="truncate text-xs font-semibold text-foreground"
-                title={profile.data?.context.details?.name || "Your profile"}
-              >
-                {profile.data?.context.details?.name || "Your profile"}
-              </p>
-              <p
-                className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground"
-                title={email || undefined}
-              >
-                {email || "Add your email"}
-              </p>
-            </div>
-          </Link>
         </SidebarFooter>
       </Sidebar>
       <header
-        className={`fixed left-0 right-0 top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background px-4 md:px-6 ${state === "collapsed" ? "md:left-0" : "md:left-[var(--sidebar-width)]"}`}
+        className={`workspace-header fixed left-0 right-0 top-0 z-30 flex h-11 items-center gap-2 border-b border-border bg-background px-4 ${state === "collapsed" ? "md:left-[var(--sidebar-width-icon)]" : "md:left-[var(--sidebar-width)]"}`}
       >
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
           aria-label="Toggle navigation"
+          aria-expanded={state === "expanded"}
           data-surface-nav-toggle
         >
           <PanelLeft />
@@ -245,6 +244,22 @@ export function AppHeader() {
             ? "Settings"
             : (current?.label ?? "Surface")}
         </Link>
+        <div
+          id="page-header-actions"
+          className="ml-auto flex min-w-0 items-center gap-1"
+        />
+        <div className="mr-10 flex shrink-0 items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void auth.signOut()}
+            aria-label="Sign out"
+            title={`Sign out ${auth.email}`}
+          >
+            <LogOut />
+            <span className="hidden sm:inline">Sign out</span>
+          </Button>
+        </div>
       </header>
     </>
   );

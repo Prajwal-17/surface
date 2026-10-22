@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+import { handleJobListKeyDown } from "@/lib/workspace-keyboard";
 import type { Job, JobsListResponse, JobStatus } from "@surface/contracts";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,6 +32,16 @@ export function JobList({
   updatingJobId,
   selectedId,
 }: JobListProps) {
+  const regionRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const region = regionRef.current;
+    if (!region || isLoading || !data?.jobs.length) return;
+    function navigateRows(event: KeyboardEvent) {
+      handleJobListKeyDown(event, region!);
+    }
+    region.addEventListener("keydown", navigateRows);
+    return () => region.removeEventListener("keydown", navigateRows);
+  }, [data, isLoading]);
   if (isLoading) {
     return (
       <div
@@ -38,17 +50,20 @@ export function JobList({
         aria-label="Loading jobs"
       >
         <span className="sr-only">Loading jobs</span>
-        {Array.from({ length: 5 }).map((_, index) => (
+        {Array.from({ length: 12 }).map((_, index) => (
           <div key={index} className="job-row" aria-hidden="true">
             <div className="job-identity">
-              <Skeleton className="size-9 shrink-0" />
-              <div className="flex-1 space-y-3">
+              <Skeleton className="size-7 shrink-0" />
+              <div className="flex-1 space-y-1.5">
                 <Skeleton className={index % 2 ? "h-5 w-2/3" : "h-5 w-4/5"} />
                 <Skeleton className="h-3 w-1/2" />
               </div>
             </div>
             <div className="job-location">
               <Skeleton className="h-4 w-20" />
+            </div>
+            <div className="job-compensation">
+              <Skeleton className="h-3 w-20" />
             </div>
             <div className="job-assessment">
               <Skeleton className="h-6 w-28" />
@@ -87,14 +102,12 @@ export function JobList({
           Couldn’t refresh jobs. Showing the previous results.
         </p>
       )}
-      <p
-        className="shrink-0 border-b px-4 py-2 text-xs text-muted-foreground"
-        title="Results reflect your active filters. Collected jobs include every role from your sources."
+      <div
+        ref={regionRef}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        role="region"
+        aria-label="Job results"
       >
-        {data.total.toLocaleString()} results ·{" "}
-        {data.collectedTotal.toLocaleString()} collected
-      </p>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {data.jobs.map((job) => (
           <JobCard
             key={job.id}
@@ -112,7 +125,7 @@ export function JobList({
           aria-label="Job pages"
           className="flex shrink-0 items-center justify-between border-t border-border px-4 py-1"
         >
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground tabular-nums">
             {data.total.toLocaleString()} roles · Page {data.page} of{" "}
             {data.pages}
           </p>
@@ -120,7 +133,7 @@ export function JobList({
             <Button
               variant="outline"
               size="sm"
-              className="h-9 px-3"
+
               disabled={page <= 1}
               onClick={() => onPageChange(page - 1)}
             >
@@ -129,7 +142,7 @@ export function JobList({
             <Button
               variant="outline"
               size="sm"
-              className="h-9 px-3"
+
               disabled={page >= data.pages}
               onClick={() => onPageChange(page + 1)}
             >

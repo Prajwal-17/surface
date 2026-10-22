@@ -24,10 +24,13 @@ export function JobFilters({
 }: JobFiltersProps) {
   return (
     <div className="flex min-w-0 flex-1 flex-wrap gap-2">
-      <label className="relative min-w-[180px] flex-1 sm:max-w-sm">
+      <label className="relative min-w-[180px] flex-1 ">
         <span className="sr-only">Filter jobs</span>
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
+          data-job-search
+          aria-keyshortcuts="/"
+          type="search"
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Search roles or companies…"

@@ -39,7 +39,7 @@ export function JobAssessment({ job }: { job: Job }) {
         <Button
           variant="outline"
           size="sm"
-          className="h-8 px-2.5"
+          className="px-2.5"
           disabled={pending}
           onClick={() => assess.mutate()}
         >

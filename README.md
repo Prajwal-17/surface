@@ -21,10 +21,21 @@ bun run db:migrate
 bun run dev
 ```
 
-Open http://localhost:3000. Vite proxies `/api` to the backend on port 4000
+`bun dev` opens http://localhost:3000 automatically. Development uses port 3000;
+production uses port 3001. A persistent DEV/PROD tag appears in the app corner.
+Vite proxies `/api` to the backend on port 4000
 during development. The Docker web server also proxies `/api` to the backend.
 Use `BACKEND_URL` for a different backend. SQLite defaults to
-`data/surface.sqlite`; raw content-addressed snapshots live beside it.
+`data/development/surface.sqlite` in development and `data/surface.sqlite` in
+production; raw content-addressed snapshots live beside the active database.
+This keeps development records, backups, snapshots and login signing keys separate
+from production. `bun run db:migrate` applies migrations to the development database.
+For a fixed development login, copy
+`apps/backend/.env.development.example` to `apps/backend/.env.development` and set
+`AUTH_EMAIL`; without it, the isolated development environment accepts any valid
+email. Compose runs in production mode and keeps its database under `./data`.
+Set `AUTH_EMAIL` in the root `.env` to restrict production login, or leave it empty
+to use the email saved in the production profile.
 The backend performs monitoring and analysis while the browser is closed.
 Run one backend executor per data directory.
 
@@ -129,8 +140,13 @@ OmniRoute memory is disabled; its configured upstream models may receive prompts
 # OMNIROUTE_DOCKER_BASE_URL=http://host.docker.internal:20128/v1
 # OMNIROUTE_API_KEY=your-local-endpoint-key
 # OMNIROUTE_MODEL=auto
-docker compose up --build -d
+bun run prod
 ```
+
+`bun run prod` builds and starts the production Compose services, waits for the
+web app, and opens http://localhost:3001 in the default browser. For a headless
+start, use `docker compose up --build -d`. Set `FIELDWORK_PROD_WEB_PORT` in the
+root `.env` to use a different production port.
 
 Compose builds `apps/backend/Dockerfile` and `apps/web/Dockerfile` separately.
 The backend reaches a host-running OmniRoute through `host.docker.internal` by
@@ -139,9 +155,10 @@ keep the local-development `OMNIROUTE_BASE_URL` value separate because
 `127.0.0.1` inside a container refers to that container.
 
 Separate web/backend services persist SQLite, backups and snapshots under `./data`.
-Set `FIELDWORK_DATA_DIR` for a different local mount and `FIELDWORK_WEB_PORT` for a
-port other than 3000. The backend reaches a host gateway using
-`host.docker.internal`; `OMNIROUTE_BASE_URL` can override that address.
+Set `FIELDWORK_DATA_DIR` for a different local mount and
+`FIELDWORK_PROD_WEB_PORT` for a production port other than 3001. The backend
+reaches a host gateway using `host.docker.internal`; `OMNIROUTE_BASE_URL` can
+override that address.
 The web port binds to loopback; the backend is internal to the Compose network.
 
 If a machine lacks Docker Buildx, install/repair its plugin or build with its

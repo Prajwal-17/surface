@@ -14,6 +14,8 @@ import { collectionRoutes } from "./modules/collection/collection.routes";
 import { workspaceRoutes } from "./modules/workspace/workspace.routes";
 
 import { researchRoutes } from "./modules/research/research.routes";
+import { authRoutes } from "./modules/auth";
+import { readSession } from "./modules/auth/session";
 
 export const app = new Hono();
 
@@ -26,6 +28,29 @@ app.use(
   }),
 );
 
+const publicApiPaths = new Set([
+  "/api/health",
+  "/api/auth/session",
+  "/api/auth/login",
+  "/api/auth/logout",
+]);
+
+app.use("/api/*", async (context, next) => {
+  if (
+    context.req.method === "OPTIONS" ||
+    publicApiPaths.has(context.req.path)
+  ) {
+    return next();
+  }
+
+  const session = await readSession(context);
+  if (!session) {
+    return context.json({ error: "Sign in to access this workspace." }, 401);
+  }
+
+  return next();
+});
+
 app.get("/api/health", (context) => {
   sqlite.query("select 1").get();
   return context.json({
@@ -34,6 +59,8 @@ app.get("/api/health", (context) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.route("/api/auth", authRoutes);
 
 app.get("/api/schema", (context) => {
   const tableNames = sqlite

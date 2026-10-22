@@ -22,9 +22,11 @@ Start the web and backend workspaces from the repository root:
 bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Vite proxies `/api` to the
-backend at `http://localhost:4000` by default. Set `BACKEND_URL` to use another
-backend URL. Shared imports use the `@/` alias for `src/`.
+The dev server opens [http://localhost:3000](http://localhost:3000) in the
+default browser. The production preview uses port 3001 and also opens the
+browser. Vite proxies `/api` to the backend at `http://localhost:4000` by
+default. Set `BACKEND_URL` to use another backend URL. Shared imports use the
+`@/` alias for `src/`.
 
 ## UI and API ownership
 

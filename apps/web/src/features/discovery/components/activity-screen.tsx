@@ -1,3 +1,4 @@
+import { HeaderActions } from "@/components/layout/header-actions";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -129,19 +130,23 @@ export function ActivityScreen() {
               </TabsTrigger>
             ))}
           </TabsList>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={runs.isFetching}
-            onClick={() => void runs.refetch()}
-          >
-            <RefreshCw
-              className={
-                runs.isFetching ? "animate-spin motion-reduce:animate-none" : ""
-              }
-            />
-            {runs.isFetching ? "Refreshing…" : "Refresh"}
-          </Button>
+          <HeaderActions>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={runs.isFetching}
+              onClick={() => void runs.refetch()}
+            >
+              <RefreshCw
+                className={
+                  runs.isFetching
+                    ? "animate-spin motion-reduce:animate-none"
+                    : ""
+                }
+              />
+              {runs.isFetching ? "Refreshing…" : "Refresh"}
+            </Button>
+          </HeaderActions>
         </div>
         <TabsContent value="runs">
           <section className="space-y-3">
@@ -172,20 +177,23 @@ export function ActivityScreen() {
                 <Collapsible key={run.id} className="group activity-run">
                   <CollapsibleTrigger className="flex list-none flex-wrap items-center gap-3">
                     <span
-                      className={`grid size-8 place-items-center rounded-md ${run.state === "completed" ? "tone-mint" : ["failed", "partial", "interrupted"].includes(run.state) ? "tone-amber" : "tone-blue"}`}
+                      className={`grid size-7 shrink-0 place-items-center rounded-md ${run.state === "completed" ? "tone-mint" : ["failed", "partial", "interrupted"].includes(run.state) ? "tone-amber" : "tone-blue"}`}
                     >
                       {run.state === "completed" ? (
-                        <CircleCheck className="size-5" />
+                        <CircleCheck className="size-4" />
                       ) : (
-                        <Activity className="size-5" />
+                        <Activity className="size-4" />
                       )}
                     </span>
                     <div className="min-w-[160px] flex-1">
                       <h3 className="break-words text-sm font-semibold">
                         {run.label}
                       </h3>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {new Date(run.createdAt).toLocaleString()} ·{" "}
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        <time dateTime={run.createdAt}>
+                          {new Date(run.createdAt).toLocaleString()}
+                        </time>{" "}
+                        ·{" "}
                         {
                           run.items.filter((i) =>
                             [

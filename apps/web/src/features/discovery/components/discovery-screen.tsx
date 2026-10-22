@@ -8,7 +8,7 @@ import {
 import { AdvancedFilters } from "@/features/jobs/components/advanced-filters";
 import { SavedSearches } from "@/features/jobs/components/saved-searches";
 import { Link } from "react-router";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingStatus } from "@/components/feedback/loading-state";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,16 @@ import { JobStatusTabs } from "@/features/jobs/components/job-status-tabs";
 import { useJobs } from "@/features/jobs/hooks/use-jobs";
 import { useUpdateJobStatus } from "@/features/jobs/hooks/use-update-job-status";
 import { apiClient } from "@/lib/api-client";
+import { useReaderLayout } from "@/features/jobs/hooks/use-reader-layout";
+import {
+  hasOpenOverlay,
+  isEditableTarget,
+  shouldFocusJobSearch,
+  shouldCloseJobReader,
+} from "@/lib/workspace-keyboard";
+import { HeaderActions } from "@/components/layout/header-actions";
+import { useJobFilterOptions } from "@/features/jobs/hooks/use-job-filter-options";
+import { describeJobFilter } from "@/features/jobs/filter-options";
 export function DiscoveryScreen({
   filters,
   parameters,
@@ -30,6 +40,7 @@ export function DiscoveryScreen({
   selectedId: string | null;
   change: (patch: Record<string, string | undefined>) => void;
 }) {
+  const [workspaceRef, layout] = useReaderLayout();
   const [revision, setRevision] = useState<string | null>(null);
   useEffect(() => {
     const events = new EventSource("/api/events");
@@ -38,6 +49,7 @@ export function DiscoveryScreen({
     return () => events.close();
   }, []);
   const jobsQuery = useJobs(filters);
+  const filterOptions = useJobFilterOptions();
   const mutation = useUpdateJobStatus();
   const selected = useQuery({
     queryKey: ["jobs", "detail", selectedId],
@@ -60,15 +72,65 @@ export function DiscoveryScreen({
       target ?? document.querySelector<HTMLElement>("[data-job-list-heading]")
     )?.focus();
   }
+  useEffect(() => {
+    function keyboard(event: KeyboardEvent) {
+      const overlay = hasOpenOverlay();
+      if (
+        shouldFocusJobSearch(event, isEditableTarget(event.target), overlay)
+      ) {
+        const search =
+          document.querySelector<HTMLInputElement>("[data-job-search]");
+        if (search) {
+          event.preventDefault();
+          search.focus();
+        }
+      }
+      if (
+        shouldCloseJobReader(event, Boolean(selectedId), layout.split, overlay)
+      ) {
+        event.preventDefault();
+        closeReader();
+      }
+    }
+    window.addEventListener("keydown", keyboard);
+    return () => window.removeEventListener("keydown", keyboard);
+  });
+  const filterNames: Record<string, string> = {
+    source: "Source",
+    relevance: "Roles",
+    reviewState: "Review",
+    companyId: "Company",
+    sourceIds: "Source",
+    workMode: "Work mode",
+    eligibility: "Eligibility",
+    assessment: "Assessment",
+    availability: "Availability",
+    postedAfter: "Posted after",
+    discoveredAfter: "Discovered after",
+  };
+  const activeFilters = Object.entries(filters).filter(
+    ([key, value]) =>
+      key in filterNames &&
+      value !== undefined &&
+      value !== "" &&
+      !(
+        key === "relevance" &&
+        value === (filters.status === "inbox" ? "target" : "all")
+      ),
+  );
   function statusChange(job: Job, status: JobStatus) {
     mutation.mutate({ id: job.id, status, previousStatus: job.status });
   }
   return (
     <section
+      ref={workspaceRef}
       className="discovery-workspace"
+      style={{ "--reader-width": `${layout.width}px` } as React.CSSProperties}
+      data-split={layout.split && Boolean(selectedId)}
+      data-resizing={layout.resizing}
       data-reader-open={Boolean(selectedId)}
     >
-      <div className="discovery-inbox">
+      <div id="job-inbox" className="discovery-inbox">
         <h1 data-job-list-heading tabIndex={-1} className="sr-only">
           Jobs
         </h1>
@@ -82,7 +144,7 @@ export function DiscoveryScreen({
               }
             />
           </div>
-          <div className="inbox-header-actions">
+          <HeaderActions>
             <span className="inline-flex min-w-5">
               {jobsQuery.isFetching && !jobsQuery.isPending && (
                 <LoadingStatus>
@@ -101,7 +163,7 @@ export function DiscoveryScreen({
                 <Plus /> <span className="max-sm:sr-only">Add sources</span>
               </Link>
             </Button>
-          </div>
+          </HeaderActions>
         </div>
         {revision && jobsQuery.data && revision !== jobsQuery.data.revision && (
           <div
@@ -129,15 +191,71 @@ export function DiscoveryScreen({
             onSearchChange={(search) => change({ search, page: "1" })}
             onSourceChange={(source) => change({ source, page: "1" })}
           />
-          <AdvancedFilters filters={filters} change={change} />
+          <AdvancedFilters
+            filters={filters}
+            change={change}
+            options={filterOptions}
+            resultCount={jobsQuery.data?.total}
+            updating={jobsQuery.isFetching}
+          />
+          <p
+            className="inbox-result-count text-xs text-muted-foreground"
+            aria-live="polite"
+            title={`${jobsQuery.data?.collectedTotal.toLocaleString() ?? "…"} collected jobs across all roles`}
+          >
+            <span className="font-mono tabular-nums">
+              {jobsQuery.data?.total.toLocaleString() ?? "…"}
+            </span>{" "}
+            results
+          </p>
         </div>
+        {!!activeFilters.length && (
+          <div className="applied-filters" aria-label="Applied filters">
+            {activeFilters.map(([key, value]) => {
+              const label = describeJobFilter(key, String(value), {
+                companies: filterOptions.companies.data,
+                sources: filterOptions.sources.data,
+              });
+              return (
+                <Button
+                  key={key}
+                  size="sm"
+                  variant="secondary"
+                  className="filter-chip"
+                  onClick={() => change({ [key]: undefined, page: "1" })}
+                  aria-label={`Remove ${filterNames[key]} filter: ${label}`}
+                >
+                  <span>
+                    {filterNames[key]}: {label}
+                  </span>
+                  <X className="!size-3" />
+                </Button>
+              );
+            })}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() =>
+                change(
+                  Object.fromEntries([
+                    ...activeFilters.map(([key]) => [key, undefined]),
+                    ["page", "1"],
+                  ]),
+                )
+              }
+            >
+              Clear filters
+            </Button>
+          </div>
+        )}
         <div className="inbox-content">
           <div className="job-list-panel">
             <div className="job-columns" aria-hidden="true">
               <span>Role / Company</span>
               <span>Location</span>
+              <span>Compensation</span>
               <span>Assessment</span>
-              <span>Posted</span>
+              <span>Age</span>
               <span />
             </div>
             <JobList
@@ -157,41 +275,37 @@ export function DiscoveryScreen({
           </div>
         </div>
       </div>
-      <JobDetailSheet
-        job={selected.data ?? null}
-        loading={!!selectedId && selected.isPending}
-        onClose={closeReader}
-        onStatusChange={statusChange}
-        isUpdating={mutation.isPending}
-      />
-      {selectedId && !selected.data && selected.error && (
+      {selectedId && layout.split && (
         <div
-          className="reader-placeholder"
-          role={selected.error ? "alert" : "status"}
-        >
-          <p>{selected.error ? "Unable to open this role" : "Opening job…"}</p>
-          {selected.error && (
-            <>
-              <p className="text-sm text-muted-foreground">
-                {selected.error.message}
-              </p>
-              <Button variant="outline" onClick={() => void selected.refetch()}>
-                Try again
-              </Button>
-              <Button variant="ghost" onClick={closeReader}>
-                Close reader
-              </Button>
-            </>
-          )}
-        </div>
+          role="separator"
+          aria-label="Resize job reader"
+          aria-orientation="vertical"
+          aria-controls="job-inbox job-reader"
+          aria-valuemin={layout.min}
+          aria-valuemax={layout.max}
+          aria-valuenow={layout.width}
+          aria-valuetext={`${layout.width} pixels. Arrow keys resize; Home resets.`}
+          tabIndex={0}
+          className="reader-divider"
+          onPointerDown={layout.onPointerDown}
+          onPointerMove={layout.onPointerMove}
+          onPointerUp={layout.onPointerUp}
+          onPointerCancel={layout.onPointerUp}
+          onLostPointerCapture={layout.onLostPointerCapture}
+          onKeyDown={layout.onKeyDown}
+        />
       )}
-      {selected.error && (
-        <p
-          role="alert"
-          className="text-sm text-destructive min-[1100px]:hidden"
-        >
-          {selected.error.message}
-        </p>
+      {selectedId && layout.ready && (
+        <JobDetailSheet
+          split={layout.split}
+          error={selected.error}
+          onRetry={() => void selected.refetch()}
+          job={selected.data ?? null}
+          loading={!!selectedId && selected.isPending}
+          onClose={closeReader}
+          onStatusChange={statusChange}
+          isUpdating={mutation.isPending}
+        />
       )}
     </section>
   );

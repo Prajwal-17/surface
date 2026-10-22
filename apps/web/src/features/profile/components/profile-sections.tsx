@@ -1,4 +1,4 @@
-import { type ReactNode, useId } from "react";
+import { cloneElement, type ReactElement, type ReactNode, useId } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import {
   roleOptions,
@@ -37,13 +37,20 @@ export function Field({
 }: {
   label: string;
   hint?: string;
-  children: ReactNode;
+  children: ReactElement<{
+    "aria-labelledby"?: string;
+    "aria-describedby"?: string;
+  }>;
 }) {
+  const id = useId();
   return (
     <label className="profile-field">
-      <span>{label}</span>
-      {hint && <p>{hint}</p>}
-      {children}
+      <span id={id}>{label}</span>
+      {hint && <p id={`${id}-hint`}>{hint}</p>}
+      {cloneElement(children, {
+        "aria-labelledby": id,
+        "aria-describedby": hint ? `${id}-hint` : undefined,
+      })}
     </label>
   );
 }

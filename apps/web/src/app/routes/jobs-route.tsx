@@ -11,7 +11,9 @@ export function Component() {
     : jobsListQuerySchema.parse({});
 
   function change(patch: Record<string, string | undefined>) {
-    const next = new URLSearchParams(searchParams);
+    // History updates before React commits navigation. Merge against the live
+    // URL so rapid choices cannot overwrite the previous selection.
+    const next = new URLSearchParams(window.location.search);
     for (const [key, value] of Object.entries(patch)) {
       if (value === undefined || value === "") next.delete(key);
       else next.set(key, value);

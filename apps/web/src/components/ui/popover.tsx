@@ -12,10 +12,11 @@ export function PopoverContent({
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
+        data-surface-overlay
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          "surface-popover z-50 w-[min(24rem,calc(100vw-2rem))] rounded-lg border bg-card p-4 text-foreground shadow-lg outline-none",
+          "surface-popover z-50 w-[min(24rem,calc(100vw-2rem))] rounded-lg border bg-popover p-3 text-foreground shadow-lg outline-none",
           className,
         )}
         {...props}

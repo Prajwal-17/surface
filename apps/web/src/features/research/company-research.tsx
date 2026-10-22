@@ -257,7 +257,7 @@ export function CompanyResearch({ companyId }: { companyId: string }) {
               setView(id);
               if (id === "chat") setChatCollapsed(false);
             }}
-            className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-3 text-sm ${view === id ? "border-brand text-brand" : "border-transparent text-muted-foreground"}`}
+            className={`flex flex-1 items-center justify-center gap-2 border-b-2 py-2 text-sm ${view === id ? "border-brand text-brand" : "border-transparent text-muted-foreground"}`}
           >
             <Icon className="size-4" />
             {label}
@@ -312,7 +312,7 @@ export function CompanyResearch({ companyId }: { companyId: string }) {
             )}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <article className="mx-auto max-w-3xl px-5 py-4 sm:px-8 sm:py-5">
+            <article className="mx-auto max-w-[calc(76ch+32px)] px-4 py-4">
               <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                 <span className="font-medium tracking-wider">BRIEFING</span>
                 {report && (
@@ -397,7 +397,7 @@ export function CompanyResearch({ companyId }: { companyId: string }) {
               ) : (
                 <div className="py-16">
                   <BookOpen className="mb-5 size-8 text-brand" />
-                  <h2 className="text-2xl font-semibold tracking-tight">
+                  <h2 className="text-lg font-semibold tracking-tight">
                     A clearer picture of {owner.name}
                   </h2>
                   <p className="mt-4 max-w-lg leading-7 text-muted-foreground">
@@ -515,8 +515,8 @@ export function CompanyResearch({ companyId }: { companyId: string }) {
                 );
                 return (
                   <div key={message.id} className="space-y-3">
-                    <div className="ml-6 rounded-xl rounded-tr-sm border bg-secondary/70 px-3 py-2">
-                      <div className="mb-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                    <div className="ml-6 rounded-lg rounded-tr-sm border bg-secondary/70 px-3 py-2">
+                      <div className="mb-1 flex items-center gap-2 text-caption text-muted-foreground">
                         <span className="font-semibold uppercase tracking-wide">
                           You
                         </span>
@@ -531,12 +531,12 @@ export function CompanyResearch({ companyId }: { companyId: string }) {
                           label="Copy question"
                         />
                       </div>
-                      <p className="whitespace-pre-wrap text-sm leading-6">
+                      <p className="whitespace-pre-wrap text-prose leading-[1.65]">
                         {message.question}
                       </p>
                     </div>
-                    <div className="mr-3 rounded-xl rounded-tl-sm border border-border/60 bg-background/70 px-3 py-2">
-                      <div className="mb-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                    <div className="mr-3 rounded-lg rounded-tl-sm border border-border/60 bg-background/70 px-3 py-2">
+                      <div className="mb-1 flex items-center gap-2 text-caption text-muted-foreground">
                         <span className="font-semibold uppercase tracking-wide text-brand">
                           Assistant
                         </span>

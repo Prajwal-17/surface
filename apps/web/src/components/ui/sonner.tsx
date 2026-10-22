@@ -18,7 +18,7 @@ export function Toaster(props: ToasterProps) {
           background: "var(--popover)",
           color: "var(--foreground)",
           border: "1px solid var(--border-strong)",
-          fontFamily: "var(--font-manrope), sans-serif",
+          fontFamily: "var(--font-geist-sans), sans-serif",
         },
         classNames: {
           actionButton: "!bg-primary !text-primary-foreground",

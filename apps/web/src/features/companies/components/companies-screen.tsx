@@ -1,3 +1,4 @@
+import { HeaderActions } from "@/components/layout/header-actions";
 import { Link } from "react-router";
 import {
   Collapsible,
@@ -7,7 +8,6 @@ import {
 
 import { LoadingCards, LoadingRows } from "@/components/feedback/loading-state";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { CompanyMark } from "@/components/ui/company-mark";
 import {
   Dialog,
@@ -41,6 +41,7 @@ import {
   ArrowUpRight,
   Building2,
   Check,
+  ChevronDown,
   Globe2,
   Link2,
   Pause,
@@ -130,17 +131,17 @@ export function CompaniesScreen({
         </p>
       )}
       {sources.isPending && <LoadingRows label="Loading sources" count={3} />}
-      {sources.data?.map((source) => (
-        <Card
-          key={source.id}
-          className="panel flex flex-wrap items-start gap-4 p-4"
-        >
-          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-brand">
-            <Globe2 className="size-5" />
-          </span>
-          <div className="min-w-[160px] flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-semibold">{source.label}</h3>
+      <div className="source-rows">
+        {sources.data?.map((source) => (
+          <Collapsible key={source.id} className="source-row group">
+            <div className="source-row-main">
+              <Globe2 className="size-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-semibold">{source.label}</h3>
+                <p className="truncate text-xs text-muted-foreground">
+                  {new URL(source.url).hostname}
+                </p>
+              </div>
               <span
                 className={`status-pill ${source.paused ? "tone-muted" : source.support === "unsupported" ? "tone-amber" : "tone-mint"}`}
               >
@@ -152,80 +153,100 @@ export function CompaniesScreen({
                       ? "Monitoring"
                       : "Manual"}
               </span>
-            </div>
-            <a
-              href={source.url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-1.5 inline-flex max-w-full items-center gap-1 text-xs text-brand"
-            >
-              <span className="truncate">
-                {new URL(source.url).hostname}
-                {new URL(source.url).pathname === "/"
-                  ? ""
-                  : new URL(source.url).pathname}
-              </span>
-              <ArrowUpRight className="size-3 shrink-0" />
-            </a>
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              {companies.data?.find((c) => c.id === source.companyId)?.name ??
-                "Independent source"}{" "}
-              · {source.provider}
-            </p>
-            {source.support === "unsupported" && (
-              <p className="mt-2 text-xs leading-5 text-warning">
-                {source.reason}
+              <p className="source-last-run text-xs text-muted-foreground">
+                Last success{" "}
+                <time dateTime={source.lastSuccessAt ?? undefined}>
+                  {source.lastSuccessAt
+                    ? new Date(source.lastSuccessAt).toLocaleString()
+                    : "Never"}
+                </time>
               </p>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={
-                mutate.isPending ||
-                source.paused ||
-                source.support === "unsupported"
-              }
-              onClick={() =>
-                mutate.mutate({
-                  path: `/api/sources/${source.id}/refresh`,
-                  method: "POST",
-                  body: {},
-                })
-              }
-            >
-              <RefreshCw />
-              Refresh
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              disabled={mutate.isPending}
-              title={source.paused ? "Resume monitoring" : "Pause monitoring"}
-              aria-label={`${source.paused ? "Resume" : "Pause"} ${source.label}`}
-              onClick={() =>
-                mutate.mutate({
-                  path: `/api/sources/${source.id}`,
-                  method: "PUT",
-                  body: { ...source, paused: !source.paused },
-                })
-              }
-            >
-              {source.paused ? <Play /> : <Pause />}
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              title="Edit source"
-              aria-label={`Edit ${source.label}`}
-              onClick={() => setSourceEditing(source)}
-            >
-              <Pencil />
-            </Button>
-          </div>
-        </Card>
-      ))}
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    mutate.isPending ||
+                    source.paused ||
+                    source.support === "unsupported"
+                  }
+                  onClick={() =>
+                    mutate.mutate({
+                      path: `/api/sources/${source.id}/refresh`,
+                      method: "POST",
+                      body: {},
+                    })
+                  }
+                >
+                  <RefreshCw />
+                  <span className="max-sm:sr-only">Refresh</span>
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  disabled={mutate.isPending}
+                  title={
+                    source.paused ? "Resume monitoring" : "Pause monitoring"
+                  }
+                  aria-label={`${source.paused ? "Resume" : "Pause"} ${source.label}`}
+                  onClick={() =>
+                    mutate.mutate({
+                      path: `/api/sources/${source.id}`,
+                      method: "PUT",
+                      body: { ...source, paused: !source.paused },
+                    })
+                  }
+                >
+                  {source.paused ? <Play /> : <Pause />}
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  title="Edit source"
+                  aria-label={`Edit ${source.label}`}
+                  onClick={() => setSourceEditing(source)}
+                >
+                  <Pencil />
+                </Button>
+                <CollapsibleTrigger
+                  className="source-details-toggle"
+                  aria-label={`Details for ${source.label}`}
+                >
+                  <ChevronDown className="size-4" />
+                </CollapsibleTrigger>
+              </div>
+            </div>
+            <CollapsibleContent>
+              <div className="source-row-detail">
+                <a
+                  href={source.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex max-w-full items-center gap-1 break-all text-xs text-brand"
+                >
+                  {source.url}
+                  <ArrowUpRight className="size-3 shrink-0" />
+                </a>
+                <p className="text-xs text-muted-foreground">
+                  {companies.data?.find((c) => c.id === source.companyId)
+                    ?.name ?? "Independent source"}{" "}
+                  · {source.provider}
+                </p>
+                {source.support === "unsupported" && (
+                  <p className="text-xs text-warning">{source.reason}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {source.paused
+                    ? "Monitoring paused"
+                    : source.nextDueAt
+                      ? `Next collection: ${new Date(source.nextDueAt).toLocaleString()}`
+                      : "Manual collection only"}
+                </p>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        ))}
+      </div>
       {sources.data?.length === 0 && (
         <div className="panel grid place-items-center gap-3 px-5 py-14 text-center">
           <Globe2 className="size-8 text-brand" />
@@ -263,19 +284,21 @@ export function CompaniesScreen({
                   </span>
                 </TabsTrigger>
               </TabsList>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setEditing(null);
-                  setCompanyOpen(true);
-                }}
-              >
-                <Plus />
-                Watch a company
-              </Button>
+              <HeaderActions>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setEditing(null);
+                    setCompanyOpen(true);
+                  }}
+                >
+                  <Plus />
+                  Watch a company
+                </Button>
+              </HeaderActions>
             </div>
             <TabsContent value="companies">
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-3 flex items-center justify-between">
                 <h2 className="section-label">
                   {showArchived
                     ? "Archived companies"
@@ -302,28 +325,51 @@ export function CompaniesScreen({
                 {companies.data
                   ?.filter((c) => c.archived === showArchived)
                   .map((company) => (
-                    <Card
+                    <Collapsible
                       key={company.id}
-                      className="company-card panel flex flex-col p-5"
+                      className="company-card group"
                     >
-                      <div className="flex items-start gap-3">
-                        <CompanyMark name={company.name} />
-                        <div className="min-w-0 flex-1">
-                          <h3 className="break-words text-base font-bold">
-                            {company.name}
-                          </h3>
-                          {company.website && (
-                            <a
-                              className="mt-1 inline-flex items-center gap-1 text-xs text-brand"
-                              href={company.website}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              {new URL(company.website).hostname}
-                              <ArrowUpRight className="size-3" />
-                            </a>
-                          )}
-                        </div>
+                      <div className="company-row-main">
+                        <CollapsibleTrigger
+                          className="flex min-w-0 flex-1 items-center gap-3"
+                          aria-label={`Details for ${company.name}`}
+                        >
+                          <CompanyMark
+                            name={company.name}
+                            className="size-7 text-caption"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <span className="truncate text-sm font-semibold">
+                                {company.name}
+                              </span>
+                              <ChevronDown
+                                data-disclosure-icon
+                                aria-hidden="true"
+                                className="size-3.5 shrink-0 text-muted-foreground"
+                              />
+                            </span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {company.website
+                                ? new URL(company.website).hostname
+                                : "Website not set"}
+                            </span>
+                          </span>
+                        </CollapsibleTrigger>
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <Link2 className="size-3" />
+                          {sources.data?.filter(
+                            (src) => src.companyId === company.id,
+                          ).length ?? 0}{" "}
+                          sources
+                        </span>
+                        <Button asChild variant="outline" size="sm">
+                          <Link
+                            to={`/research/${encodeURIComponent(company.id)}`}
+                          >
+                            Research <ArrowUpRight />
+                          </Link>
+                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
@@ -336,75 +382,68 @@ export function CompaniesScreen({
                           <Pencil />
                         </Button>
                       </div>
-                      <Button
-                        asChild
-                        variant="outline"
-                        size="sm"
-                        className="mt-4 self-start"
-                      >
-                        <Link
-                          to={`/research/${encodeURIComponent(company.id)}`}
-                        >
-                          Research company
-                          <ArrowUpRight />
-                        </Link>
-                      </Button>
-                      <p className="my-5 flex-1 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-                        {company.watchReason ||
-                          "Add a reason for watching this company."}
-                      </p>
-                      {company.notes && (
-                        <Collapsible className="mb-4 text-xs text-muted-foreground">
-                          <CollapsibleTrigger>Notes</CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <p className="mt-2 whitespace-pre-wrap leading-6">
+                      <CollapsibleContent>
+                        <div className="company-row-detail">
+                          {company.website && (
+                            <a
+                              className="inline-flex items-center gap-1 text-xs text-brand"
+                              href={company.website}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {company.website}
+                              <ArrowUpRight className="size-3" />
+                            </a>
+                          )}
+                          <p className="max-w-[76ch] whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                            {company.watchReason ||
+                              "Add a reason for watching this company."}
+                          </p>
+                          {company.notes && (
+                            <p className="max-w-[76ch] whitespace-pre-wrap text-sm leading-relaxed">
+                              <span className="mb-1 block text-xs text-muted-foreground">
+                                Notes
+                              </span>
                               {company.notes}
                             </p>
-                          </CollapsibleContent>
-                        </Collapsible>
-                      )}
-                      <div className="flex items-center gap-2 border-t pt-4">
-                        <span className="status-pill tone-blue">
-                          <Link2 className="size-3" />
-                          {sources.data?.filter(
-                            (src) => src.companyId === company.id,
-                          ).length ?? 0}{" "}
-                          sources
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="ml-auto"
-                          onClick={() => {
-                            setOwner(company.id);
-                            setSourceOpen(true);
-                          }}
-                        >
-                          <Plus />
-                          Source
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          disabled={mutate.isPending}
-                          title={
-                            company.archived
-                              ? "Restore company"
-                              : "Archive company"
-                          }
-                          aria-label={`${company.archived ? "Restore" : "Archive"} ${company.name}`}
-                          onClick={() =>
-                            mutate.mutate({
-                              path: `/api/companies/${company.id}`,
-                              method: "PUT",
-                              body: { ...company, archived: !company.archived },
-                            })
-                          }
-                        >
-                          <Archive />
-                        </Button>
-                      </div>
-                    </Card>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setOwner(company.id);
+                                setSourceOpen(true);
+                              }}
+                            >
+                              <Plus />
+                              Add source
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={mutate.isPending}
+                              aria-label={`${company.archived ? "Restore" : "Archive"} ${company.name}`}
+                              onClick={() =>
+                                mutate.mutate({
+                                  path: `/api/companies/${company.id}`,
+                                  method: "PUT",
+                                  body: {
+                                    ...company,
+                                    archived: !company.archived,
+                                  },
+                                })
+                              }
+                            >
+                              <Archive />
+                              {company.archived
+                                ? "Restore company"
+                                : "Archive company"}
+                            </Button>
+                          </div>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                   ))}
               </div>
               {companies.data?.filter((c) => c.archived === showArchived)

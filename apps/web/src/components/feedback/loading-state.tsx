@@ -45,8 +45,8 @@ export function LoadingRows({
     <Frame label={label} className="overflow-hidden rounded-lg border bg-card">
       <div className="divide-y divide-border">
         {Array.from({ length: count }, (_, i) => (
-          <div key={i} className="flex items-start gap-4 p-5">
-            <Skeleton className="size-10 shrink-0" />
+          <div key={i} className="flex items-start gap-3 p-3">
+            <Skeleton className="size-7 shrink-0" />
             <div className="min-w-0 flex-1 space-y-3">
               <Skeleton className={i % 2 ? "h-4 w-1/2" : "h-4 w-2/3"} />
               <Skeleton className="h-3 w-1/3" />
@@ -64,16 +64,16 @@ export function LoadingCards({ label }: { label: string }) {
     <Frame label={label}>
       <div className="company-grid">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="panel space-y-5 p-5">
+          <div key={i} className="panel space-y-3 p-3">
             <div className="flex items-center gap-3">
-              <Skeleton className="size-10" />
+              <Skeleton className="size-7" />
               <Skeleton className="h-5 w-1/2" />
             </div>
             <Skeleton className="h-3 w-full" />
             <Skeleton className="h-3 w-3/4" />
             <div className="flex gap-2 pt-4">
-              <Skeleton className="h-9 w-24" />
-              <Skeleton className="h-9 w-20" />
+              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-8 w-20" />
             </div>
           </div>
         ))}
@@ -95,14 +95,14 @@ export function ProfileLoading({
       {onboarding && (
         <div className="onboarding-top">
           <Skeleton className="h-6 w-28" />
-          <Skeleton className="h-9 w-32" />
+          <Skeleton className="h-8 w-32" />
         </div>
       )}
       <div className={onboarding ? "onboarding-layout" : "profile-layout"}>
         <div className="profile-navigation">
           <nav>
             {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="my-1 h-11 w-full" />
+              <Skeleton key={i} className="my-1 h-8 w-full" />
             ))}
           </nav>
         </div>
@@ -115,7 +115,7 @@ export function ProfileLoading({
             <div key={i} className="profile-review-card mb-5 space-y-7">
               <div className="flex items-center justify-between">
                 <Skeleton className="h-5 w-40" />
-                <Skeleton className="h-9 w-20" />
+                <Skeleton className="h-8 w-20" />
               </div>
               {[0, 1, 2].map((j) => (
                 <div key={j} className="grid gap-3 sm:grid-cols-[170px_1fr]">
@@ -135,13 +135,13 @@ export function SettingsLoading() {
   return (
     <Frame
       label="Loading analysis settings"
-      className="mx-auto mt-8 max-w-5xl space-y-6"
+      className="mx-auto mt-4 max-w-5xl space-y-6"
     >
       <Skeleton className="h-6 w-52" />
       <Skeleton className="h-4 w-2/3" />
       <div className="grid gap-3 sm:grid-cols-2">
         {[0, 1].map((i) => (
-          <div key={i} className="panel space-y-5 p-5">
+          <div key={i} className="panel space-y-3 p-3">
             <Skeleton className="h-4 w-36" />
             <Skeleton className="h-7 w-24" />
             <Skeleton className="h-2 w-full" />
@@ -165,7 +165,7 @@ export function ReaderLoadingContent() {
   return (
     <Frame
       label="Loading job details"
-      className="min-h-0 flex-1 overflow-hidden p-5 sm:p-6"
+      className="min-h-0 flex-1 overflow-hidden p-3"
     >
       <div className="grid grid-cols-2 gap-6 py-4">
         {[0, 1, 2, 3].map((i) => (

@@ -16,7 +16,7 @@ import {
   type Job,
   type JobStatus,
 } from "@surface/contracts";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import { ReaderLoadingContent } from "@/components/feedback/loading-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,9 @@ interface JobDetailSheetProps {
   onStatusChange: (job: Job, status: JobStatus) => void;
   isUpdating: boolean;
   loading?: boolean;
+  split: boolean;
+  error?: Error | null;
+  onRetry?: () => void;
 }
 
 export function JobDetailSheet({
@@ -56,6 +59,9 @@ export function JobDetailSheet({
   onStatusChange,
   isUpdating,
   loading = false,
+  split: wide,
+  error,
+  onRetry,
 }: JobDetailSheetProps) {
   const client = useQueryClient();
   const [detailTab, setDetailTab] = useState({ jobId: "", value: "overview" });
@@ -108,30 +114,36 @@ export function JobDetailSheet({
         body: JSON.stringify({ reviewed: !job?.reviewedAt }),
       }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["jobs"] }),
-    onError: (error) => toast.error(error.message),
+    onError: (reviewError) => toast.error(reviewError.message),
   });
-  const wide = useSyncExternalStore(
-    subscribeWidth,
-    () => window.matchMedia("(min-width: 1100px)").matches,
-    () => false,
-  );
-  useEffect(() => {
-    if ((!job && !loading) || !wide) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [job, loading, onClose, wide]);
-  if (loading && !job) {
-    const skeleton = <ReaderLoadingContent />;
+  if ((loading || error) && !job) {
+    const skeleton = error ? (
+      <div
+        role="alert"
+        className="flex flex-1 flex-col items-center justify-center gap-3 p-4 text-center"
+      >
+        <p className="font-medium">Unable to open this role</p>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          {error.message}
+        </p>
+        <Button variant="outline" onClick={onRetry}>
+          Try again
+        </Button>
+        <Button variant="ghost" onClick={onClose}>
+          Close reader
+        </Button>
+      </div>
+    ) : (
+      <ReaderLoadingContent />
+    );
     if (wide)
       return (
         <aside
+          id="job-reader"
           aria-label="Job reader"
           className="job-reader flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
         >
-          <div className="flex shrink-0 items-center justify-between gap-4 border-b p-5">
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b p-3">
             <div className="flex-1 space-y-3">
               <Skeleton className="h-6 w-2/3" />
               <Skeleton className="h-4 w-1/3" />
@@ -150,9 +162,22 @@ export function JobDetailSheet({
       );
     return (
       <Sheet open onOpenChange={(open) => !open && onClose()}>
-        <SheetContent className="flex h-full w-full max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
-          <SheetHeader className="shrink-0 border-b p-5 pr-14 text-left">
-            <SheetTitle>Loading job</SheetTitle>
+        <SheetContent
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            (
+              document.querySelector<HTMLElement>(
+                '[data-job-id][aria-pressed="true"]',
+              ) ??
+              document.querySelector<HTMLElement>("[data-job-list-heading]")
+            )?.focus();
+          }}
+          className="flex h-full w-full max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
+        >
+          <SheetHeader className="shrink-0 border-b p-3 pr-14 text-left">
+            <SheetTitle>
+              {error ? "Unable to open this role" : "Loading job"}
+            </SheetTitle>
             <SheetDescription>Getting the job description.</SheetDescription>
           </SheetHeader>
           {skeleton}
@@ -186,7 +211,7 @@ export function JobDetailSheet({
   const companyLine = (
     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
       <span className="inline-flex min-w-0 items-center gap-1.5">
-        <CompanyMark name={job.company} className="size-4 rounded text-[8px]" />
+        <CompanyMark name={job.company} className="size-4 rounded text-[10px]" />
         {job.companyWebsite ? (
           <a
             href={job.companyWebsite}
@@ -216,7 +241,7 @@ export function JobDetailSheet({
   );
   const headerActions = (
     <div className="flex shrink-0 items-center gap-0.5">
-      <Button asChild variant="ghost" size="sm" className="h-8">
+      <Button asChild variant="ghost" size="sm">
         <Link
           to={`/research?q=${encodeURIComponent(job.companyWebsite || job.company)}`}
         >
@@ -232,7 +257,7 @@ export function JobDetailSheet({
       <Button
         variant="ghost"
         size="icon"
-        className="size-8"
+
         disabled={review.isPending}
         aria-label={job.reviewedAt ? "Mark unreviewed" : "Mark as reviewed"}
         title={
@@ -243,7 +268,7 @@ export function JobDetailSheet({
       >
         <Check className={job.reviewedAt ? "text-brand" : "opacity-50"} />
       </Button>
-      <Button asChild size="sm" className="ml-1 h-8 gap-1.5 px-2">
+      <Button asChild size="sm" className="ml-1 gap-1.5 px-2">
         <a
           href={job.applyUrl}
           target="_blank"
@@ -543,11 +568,12 @@ export function JobDetailSheet({
     return (
       <aside
         className="job-reader flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
+        id="job-reader"
         aria-label="Job reader"
       >
         <div className="shrink-0 space-y-1 border-b bg-card px-4 py-2.5">
           <div className="flex items-start gap-2">
-            <h2 className="min-w-0 flex-1 break-words pt-1 text-sm font-semibold leading-5 tracking-tight">
+            <h2 className="min-w-0 flex-1 break-words pt-0.5 text-lg font-semibold leading-6 tracking-tight">
               {job.title}
             </h2>
             <Button
@@ -583,7 +609,7 @@ export function JobDetailSheet({
       >
         <SheetHeader className="shrink-0 gap-1.5 space-y-0 border-b px-4 py-2.5 text-left">
           <div className="min-w-0 basis-full">
-            <SheetTitle className="pr-9 text-sm leading-5">
+            <SheetTitle className="pr-9 text-lg leading-6">
               {job.title}
             </SheetTitle>
             <SheetDescription className="sr-only">
@@ -599,9 +625,4 @@ export function JobDetailSheet({
       </SheetContent>
     </Sheet>
   );
-}
-function subscribeWidth(callback: () => void) {
-  const media = window.matchMedia("(min-width: 1100px)");
-  media.addEventListener("change", callback);
-  return () => media.removeEventListener("change", callback);
 }

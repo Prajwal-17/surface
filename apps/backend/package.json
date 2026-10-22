@@ -4,13 +4,13 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun --watch src/index.ts",
-    "start": "bun run src/index.ts",
+    "dev": "APP_ENV=development NODE_ENV=development bun --watch src/index.ts",
+    "start": "APP_ENV=production NODE_ENV=production bun run src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun",
     "check-types": "tsc --noEmit",
     "lint": "oxlint --config ../../.oxlintrc.json .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "bun run src/infrastructure/database/migrate.ts",
+    "db:migrate": "APP_ENV=development NODE_ENV=development bun run src/infrastructure/database/migrate.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

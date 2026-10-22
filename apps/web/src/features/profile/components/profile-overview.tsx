@@ -18,7 +18,7 @@ function Values({ values }: { values: string[] }) {
       {values.map((value) => (
         <li
           key={value}
-          className="rounded-md bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground"
+          className="rounded-md bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground"
         >
           {optionLabel(value)}
         </li>
@@ -67,7 +67,7 @@ export function ProfileOverview({
   function heading(title: string, section: ProfileSection) {
     return (
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold">{title}</h3>
+        <h3 className="text-base font-semibold">{title}</h3>
         <Button
           type="button"
           size="sm"

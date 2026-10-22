@@ -79,10 +79,10 @@ export function ResearchLibrary({
       .includes(filter.toLowerCase()),
   );
   return (
-    <div className="mx-auto w-full max-w-6xl pb-10">
-      <section className="mb-6 flex flex-col gap-4 border-b pb-5 pt-2 lg:flex-row lg:items-center lg:justify-between">
+    <div className="mx-auto w-full max-w-6xl pb-4">
+      <section className="mb-4 flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-base font-semibold tracking-tight">
             Company research
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -124,7 +124,7 @@ export function ResearchLibrary({
                   >
                     <CompanyMark name={c.name} />
                     <span className="min-w-0 flex-1">
-                      <span className="block font-medium">{c.name}</span>
+                      <span className="block font-semibold">{c.name}</span>
                       <span className="block break-all text-xs text-brand">
                         {c.website}
                       </span>
@@ -141,7 +141,7 @@ export function ResearchLibrary({
         </div>
       </section>
       <section>
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <BookOpen className="size-4 text-muted-foreground" /> Saved research{" "}
             <span className="ml-2 text-sm font-normal text-muted-foreground">
@@ -149,7 +149,7 @@ export function ResearchLibrary({
             </span>
           </h2>
           <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               aria-label="Find saved company"
               placeholder="Find a saved company"
@@ -180,39 +180,32 @@ export function ResearchLibrary({
             </p>
           </div>
         )}
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="research-library-rows">
           {rows?.map(({ company, report, run }) => (
             <Link
               key={company.id}
               to={`/research/${encodeURIComponent(company.id)}`}
-              className="group flex min-w-0 flex-col rounded-lg border bg-card p-6 transition-colors hover:border-brand/60 focus-visible:outline-2 focus-visible:outline-ring"
+              className="research-library-row group"
             >
-              <div className="flex items-center gap-3">
-                <CompanyMark name={company.name} />
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate font-semibold">{company.name}</h3>
+              <div className="flex min-w-0 items-center gap-3">
+                <CompanyMark
+                  name={company.name}
+                  className="size-7 text-caption"
+                />
+                <div className="min-w-0">
+                  <h3 className="truncate text-sm font-semibold">
+                    {company.name}
+                  </h3>
                   <p className="truncate text-xs text-muted-foreground">
                     {company.website
                       ? new URL(company.website).hostname
                       : "Website not set"}
                   </p>
                 </div>
-                <ArrowRight className="size-4 text-muted-foreground group-hover:text-brand" />
               </div>
-              <p className="my-4 line-clamp-4 flex-1 text-sm leading-6 text-muted-foreground">
-                {report
-                  ? report.markdown
-                      .replace(/#{1,6}\s*[^\n]+/g, "")
-                      .replace(/\[\d+\]\([^)]+\)/g, "")
-                      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-                      .replace(/[*_]/g, "")
-                      .trim()
-                      .slice(0, 360)
-                  : "Research products, open-source work, and hiring opportunities."}
-              </p>
-              <div className="flex flex-wrap items-center gap-2 border-t pt-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
                 <span
-                  className={`status-pill ${run?.state === "running" ? "tone-blue" : report ? "tone-mint" : "tone-muted"}`}
+                  className={`status-pill ${run?.state === "running" ? "tone-blue" : report ? "tone-mint" : run?.state === "failed" ? "tone-rose" : "tone-muted"}`}
                 >
                   {run?.state === "running"
                     ? "Researching"
@@ -221,14 +214,26 @@ export function ResearchLibrary({
                       : (run?.state ?? "Not researched")}
                 </span>
                 {company.archived && (
-                  <span className="text-muted-foreground">Archived</span>
+                  <span className="text-xs text-muted-foreground">
+                    Archived
+                  </span>
                 )}
-                <time className="ml-auto text-muted-foreground">
-                  {report
-                    ? new Date(report.createdAt).toLocaleDateString()
-                    : ""}
-                </time>
               </div>
+              <time
+                className="text-xs text-muted-foreground"
+                dateTime={
+                  report?.createdAt ?? run?.completedAt ?? run?.createdAt
+                }
+              >
+                {report
+                  ? new Date(report.createdAt).toLocaleDateString()
+                  : run
+                    ? new Date(
+                        run.completedAt ?? run.createdAt,
+                      ).toLocaleDateString()
+                    : "No updates"}
+              </time>
+              <ArrowRight className="size-4 text-muted-foreground group-hover:text-brand" />
             </Link>
           ))}
         </div>

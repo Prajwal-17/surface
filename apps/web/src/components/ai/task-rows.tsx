@@ -15,10 +15,10 @@ export function TaskRows({
   label: (item: WorkItem) => string;
 }) {
   return (
-    <div className="divide-y overflow-hidden rounded-xl border bg-background/40">
+    <div className="divide-y overflow-hidden rounded-md border bg-background">
       {items.map((item, i) => (
-        <Collapsible key={item.id} className="group p-4">
-          <CollapsibleTrigger className="flex cursor-pointer items-center gap-3 text-sm">
+        <Collapsible key={item.id} className="group px-3 py-2">
+          <CollapsibleTrigger className="flex cursor-pointer items-center gap-2 text-sm">
             <span aria-hidden="true" className="shrink-0">
               {item.state === "completed" ? (
                 <Check className="size-4 text-success" />
@@ -31,7 +31,7 @@ export function TaskRows({
               )}
             </span>
             <span className="min-w-0 flex-1 break-words">
-              <span className="mr-3 text-xs text-muted-foreground">
+              <span className="mr-2 font-mono text-xs text-muted-foreground">
                 {String(i + 1).padStart(2, "0")}
               </span>
               {label(item)}

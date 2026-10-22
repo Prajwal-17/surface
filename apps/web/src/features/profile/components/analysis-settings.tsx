@@ -28,8 +28,8 @@ export function AnalysisSettings() {
   if (!settings.data) return <SettingsLoading />;
   const data = settings.data;
   return (
-    <section className="mx-auto mt-8 max-w-3xl space-y-5">
-      <h2 className="flex items-center gap-2 text-lg font-semibold">
+    <section className="max-w-3xl space-y-4">
+      <h2 className="flex items-center gap-2 text-base font-semibold">
         <ScanLine className="size-5 text-brand" /> AI settings
       </h2>
       <p className="text-muted-foreground">
@@ -37,7 +37,7 @@ export function AnalysisSettings() {
           ? "OmniRoute is not configured. Add its endpoint, model, and API key to the backend environment."
           : "OmniRoute is connected. Research, summaries, and assessments run when you request them."}
       </p>
-      <div className="rounded-lg border bg-card p-5 space-y-3">
+      <div className="rounded-lg border bg-card p-3 space-y-3">
         <p className="font-medium">
           {data.paused ? "AI is paused" : "AI is available"}
         </p>

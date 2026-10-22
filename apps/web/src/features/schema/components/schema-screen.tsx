@@ -66,13 +66,13 @@ type Direction = "LR" | "TB";
 type Domain = keyof typeof domainStyles;
 
 const domainStyles = {
-  core: { label: "Core", color: "#b8b4f6" },
-  collection: { label: "Collection", color: "#7fb5a0" },
-  workspace: { label: "Workspace", color: "#d6ac72" },
-  discovery: { label: "Discovery", color: "#76a9c7" },
-  work: { label: "Work queue", color: "#c28e9b" },
-  analysis: { label: "Analysis", color: "#b49ad1" },
-  profile: { label: "Profile", color: "#99a6bc" },
+  core: { label: "Core", color: "var(--link)" },
+  collection: { label: "Collection", color: "var(--success)" },
+  workspace: { label: "Workspace", color: "var(--warning)" },
+  discovery: { label: "Discovery", color: "var(--info)" },
+  work: { label: "Work queue", color: "var(--destructive)" },
+  analysis: { label: "Analysis", color: "var(--link)" },
+  profile: { label: "Profile", color: "var(--muted-foreground)" },
 } as const;
 
 const nodeTypes = { table: TableNodeCard };
@@ -185,7 +185,10 @@ function SchemaCanvas({ tables }: { tables: SchemaTable[] }) {
         void flow.current?.fitView({
           padding: 0.18,
           maxZoom: 0.9,
-          duration: 350,
+          duration: window.matchMedia("(prefers-reduced-motion: reduce)")
+            .matches
+            ? 0
+            : 160,
         }),
     );
   }
@@ -203,13 +206,15 @@ function SchemaCanvas({ tables }: { tables: SchemaTable[] }) {
         nodes: matches,
         padding: 0.45,
         maxZoom: 1.05,
-        duration: 300,
+        duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? 0
+          : 160,
       });
   }
 
   return (
     <section className="relative h-full min-h-0 overflow-hidden bg-background">
-      <div className="absolute left-4 top-3 z-20 flex h-8 items-center gap-2 text-xs text-muted-foreground">
+      <div className="absolute left-4 top-3 z-20 flex h-8 items-center gap-2 text-xs text-muted-foreground max-sm:top-16">
         <Database className="size-3.5 text-brand" />
         <span>
           <strong className="font-semibold text-foreground">
@@ -226,7 +231,7 @@ function SchemaCanvas({ tables }: { tables: SchemaTable[] }) {
             onChange={(event) => search(event.target.value)}
             placeholder="Find table or column…"
             aria-label="Find table or column"
-            className="h-8 w-[min(16rem,calc(100vw-8rem))] border-border bg-popover/90 pl-8 text-xs shadow-lg backdrop-blur"
+            className="h-8 w-[min(16rem,calc(100vw-8rem))] border-border bg-popover pl-8 text-xs"
           />
         </label>
         <Button
@@ -243,7 +248,7 @@ function SchemaCanvas({ tables }: { tables: SchemaTable[] }) {
         </Button>
       </div>
       {normalizedQuery && (
-        <div className="pointer-events-none absolute left-3 top-14 z-20 rounded-md border border-border bg-popover/95 px-2.5 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur">
+        <div className="pointer-events-none absolute left-3 top-14 z-20 rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs text-muted-foreground">
           <span className="font-semibold text-foreground">
             {matchingIds.size}
           </span>{" "}
@@ -295,7 +300,7 @@ function SchemaCanvas({ tables }: { tables: SchemaTable[] }) {
           maskColor="color-mix(in srgb, var(--background), transparent 15%)"
         />
       </ReactFlow>
-      <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 hidden -translate-x-1/2 items-center gap-3 rounded-md border border-border bg-popover/90 px-3 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur lg:flex">
+      <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 hidden -translate-x-1/2 items-center gap-3 rounded-md border border-border bg-popover px-3 py-1.5 text-xs text-muted-foreground lg:flex">
         {Object.entries(domainStyles).map(([key, value]) => (
           <span key={key} className="flex items-center gap-1.5">
             <i
@@ -317,17 +322,17 @@ function TableNodeCard({ data, selected }: NodeProps<TableNode>) {
 
   return (
     <article
-      className={`w-[340px] overflow-hidden rounded-[7px] border bg-card shadow-[0_9px_28px_#00000035] transition-[opacity,border-color,box-shadow] duration-200 ${
+      className={`w-[340px] overflow-hidden rounded-[7px] border bg-card shadow-lg shadow-black/10 transition-[opacity,border-color,box-shadow] duration-120 ${
         dimmed
           ? "opacity-20"
           : selected
-            ? "border-brand shadow-[0_0_0_2px_#b8b4f62b,0_12px_36px_#0007]"
+            ? "border-brand ring-2 ring-ring/25"
             : "border-border-strong"
       }`}
     >
       <header
         className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5"
-        style={{ boxShadow: `inset 3px 0 0 ${style.color}` }}
+        style={{ boxShadow: `inset 1px 0 0 ${style.color}` }}
       >
         <div className="flex min-w-0 items-center gap-2">
           <span
@@ -338,7 +343,7 @@ function TableNodeCard({ data, selected }: NodeProps<TableNode>) {
             {table.name}
           </h2>
         </div>
-        <span className="shrink-0 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+        <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
           {style.label}
         </span>
       </header>
@@ -348,20 +353,20 @@ function TableNodeCard({ data, selected }: NodeProps<TableNode>) {
           return (
             <div
               key={column.name}
-              className="relative flex h-9 items-center gap-2 px-3 font-mono text-xs hover:bg-white/[0.025]"
+              className="relative flex h-8 items-center gap-2 px-3 font-mono text-xs hover:bg-hover"
               title={`${column.name}: ${column.type}${column.notnull ? " · required" : " · nullable"}${column.dflt_value === null ? "" : ` · default ${column.dflt_value}`}`}
             >
               <Handle
                 type="target"
                 position={Position.Left}
                 id={`${column.name}:target`}
-                className="!left-[-3px] !size-1.5 !border-0 !bg-[#6e7180]"
+                className="!left-[-3px] !size-1.5 !border-0 !bg-muted-foreground"
               />
               <Handle
                 type="source"
                 position={Position.Right}
                 id={`${column.name}:source`}
-                className="!right-[-3px] !size-1.5 !border-0 !bg-[#6e7180]"
+                className="!right-[-3px] !size-1.5 !border-0 !bg-muted-foreground"
               />
               <span className="flex w-3 shrink-0 justify-center">
                 {column.pk > 0 ? (
@@ -375,7 +380,7 @@ function TableNodeCard({ data, selected }: NodeProps<TableNode>) {
                     aria-label="Foreign key"
                   />
                 ) : (
-                  <span className="size-1 rounded-full bg-[#4b4d54]" />
+                  <span className="size-1 rounded-full bg-border-strong" />
                 )}
               </span>
               <span
@@ -383,7 +388,7 @@ function TableNodeCard({ data, selected }: NodeProps<TableNode>) {
               >
                 {column.name}
               </span>
-              <span className="shrink-0 text-[12px] uppercase tracking-wide text-muted-foreground">
+              <span className="shrink-0 text-xs uppercase tracking-wide text-muted-foreground">
                 {column.type || "any"}
                 {!column.notnull && !column.pk && "?"}
               </span>
@@ -419,14 +424,18 @@ function createGraph(tables: SchemaTable[], direction: Direction) {
       target: table.name,
       targetHandle: `${foreignKey.from}:target`,
       type: "smoothstep",
-      style: { stroke: "#77738e", strokeWidth: 1.25, opacity: 0.72 },
+      style: {
+        stroke: "var(--diagram-edge)",
+        strokeWidth: 1.25,
+        opacity: 0.72,
+      },
     })),
   );
 
   for (const node of nodes) {
     graph.setNode(node.id, {
       width: nodeWidth,
-      height: 50 + node.data.table.columns.length * 36,
+      height: 50 + node.data.table.columns.length * 32,
     });
   }
   for (const edge of edges) graph.setEdge(edge.source, edge.target);
@@ -435,7 +444,7 @@ function createGraph(tables: SchemaTable[], direction: Direction) {
   return {
     nodes: nodes.map((node) => {
       const position = graph.node(node.id);
-      const height = 50 + node.data.table.columns.length * 36;
+      const height = 50 + node.data.table.columns.length * 32;
       return {
         ...node,
         position: {

@@ -61,7 +61,7 @@ export function JobLocation({
             className={`inline-flex items-center gap-1.5 ${remote || worldwide ? "text-brand" : "text-muted-foreground"}`}
           >
             <Icon className="size-3.5 shrink-0" />
-            {hasLocation && <span>{location}</span>}
+            <span>{hasLocation ? location : "Not listed"}</span>
           </span>
         ) : (
           <Button

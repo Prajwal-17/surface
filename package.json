@@ -5,6 +5,8 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --ui=tui",
+    "prod": "bun run scripts/start-production.ts",
+    "start": "bun run prod",
     "lint": "turbo run lint",
     "lint:fix": "oxlint --fix .",
     "format": "prettier --write .",

@@ -4,8 +4,12 @@ services:
       context: .
       dockerfile: apps/backend/Dockerfile
     environment:
+      APP_ENV: production
       DB_FILE_NAME: /data/surface.sqlite
       PORT: "4000"
+      AUTH_EMAIL: ${AUTH_EMAIL:-}
+      AUTH_SECRET: ${AUTH_SECRET:-}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
       SEARXNG_BASE_URL: http://searxng:8080
       CRAWLER_BASE_URL: http://crawler:4100
       SOURCE_TIMEOUT_MS: ${SOURCE_TIMEOUT_MS:-12000}
@@ -38,7 +42,7 @@ services:
     environment:
       BACKEND_URL: http://backend:4000
     ports:
-      - "127.0.0.1:${FIELDWORK_WEB_PORT:-3000}:3000"
+      - "127.0.0.1:${FIELDWORK_PROD_WEB_PORT:-3001}:3000"
     depends_on:
       backend:
         condition: service_healthy

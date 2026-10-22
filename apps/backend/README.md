@@ -35,8 +35,18 @@ bun run dev
 Environment variables:
 
 - `PORT` — API port, defaults to `4000`
-- `DB_FILE_NAME` — SQLite file path, defaults to the repository `data/` folder
+- `APP_ENV` — `development`, `production` or `test`; controls the default database directory
+- `DB_FILE_NAME` — SQLite file path; development defaults to `data/development/surface.sqlite`, production to `data/surface.sqlite`
+- `AUTH_EMAIL` — optional allowed login email; otherwise the saved profile email is used
+- `AUTH_SECRET` — optional session signing key; when omitted, a private key is saved beside the active database
+- `AUTH_COOKIE_SECURE` — set to `true` when serving over HTTPS
 - `SOURCE_TIMEOUT_MS` — timeout per upstream feed, defaults to `12000`
+
+`bun run dev` explicitly starts with `APP_ENV=development`; `bun run start` uses
+`APP_ENV=production`. This keeps local development records, backups, snapshots and
+session keys out of the production database. In development, any valid email is
+accepted only when no `AUTH_EMAIL` or profile email is configured. Production
+requires one of those owner email values before it can issue a login session.
 
 Routes:
 

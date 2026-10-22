@@ -1,3 +1,4 @@
+import { SurfaceLogo } from "@/components/ui/surface-logo";
 import { Link, useNavigate } from "react-router";
 import { z } from "zod";
 import { useEffect, useRef, useState } from "react";
@@ -9,7 +10,6 @@ import {
   Check,
   FileText,
   FolderOpen,
-  Layers2,
   ListChecks,
   MapPin,
   Upload,
@@ -264,7 +264,7 @@ function ProfileEditor({
             }}
             className="flex items-center gap-2.5 font-semibold"
           >
-            <Layers2 className="size-5 text-brand" />
+            <SurfaceLogo className="size-5 text-foreground" />
             Surface
           </Link>
           <div className="flex items-center gap-2">
@@ -584,7 +584,7 @@ function ProfileEditor({
               {error}
             </p>
           )}
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-8">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             <ProfileOverview form={form} onEdit={edit} />
           </div>
         </SheetContent>

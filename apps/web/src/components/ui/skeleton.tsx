@@ -7,10 +7,7 @@ function Skeleton({
   return (
     <div
       aria-hidden="true"
-      className={cn(
-        "animate-pulse rounded-md bg-muted motion-reduce:animate-none",
-        className,
-      )}
+      className={cn("rounded-md bg-muted", className)}
       {...props}
     />
   );
