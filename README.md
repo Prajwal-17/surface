@@ -9,6 +9,12 @@ SearXNG and Crawlee services, and application data stays in PostgreSQL.
 
 ## Development
 
+With [just](https://github.com/casey/just) installed, run `just` to list the
+available dependency, database, and production stack commands. Database recipes
+start the existing `primary-pg` container; `db-migrate-prod` and `db-studio-prod`
+select production, while their `-dev` counterparts select development using
+the database URLs configured in `apps/backend/.env`.
+
 Use Bun 1.4.1 or newer and Node 24 or newer. Root scripts use Turborepo for
 workspace task scheduling and caching. Oxlint and Prettier provide repository-wide
 linting and formatting. Shared TypeScript presets live in
