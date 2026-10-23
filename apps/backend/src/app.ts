@@ -23,7 +23,7 @@ app.use("*", requestLogger());
 app.use(
   "/api/*",
   cors({
-    origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+    origin: ["http://localhost:17000", "http://127.0.0.1:17000"],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "OPTIONS"],
   }),
 );

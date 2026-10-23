@@ -27,8 +27,8 @@ bun run db:migrate
 bun run dev
 ```
 
-`bun dev` opens http://localhost:3000 automatically. Development uses port 3000;
-production uses port 3001. A persistent DEV/PROD tag appears in the app corner.
+`bun dev` opens http://localhost:17000 automatically. Development and production
+use port 17000 by default. A persistent DEV/PROD tag appears in the app corner.
 Vite proxies `/api` to the backend on port 4000
 during development. The Docker web server also proxies `/api` to the backend.
 Use `BACKEND_URL` for a different backend. PostgreSQL runs in the existing
@@ -148,7 +148,7 @@ bun run prod
 ```
 
 `bun run prod` builds and starts the production Compose services, waits for the
-web app, and opens http://localhost:3001 in the default browser. For a headless
+web app, and opens http://localhost:17000 in the default browser. For a headless
 start, use `docker compose up --build -d`. Set `FIELDWORK_PROD_WEB_PORT` in the
 root `.env` to use a different production port.
 
@@ -165,7 +165,7 @@ and `POSTGRES_NETWORK` to a network containing that container (currently
 Database files remain in the PostgreSQL volume; snapshots and the session key
 remain mounted under `./data`.
 Set `FIELDWORK_DATA_DIR` for a different local mount and
-`FIELDWORK_PROD_WEB_PORT` for a production port other than 3001. The backend
+`FIELDWORK_PROD_WEB_PORT` for a production port other than 17000. The backend
 reaches a host gateway using `host.docker.internal`; `OMNIROUTE_BASE_URL` can
 override that address.
 The web port binds to loopback; the backend is internal to the Compose network.

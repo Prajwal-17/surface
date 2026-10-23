@@ -22,4 +22,4 @@ COPY apps/web/configure-nginx.sh /docker-entrypoint.d/40-configure-nginx.sh
 RUN chmod +x /docker-entrypoint.d/40-configure-nginx.sh
 
 ENV BACKEND_URL=http://backend:4000
-EXPOSE 3000
+EXPOSE 17000

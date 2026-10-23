@@ -46,7 +46,7 @@ services:
     environment:
       BACKEND_URL: http://backend:4000
     ports:
-      - "127.0.0.1:${FIELDWORK_PROD_WEB_PORT:-3001}:3000"
+      - "127.0.0.1:${FIELDWORK_PROD_WEB_PORT:-17000}:17000"
     depends_on:
       backend:
         condition: service_healthy
