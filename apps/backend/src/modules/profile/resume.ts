@@ -121,7 +121,7 @@ export async function prefillResume(
       400,
       "Provide between 40 and 100,000 characters of résumé text.",
     );
-  const usage = canRequestModel(configured, true);
+  const usage = await canRequestModel(configured, true);
   if (!usage)
     throw new HttpError(
       409,

@@ -1,11 +1,18 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  boolean,
+  jsonb,
+  index,
+  integer,
+  pgTable,
+  text,
+} from "drizzle-orm/pg-core";
 import { jobs, jobSources } from "../jobs/jobs.tables";
-export const resources = sqliteTable("resources", {
+export const resources = pgTable("resources", {
   id: text("id").primaryKey(),
   url: text("url").notNull().unique(),
   createdAt: text("created_at").notNull(),
 });
-export const snapshots = sqliteTable("snapshots", {
+export const snapshots = pgTable("snapshots", {
   id: text("id").primaryKey(),
   resourceId: text("resource_id")
     .notNull()
@@ -17,7 +24,7 @@ export const snapshots = sqliteTable("snapshots", {
   fetchedAt: text("fetched_at").notNull(),
   removedAt: text("removed_at"),
 });
-export const observations = sqliteTable(
+export const observations = pgTable(
   "observations",
   {
     id: text("id").primaryKey(),
@@ -31,16 +38,14 @@ export const observations = sqliteTable(
     snapshotId: text("snapshot_id").references(() => snapshots.id),
     observedAt: text("observed_at").notNull(),
     method: text("method").notNull(),
-    evidence: text("evidence", { mode: "json" })
+    evidence: jsonb("evidence")
       .$type<import("@surface/contracts").FieldEvidence[]>()
       .notNull(),
-    incomplete: integer("incomplete", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    incomplete: boolean("incomplete").notNull().default(false),
   },
   (t) => [index("observations_job_idx").on(t.jobId)],
 );
-export const jobVersions = sqliteTable(
+export const jobVersions = pgTable(
   "job_versions",
   {
     id: text("id").primaryKey(),
@@ -48,15 +53,13 @@ export const jobVersions = sqliteTable(
       .notNull()
       .references(() => jobs.id),
     fingerprint: text("fingerprint").notNull(),
-    content: text("content", { mode: "json" })
-      .$type<Record<string, unknown>>()
-      .notNull(),
+    content: jsonb("content").$type<Record<string, unknown>>().notNull(),
     createdAt: text("created_at").notNull(),
     observationId: text("observation_id").references(() => observations.id),
   },
   (t) => [index("versions_job_idx").on(t.jobId)],
 );
-export const duplicateDecisions = sqliteTable("duplicate_decisions", {
+export const duplicateDecisions = pgTable("duplicate_decisions", {
   id: text("id").primaryKey(),
   leftId: text("left_id")
     .notNull()
@@ -67,10 +70,7 @@ export const duplicateDecisions = sqliteTable("duplicate_decisions", {
   state: text("state")
     .$type<"possible" | "separate" | "merged" | "undone">()
     .notNull(),
-  sourceIds: text("source_ids", { mode: "json" })
-    .$type<string[]>()
-    .notNull()
-    .default([]),
+  sourceIds: jsonb("source_ids").$type<string[]>().notNull().default([]),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

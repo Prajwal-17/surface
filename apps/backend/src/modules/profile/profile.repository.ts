@@ -10,18 +10,20 @@ import { jobPreferences, profileRevisions } from "./profile.tables";
 
 const profileId = "me";
 
-export function findProfile(): Profile | null {
-  const row = db
-    .select()
-    .from(jobPreferences)
-    .where(eq(jobPreferences.id, profileId))
-    .get();
+export async function findProfile(): Promise<Profile | null> {
+  const row = (
+    await db
+      .select()
+      .from(jobPreferences)
+      .where(eq(jobPreferences.id, profileId))
+      .limit(1)
+  )[0];
   if (!row) return null;
   return { ...row, context: personalContextSchema.parse(row.context ?? {}) };
 }
-export function saveProfile(input: ProfileInput): Profile {
-  enableAnalysis();
-  const previous = findProfile();
+export async function saveProfile(input: ProfileInput): Promise<Profile> {
+  await enableAnalysis();
+  const previous = await findProfile();
   const relevant = (p: ProfileInput) =>
     JSON.stringify({
       targetRoles: p.targetRoles,
@@ -36,18 +38,16 @@ export function saveProfile(input: ProfileInput): Profile {
     revision: (previous?.revision ?? 0) + 1,
     updatedAt: new Date().toISOString(),
   };
-  db.transaction((tx) => {
-    tx.insert(jobPreferences)
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(jobPreferences)
       .values({ ...row, id: profileId })
-      .onConflictDoUpdate({ target: jobPreferences.id, set: row })
-      .run();
-    tx.insert(profileRevisions)
-      .values({
-        revision: row.revision,
-        content: input,
-        createdAt: row.updatedAt,
-      })
-      .run();
+      .onConflictDoUpdate({ target: jobPreferences.id, set: row });
+    await tx.insert(profileRevisions).values({
+      revision: row.revision,
+      content: input,
+      createdAt: row.updatedAt,
+    });
   });
   return row;
 }

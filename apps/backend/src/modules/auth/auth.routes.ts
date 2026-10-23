@@ -34,8 +34,8 @@ authRoutes.post("/login", async (context) => {
     return context.json({ error: "Enter a valid email address." }, 400);
   }
 
-  const profileEmail = findProfile()
-    ?.context.details?.email?.trim()
+  const profileEmail = (await findProfile())?.context.details?.email
+    ?.trim()
     .toLowerCase();
   const allowedEmail = env.AUTH_EMAIL ?? (profileEmail || undefined);
 

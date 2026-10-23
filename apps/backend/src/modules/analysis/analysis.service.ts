@@ -26,47 +26,53 @@ export function isAssessmentRunning(id: string) {
 }
 
 export async function assessJobNow(id: string) {
-  const job = db
-    .select()
-    .from(jobs)
-    .where(and(eq(jobs.id, id), isNull(jobs.mergedInto)))
-    .get();
+  const job = (
+    await db
+      .select()
+      .from(jobs)
+      .where(and(eq(jobs.id, id), isNull(jobs.mergedInto)))
+      .limit(1)
+  )[0];
   if (!job) throw new HttpError(404, "Job not found.");
-  const profile = findProfile();
+  const profile = await findProfile();
   if (!profile)
     throw new HttpError(409, "Save your profile before assessing a job.");
   if (!job.currentVersionId)
     throw new HttpError(409, "This job has no description version to assess.");
   const identity = analysisIdentity(job, profile.revision);
-  const current = db
-    .select()
-    .from(assessments)
-    .where(
-      and(
-        eq(assessments.jobId, id),
-        eq(assessments.jobVersionId, job.currentVersionId),
-        eq(assessments.profileRevision, profile.revision),
-        eq(assessments.formatVersion, assessmentFormatVersion),
-      ),
-    )
-    .get();
+  const current = (
+    await db
+      .select()
+      .from(assessments)
+      .where(
+        and(
+          eq(assessments.jobId, id),
+          eq(assessments.jobVersionId, job.currentVersionId),
+          eq(assessments.profileRevision, profile.revision),
+          eq(assessments.formatVersion, assessmentFormatVersion),
+        ),
+      )
+      .limit(1)
+  )[0];
   if (current) return;
   if (
     activeAssessments.has(id) ||
-    db
-      .select({ id: workItems.id })
-      .from(workItems)
-      .where(
-        and(
-          eq(workItems.jobId, id),
-          eq(workItems.kind, "analysis"),
-          eq(workItems.state, "running"),
-        ),
-      )
-      .get()
+    (
+      await db
+        .select({ id: workItems.id })
+        .from(workItems)
+        .where(
+          and(
+            eq(workItems.jobId, id),
+            eq(workItems.kind, "analysis"),
+            eq(workItems.state, "running"),
+          ),
+        )
+        .limit(1)
+    )[0]
   )
     throw new HttpError(409, "An assessment is already running for this job.");
-  const settings = getSettings();
+  const settings = await getSettings();
   if (!settings.configured)
     throw new HttpError(
       409,
@@ -77,7 +83,7 @@ export async function assessJobNow(id: string) {
       409,
       "Assessment is paused. Resume it in Settings first.",
     );
-  const usageId = canRequestModel(settings.configured, true);
+  const usageId = await canRequestModel(settings.configured, true);
   if (!usageId)
     throw new HttpError(
       409,
@@ -86,7 +92,8 @@ export async function assessJobNow(id: string) {
   activeAssessments.add(id);
   try {
     // A direct click supersedes any old waiting request for this job.
-    db.update(workItems)
+    await db
+      .update(workItems)
       .set({
         state: "interrupted",
         error: "Replaced by an immediate assessment.",
@@ -98,13 +105,14 @@ export async function assessJobNow(id: string) {
           eq(workItems.kind, "analysis"),
           eq(workItems.state, "queued"),
         ),
-      )
-      .run();
-    syncRuns();
+      );
+    await syncRuns();
     const result = await requestAssessment(profile, job);
-    db.transaction((tx) => {
-      const latestJob = tx.select().from(jobs).where(eq(jobs.id, id)).get();
-      const latestProfile = findProfile();
+    await db.transaction(async (tx) => {
+      const latestJob = (
+        await tx.select().from(jobs).where(eq(jobs.id, id)).limit(1)
+      )[0];
+      const latestProfile = await findProfile();
       if (
         !latestJob ||
         latestJob.mergedInto ||
@@ -115,7 +123,8 @@ export async function assessJobNow(id: string) {
           409,
           "The job or profile changed during assessment. Click Assess again for the updated details.",
         );
-      tx.insert(assessments)
+      await tx
+        .insert(assessments)
         .values({
           id: crypto.randomUUID(),
           jobId: id,
@@ -126,12 +135,11 @@ export async function assessJobNow(id: string) {
           model: result.model,
           createdAt: new Date().toISOString(),
         })
-        .onConflictDoNothing()
-        .run();
-      tx.update(jobs)
+        .onConflictDoNothing();
+      await tx
+        .update(jobs)
         .set({ analysisRequested: false })
-        .where(eq(jobs.id, id))
-        .run();
+        .where(eq(jobs.id, id));
     });
   } catch (error) {
     if (error instanceof HttpError) throw error;
@@ -146,18 +154,20 @@ export async function assessJobNow(id: string) {
   }
 }
 
-export function enqueueAnalysis(onlyIds: string[]) {
+export async function enqueueAnalysis(onlyIds: string[]) {
   if (!onlyIds.length) return null;
-  const profile = findProfile();
+  const profile = await findProfile();
   if (!profile)
     throw new HttpError(409, "Save your profile before assessing a job.");
-  return db.transaction((tx) => {
+  return await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext('surface:enqueue-work'))`,
+    );
     const now = new Date().toISOString();
-    const candidates = tx
+    const candidates = await tx
       .select()
       .from(jobs)
-      .where(and(inArray(jobs.id, onlyIds), isNull(jobs.mergedInto)))
-      .all();
+      .where(and(inArray(jobs.id, onlyIds), isNull(jobs.mergedInto)));
     if (candidates.length !== new Set(onlyIds).size)
       throw new HttpError(404, "Job not found.");
     let runId: string | null = null;
@@ -167,52 +177,52 @@ export function enqueueAnalysis(onlyIds: string[]) {
           409,
           "This job has no description version to assess.",
         );
-      const current = tx
-        .select()
-        .from(assessments)
-        .where(
-          and(
-            eq(assessments.jobId, job.id),
-            eq(assessments.jobVersionId, job.currentVersionId),
-            eq(assessments.profileRevision, profile.revision),
-            eq(assessments.formatVersion, assessmentFormatVersion),
-          ),
-        )
-        .get();
+      const current = (
+        await tx
+          .select()
+          .from(assessments)
+          .where(
+            and(
+              eq(assessments.jobId, job.id),
+              eq(assessments.jobVersionId, job.currentVersionId),
+              eq(assessments.profileRevision, profile.revision),
+              eq(assessments.formatVersion, assessmentFormatVersion),
+            ),
+          )
+          .limit(1)
+      )[0];
       if (current) continue;
       const identity = analysisIdentity(job, profile.revision);
-      const existing = tx
-        .select()
-        .from(workItems)
-        .where(eq(workItems.identity, identity))
-        .orderBy(desc(workItems.createdAt))
-        .get();
+      const existing = (
+        await tx
+          .select()
+          .from(workItems)
+          .where(eq(workItems.identity, identity))
+          .orderBy(desc(workItems.createdAt))
+          .limit(1)
+      )[0];
       if (existing && ["queued", "running"].includes(existing.state)) continue;
       if (!runId) {
         runId = crypto.randomUUID();
-        tx.insert(runs)
-          .values({
-            id: runId,
-            kind: "analysis",
-            label: "Requested assessment",
-            state: "queued",
-            createdAt: now,
-          })
-          .run();
+        await tx.insert(runs).values({
+          id: runId,
+          kind: "analysis",
+          label: "Requested assessment",
+          state: "queued",
+          createdAt: now,
+        });
       }
       const id = crypto.randomUUID();
-      tx.insert(workItems)
-        .values({
-          id,
-          kind: "analysis",
-          jobId: job.id,
-          identity,
-          state: "queued",
-          retryAt: now,
-          createdAt: now,
-        })
-        .run();
-      tx.insert(runItems).values({ runId, workId: id }).run();
+      await tx.insert(workItems).values({
+        id,
+        kind: "analysis",
+        jobId: job.id,
+        identity,
+        state: "queued",
+        retryAt: now,
+        createdAt: now,
+      });
+      await tx.insert(runItems).values({ runId, workId: id });
     }
     return runId ? { runId } : null;
   });
@@ -222,9 +232,11 @@ export async function executeAnalysis(
   analyzer = requestAssessment,
   configured = Boolean(env.OMNIROUTE_API_KEY),
 ) {
-  const profile = findProfile(),
+  const profile = await findProfile(),
     job = item.jobId
-      ? db.select().from(jobs).where(eq(jobs.id, item.jobId)).get()
+      ? (
+          await db.select().from(jobs).where(eq(jobs.id, item.jobId)).limit(1)
+        )[0]
       : null;
   const now = new Date().toISOString();
   if (
@@ -233,41 +245,42 @@ export async function executeAnalysis(
     job.mergedInto ||
     item.identity !== analysisIdentity(job, profile.revision)
   ) {
-    db.update(workItems)
+    await db
+      .update(workItems)
       .set({
         state: "interrupted",
         error:
           "Job or profile changed before dispatch; queued context is stale.",
         completedAt: now,
       })
-      .where(eq(workItems.id, item.id))
-      .run();
+      .where(eq(workItems.id, item.id));
     return;
   }
-  const reservation = db.transaction((tx) => {
-    const claimed = tx
-      .update(workItems)
-      .set({ state: "running", startedAt: now })
-      .where(and(eq(workItems.id, item.id), eq(workItems.state, "queued")))
-      .returning()
-      .get();
+  const reservation = await db.transaction(async (tx) => {
+    const claimed = (
+      await tx
+        .update(workItems)
+        .set({ state: "running", startedAt: now })
+        .where(and(eq(workItems.id, item.id), eq(workItems.state, "queued")))
+        .returning()
+    )[0];
     if (!claimed) return null;
-    const usageId = canRequestModel(configured, true);
+    const usageId = await canRequestModel(configured, true);
     if (!usageId) {
-      tx.update(workItems)
+      await tx
+        .update(workItems)
         .set({
           state: "queued",
           startedAt: null,
           retryAt: now,
         })
-        .where(eq(workItems.id, item.id))
-        .run();
+        .where(eq(workItems.id, item.id));
       return null;
     }
-    tx.update(workItems)
+    await tx
+      .update(workItems)
       .set({ attempts: sql`${workItems.attempts} + 1` })
-      .where(eq(workItems.id, item.id))
-      .run();
+      .where(eq(workItems.id, item.id));
     return usageId;
   });
   if (!reservation) return;
@@ -277,28 +290,31 @@ export async function executeAnalysis(
       result.output,
       assessmentContext(profile, job),
     );
-    db.transaction((tx) => {
-      const latestJob = tx.select().from(jobs).where(eq(jobs.id, job.id)).get(),
-        latestProfile = findProfile();
+    await db.transaction(async (tx) => {
+      const latestJob = (
+          await tx.select().from(jobs).where(eq(jobs.id, job.id)).limit(1)
+        )[0],
+        latestProfile = await findProfile();
       if (
         !latestJob ||
         latestJob.mergedInto ||
         !latestProfile ||
         analysisIdentity(latestJob, latestProfile.revision) !== item.identity
       ) {
-        tx.update(workItems)
+        await tx
+          .update(workItems)
           .set({
             state: "interrupted",
             error:
               "Discarded stale result: the job or profile changed during analysis.",
             completedAt: new Date().toISOString(),
           })
-          .where(eq(workItems.id, item.id))
-          .run();
+          .where(eq(workItems.id, item.id));
 
         return;
       }
-      tx.insert(assessments)
+      await tx
+        .insert(assessments)
         .values({
           id: crypto.randomUUID(),
           jobId: job.id,
@@ -309,30 +325,32 @@ export async function executeAnalysis(
           model: result.model,
           createdAt: new Date().toISOString(),
         })
-        .onConflictDoNothing()
-        .run();
-      tx.update(jobs)
+        .onConflictDoNothing();
+      await tx
+        .update(jobs)
         .set({ analysisRequested: false })
-        .where(eq(jobs.id, job.id))
-        .run();
-      tx.update(workItems)
+        .where(eq(jobs.id, job.id));
+      await tx
+        .update(workItems)
         .set({
           state: "completed",
           error: null,
           result: { assessed: 1 },
           completedAt: new Date().toISOString(),
         })
-        .where(eq(workItems.id, item.id))
-        .run();
+        .where(eq(workItems.id, item.id));
     });
   } catch (error) {
-    const row = db
-      .select()
-      .from(workItems)
-      .where(eq(workItems.id, item.id))
-      .get()!;
+    const row = (
+      await db
+        .select()
+        .from(workItems)
+        .where(eq(workItems.id, item.id))
+        .limit(1)
+    )[0]!;
     const retry = row.attempts < 3;
-    db.update(workItems)
+    await db
+      .update(workItems)
       .set({
         state: retry ? "queued" : "failed",
         retryAt: new Date(Date.now() + 60000 * 2 ** row.attempts).toISOString(),
@@ -342,8 +360,7 @@ export async function executeAnalysis(
             : "Invalid assessment response.",
         completedAt: retry ? null : new Date().toISOString(),
       })
-      .where(eq(workItems.id, item.id))
-      .run();
+      .where(eq(workItems.id, item.id));
   }
-  syncRuns();
+  await syncRuns();
 }

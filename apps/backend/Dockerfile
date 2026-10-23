@@ -17,7 +17,7 @@ COPY packages packages
 WORKDIR /app/apps/backend
 ENV NODE_ENV=production \
     APP_ENV=production \
-    DB_FILE_NAME=/data/surface.sqlite \
+    DATA_DIR=/data \
     PORT=4000
 EXPOSE 4000
 

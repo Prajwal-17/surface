@@ -11,8 +11,8 @@ import { snapshots } from "./collection.tables";
 import { snapshotDirectory } from "./snapshots";
 import { HttpError } from "../../shared/errors/http-error";
 export const collectionRoutes = new Hono();
-collectionRoutes.post("/sources/:id/refresh", (c) =>
-  c.json(enqueueCollection([c.req.param("id")]), 202),
+collectionRoutes.post("/sources/:id/refresh", async (c) =>
+  c.json(await enqueueCollection([c.req.param("id")]), 202),
 );
 collectionRoutes.post(
   "/duplicates/:id",
@@ -20,14 +20,19 @@ collectionRoutes.post(
     "json",
     z.object({ action: z.enum(["merge", "separate", "undo"]) }),
   ),
-  (c) => c.json(decideDuplicate(c.req.param("id"), c.req.valid("json").action)),
+  async (c) =>
+    c.json(
+      await decideDuplicate(c.req.param("id"), c.req.valid("json").action),
+    ),
 );
 collectionRoutes.get("/snapshots/:id/download", async (c) => {
-  const row = db
-    .select()
-    .from(snapshots)
-    .where(eq(snapshots.id, c.req.param("id")))
-    .get();
+  const row = (
+    await db
+      .select()
+      .from(snapshots)
+      .where(eq(snapshots.id, c.req.param("id")))
+      .limit(1)
+  )[0];
   if (!row || row.removedAt)
     throw new HttpError(
       410,
@@ -46,9 +51,11 @@ collectionRoutes.get("/snapshots/:id/download", async (c) => {
   });
 });
 
-collectionRoutes.get("/snapshots/cleanup", (c) => c.json(cleanupSnapshots()));
+collectionRoutes.get("/snapshots/cleanup", async (c) =>
+  c.json(await cleanupSnapshots()),
+);
 collectionRoutes.post(
   "/snapshots/cleanup",
   zValidator("json", z.object({ confirm: z.literal(true) })),
-  (c) => c.json(cleanupSnapshots(true)),
+  async (c) => c.json(await cleanupSnapshots(true)),
 );

@@ -1,12 +1,14 @@
 import {
+  boolean,
+  jsonb,
   integer,
-  sqliteTable,
+  pgTable,
   text,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 import { jobs } from "../jobs/jobs.tables";
 import { jobVersions } from "../collection/collection.tables";
-export const assessments = sqliteTable(
+export const assessments = pgTable(
   "assessments",
   {
     id: text("id").primaryKey(),
@@ -18,7 +20,7 @@ export const assessments = sqliteTable(
       .references(() => jobVersions.id),
     profileRevision: integer("profile_revision").notNull(),
     formatVersion: integer("format_version").notNull(),
-    output: text("output", { mode: "json" })
+    output: jsonb("output")
       .$type<import("@surface/contracts").AssessmentOutput>()
       .notNull(),
     model: text("model").notNull(),
@@ -33,8 +35,8 @@ export const assessments = sqliteTable(
     ),
   ],
 );
-export const analysisSettings = sqliteTable("analysis_settings", {
+export const analysisSettings = pgTable("analysis_settings", {
   id: text("id").primaryKey(),
-  enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
-  paused: integer("paused", { mode: "boolean" }).notNull().default(false),
+  enabled: boolean("enabled").notNull().default(false),
+  paused: boolean("paused").notNull().default(false),
 });

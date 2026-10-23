@@ -1,7 +1,12 @@
 import { executeAnalysis } from "../analysis/analysis.service";
 import { getSettings } from "../analysis/settings";
 import { and, eq, lte, sql } from "drizzle-orm";
-import { db, sqlite } from "../../infrastructure/database/client";
+import {
+  db,
+  pg,
+  type Database,
+  type Transaction,
+} from "../../infrastructure/database/client";
 import { configuredSources, companies } from "../workspace/workspace.tables";
 import { jobSources } from "../jobs/jobs.tables";
 import { upsertCandidates } from "../jobs/jobs.repository";
@@ -18,73 +23,83 @@ import {
 } from "./work.service";
 import { createSourceRecordKey } from "../../shared/normalization/job-normalization";
 import { configuredSourceSchema, type WorkItem } from "@surface/contracts";
-export function recordInventory(sourceId: string, result: CollectionResult) {
+export async function recordInventory(
+  sourceId: string,
+  result: CollectionResult,
+  connection: Database | Transaction = db,
+) {
   if (!result.complete || result.error) return;
   const observed = new Set(result.candidates.map(createSourceRecordKey));
-  for (const ref of db
+  for (const ref of await connection
     .select()
     .from(jobSources)
-    .where(eq(jobSources.configuredSourceId, sourceId))
-    .all()) {
+    .where(eq(jobSources.configuredSourceId, sourceId))) {
     if (observed.has(ref.sourceRecordKey)) continue;
     const missingChecks = ref.missingChecks + 1;
-    db.update(jobSources)
+    await connection
+      .update(jobSources)
       .set({
         missingChecks,
         availability: missingChecks >= 3 ? "closed" : "missing",
       })
-      .where(eq(jobSources.id, ref.id))
-      .run();
+      .where(eq(jobSources.id, ref.id));
   }
 }
-export function recoverInterruptedWork() {
-  db.update(workItems)
+export async function recoverInterruptedWork() {
+  await db
+    .update(workItems)
     .set({
       state: "interrupted",
       error: "Backend stopped while this item was running. Retry is available.",
       completedAt: new Date().toISOString(),
     })
-    .where(eq(workItems.state, "running"))
-    .run();
-  syncRuns();
+    .where(eq(workItems.state, "running"));
+  await syncRuns();
 }
 export async function executeCollection(
   item: WorkItem,
   collector = collectSource,
 ) {
-  const source = db
-    .select()
-    .from(configuredSources)
-    .where(eq(configuredSources.id, item.sourceId!))
-    .get();
+  const source = (
+    await db
+      .select()
+      .from(configuredSources)
+      .where(eq(configuredSources.id, item.sourceId!))
+      .limit(1)
+  )[0];
   const now = new Date().toISOString();
   if (
     !source ||
     source.paused ||
     (source.companyId &&
-      db
-        .select()
-        .from(companies)
-        .where(
-          and(eq(companies.id, source.companyId), eq(companies.archived, true)),
-        )
-        .get())
+      (
+        await db
+          .select()
+          .from(companies)
+          .where(
+            and(
+              eq(companies.id, source.companyId),
+              eq(companies.archived, true),
+            ),
+          )
+          .limit(1)
+      )[0])
   ) {
-    db.update(workItems)
+    await db
+      .update(workItems)
       .set({
         state: "interrupted",
         error: "Source paused, removed, or company archived.",
         completedAt: now,
       })
-      .where(eq(workItems.id, item.id))
-      .run();
+      .where(eq(workItems.id, item.id));
     return;
   }
   if (source.retryAt && source.retryAt > now) {
-    db.update(workItems)
+    await db
+      .update(workItems)
       .set({ retryAt: source.retryAt })
-      .where(eq(workItems.id, item.id))
-      .run();
+      .where(eq(workItems.id, item.id));
     return;
   }
   // Respect shared provider guidance even when differently filtered endpoints were configured.
@@ -93,49 +108,52 @@ export async function executeCollection(
       source.provider,
     )
   ) {
-    const latest = db
-      .select()
-      .from(configuredSources)
-      .where(eq(configuredSources.provider, source.provider))
-      .all()
+    const latest = (
+      await db
+        .select()
+        .from(configuredSources)
+        .where(eq(configuredSources.provider, source.provider))
+    )
       .map((s) => s.retryAt)
       .filter((v): v is string => Boolean(v))
       .toSorted()
       .at(-1);
     if (latest && latest > now) {
-      db.update(workItems)
+      await db
+        .update(workItems)
         .set({ retryAt: latest })
-        .where(eq(workItems.id, item.id))
-        .run();
+        .where(eq(workItems.id, item.id));
       return;
     }
   }
-  const claimed = db
-    .update(workItems)
-    .set({
-      state: "running",
-      attempts: sql`${workItems.attempts} + 1`,
-      startedAt: now,
-    })
-    .where(and(eq(workItems.id, item.id), eq(workItems.state, "queued")))
-    .returning()
-    .get();
+  const claimed = (
+    await db
+      .update(workItems)
+      .set({
+        state: "running",
+        attempts: sql`${workItems.attempts} + 1`,
+        startedAt: now,
+      })
+      .where(and(eq(workItems.id, item.id), eq(workItems.state, "queued")))
+      .returning()
+  )[0];
   if (!claimed) return;
   const nextAllowed = new Date(
     Date.now() + minimumFetchHours(source.provider) * 3600000,
   ).toISOString();
-  db.update(configuredSources)
+  await db
+    .update(configuredSources)
     .set({ retryAt: nextAllowed })
-    .where(eq(configuredSources.id, source.id))
-    .run();
+    .where(eq(configuredSources.id, source.id));
   try {
     const result = await collector(configuredSourceSchema.parse(source));
-    const outcomes = db.transaction(() => {
-      const counts = upsertCandidates(result.candidates);
-      recordInventory(source.id, result);
+    const outcomes = await db.transaction(async (tx) => {
+      const counts = await upsertCandidates(result.candidates, tx);
+      await recordInventory(source.id, result, tx);
       return counts;
     });
-    db.update(workItems)
+    await db
+      .update(workItems)
       .set({
         state: result.error ? "partial" : "completed",
         result: {
@@ -146,9 +164,9 @@ export async function executeCollection(
         error: result.error,
         completedAt: new Date().toISOString(),
       })
-      .where(eq(workItems.id, item.id))
-      .run();
-    db.update(configuredSources)
+      .where(eq(workItems.id, item.id));
+    await db
+      .update(configuredSources)
       .set({
         lastSuccessAt: result.error
           ? source.lastSuccessAt
@@ -156,8 +174,7 @@ export async function executeCollection(
         failureCount: 0,
         reason: result.error ?? "Last collection succeeded.",
       })
-      .where(eq(configuredSources.id, source.id))
-      .run();
+      .where(eq(configuredSources.id, source.id));
   } catch (error) {
     const failureCount = source.failureCount + 1;
     const retryAt = new Date(
@@ -172,16 +189,17 @@ export async function executeCollection(
     const message =
       error instanceof Error ? error.message : "Collection failed.";
     const unsupported = message.startsWith("Unsupported:");
-    db.update(configuredSources)
+    await db
+      .update(configuredSources)
       .set({
         failureCount,
         retryAt,
         reason: message,
         ...(unsupported ? { support: "unsupported" as const } : {}),
       })
-      .where(eq(configuredSources.id, source.id))
-      .run();
-    db.update(workItems)
+      .where(eq(configuredSources.id, source.id));
+    await db
+      .update(workItems)
       .set({
         state: claimed.attempts < 3 && !unsupported ? "queued" : "failed",
         error: message,
@@ -191,43 +209,43 @@ export async function executeCollection(
             ? null
             : new Date().toISOString(),
       })
-      .where(eq(workItems.id, item.id))
-      .run();
+      .where(eq(workItems.id, item.id));
   }
-  syncRuns();
+  await syncRuns();
 }
 let tickActive = false;
 let analysisActive = false;
-export function startExecutor() {
+export async function startExecutor() {
   const owner = crypto.randomUUID();
   let acquired = false;
-  const heartbeat = () => {
+  const heartbeat = async () => {
     const now = Date.now();
-    sqlite
-      .query(
-        "INSERT INTO executor_lease(id,owner,expires_at) VALUES('backend',?,?) ON CONFLICT(id) DO UPDATE SET owner=excluded.owner,expires_at=excluded.expires_at WHERE executor_lease.owner=excluded.owner OR executor_lease.expires_at < ?",
-      )
-      .run(owner, now + 30000, now);
-    const lease = db
-      .select()
-      .from(executorLease)
-      .where(eq(executorLease.id, "backend"))
-      .get();
+    await pg`
+      INSERT INTO executor_lease(id,owner,expires_at) VALUES('backend',${owner},${now + 30000})
+      ON CONFLICT(id) DO UPDATE SET owner=excluded.owner,expires_at=excluded.expires_at
+      WHERE executor_lease.owner=excluded.owner OR executor_lease.expires_at < ${now}`;
+    const lease = (
+      await db
+        .select()
+        .from(executorLease)
+        .where(eq(executorLease.id, "backend"))
+        .limit(1)
+    )[0];
     return lease?.owner === owner;
   };
   const tick = async () => {
-    if (!heartbeat()) return;
+    if (!(await heartbeat())) return;
     if (!acquired) {
       acquired = true;
-      recoverInterruptedWork();
+      await recoverInterruptedWork();
     }
     if (!analysisActive) {
       analysisActive = true;
       void (async () => {
         try {
-          const settings = getSettings();
+          const settings = await getSettings();
           if (settings.configured && !settings.paused) {
-            const pending = db
+            const pending = await db
               .select()
               .from(workItems)
               .where(
@@ -237,8 +255,7 @@ export function startExecutor() {
                   lte(workItems.retryAt, new Date().toISOString()),
                 ),
               )
-              .limit(2)
-              .all();
+              .limit(2);
             await Promise.allSettled(
               pending.map((item) => executeAnalysis(item)),
             );
@@ -247,15 +264,15 @@ export function startExecutor() {
           console.error("Analysis executor failed", error);
         } finally {
           analysisActive = false;
-          syncRuns();
+          await syncRuns();
         }
       })();
     }
     if (tickActive) return;
     tickActive = true;
     try {
-      enqueueDueSchedules();
-      const items = db
+      await enqueueDueSchedules();
+      const items = await db
         .select()
         .from(workItems)
         .where(
@@ -265,25 +282,29 @@ export function startExecutor() {
             lte(workItems.retryAt, new Date().toISOString()),
           ),
         )
-        .limit(2)
-        .all();
+        .limit(2);
       await Promise.allSettled(items.map((item) => executeCollection(item)));
-      syncRuns();
+      await syncRuns();
     } catch (error) {
       console.error("Executor tick failed", error);
     } finally {
       tickActive = false;
     }
   };
-  void tick();
-  const timer = setInterval(() => void tick(), 2000);
-  const stop = () => {
+  const runTick = () => {
+    void tick().catch((error) =>
+      console.error("Executor heartbeat failed", error),
+    );
+  };
+  runTick();
+  const timer = setInterval(runTick, 2000);
+  const stop = async () => {
     clearInterval(timer);
-    db.delete(executorLease)
+    await db
+      .delete(executorLease)
       .where(
         and(eq(executorLease.id, "backend"), eq(executorLease.owner, owner)),
-      )
-      .run();
+      );
   };
   return stop;
 }

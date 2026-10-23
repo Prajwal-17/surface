@@ -40,71 +40,74 @@ import { verifyCompanyLinks } from "./verified-links";
 const controllers = new Map<string, AbortController>();
 const now = () => new Date().toISOString();
 const newId = () => crypto.randomUUID();
-export function company(id: string) {
-  const row = db.select().from(companies).where(eq(companies.id, id)).get();
+export async function company(id: string) {
+  const row = (
+    await db.select().from(companies).where(eq(companies.id, id)).limit(1)
+  )[0];
   if (!row) throw new HttpError(404, "Company not found.");
   return row;
 }
-export function details(companyId: string) {
+export async function details(companyId: string) {
   return {
-    company: company(companyId),
+    company: await company(companyId),
     linkReview:
-      db
-        .select()
-        .from(companyLinkReviews)
-        .where(eq(companyLinkReviews.companyId, companyId))
-        .get() ?? null,
-    reports: db
+      (
+        await db
+          .select()
+          .from(companyLinkReviews)
+          .where(eq(companyLinkReviews.companyId, companyId))
+          .limit(1)
+      )[0] ?? null,
+    reports: await db
       .select()
       .from(researchReports)
       .where(eq(researchReports.companyId, companyId))
-      .orderBy(desc(researchReports.createdAt))
-      .all(),
-    sources: db
+      .orderBy(desc(researchReports.createdAt)),
+    sources: await db
       .select()
       .from(researchSources)
-      .where(eq(researchSources.companyId, companyId))
-      .all(),
-    messages: db
+      .where(eq(researchSources.companyId, companyId)),
+    messages: await db
       .select()
       .from(researchMessages)
       .where(eq(researchMessages.companyId, companyId))
-      .orderBy(researchMessages.createdAt)
-      .all(),
-    runs: db
+      .orderBy(researchMessages.createdAt),
+    runs: await db
       .select()
       .from(researchRuns)
       .where(eq(researchRuns.companyId, companyId))
-      .orderBy(desc(researchRuns.createdAt))
-      .all(),
+      .orderBy(desc(researchRuns.createdAt)),
   };
 }
-export function library() {
-  return db
-    .select()
-    .from(companies)
-    .all()
-    .toSorted((a, b) => a.name.localeCompare(b.name))
-    .map((companyRecord) => ({
-      company: companyRecord,
-      report:
-        db
-          .select()
-          .from(researchReports)
-          .where(eq(researchReports.companyId, companyRecord.id))
-          .orderBy(desc(researchReports.createdAt))
-          .get() ?? null,
-      run:
-        db
-          .select()
-          .from(researchRuns)
-          .where(eq(researchRuns.companyId, companyRecord.id))
-          .orderBy(desc(researchRuns.createdAt))
-          .get() ?? null,
-    }));
+export async function library() {
+  return await Promise.all(
+    (await db.select().from(companies))
+      .toSorted((a, b) => a.name.localeCompare(b.name))
+      .map(async (companyRecord) => ({
+        company: companyRecord,
+        report:
+          (
+            await db
+              .select()
+              .from(researchReports)
+              .where(eq(researchReports.companyId, companyRecord.id))
+              .orderBy(desc(researchReports.createdAt))
+              .limit(1)
+          )[0] ?? null,
+        run:
+          (
+            await db
+              .select()
+              .from(researchRuns)
+              .where(eq(researchRuns.companyId, companyRecord.id))
+              .orderBy(desc(researchRuns.createdAt))
+              .limit(1)
+          )[0] ?? null,
+      })),
+  );
 }
-export function requireAI() {
-  const settings = getSettings();
+export async function requireAI() {
+  const settings = await getSettings();
   if (!settings.configured)
     throw new HttpError(409, "Configure OmniRoute before starting research.");
   if (settings.paused)
@@ -117,7 +120,7 @@ export function requireAI() {
 }
 export async function resolveCompany(query: string) {
   const url = inputUrl(query),
-    rows = db.select().from(companies).all();
+    rows = await db.select().from(companies);
   const matches = rows.filter((c) =>
     url
       ? companyDomain(c.website) === companyDomain(url)
@@ -135,7 +138,7 @@ export async function resolveCompany(query: string) {
         description: c.watchReason,
       })),
     };
-  requireAI();
+  await requireAI();
   const results = await searchWeb({
     query: url
       ? `${url} company official website`
@@ -172,16 +175,16 @@ export async function resolveCompany(query: string) {
     );
   return { companyId: null, candidates };
 }
-export function confirmCompany(input: z.infer<typeof researchCandidateSchema>) {
-  if (input.companyId) return company(input.companyId);
+export async function confirmCompany(
+  input: z.infer<typeof researchCandidateSchema>,
+) {
+  if (input.companyId) return await company(input.companyId);
   if (!input.website)
     throw new HttpError(400, "Choose an official website for the new company.");
   const domain = companyDomain(input.website);
-  const existing = db
-    .select()
-    .from(companies)
-    .all()
-    .filter((c) => companyDomain(c.website) === domain);
+  const existing = (await db.select().from(companies)).filter(
+    (c) => companyDomain(c.website) === domain,
+  );
   if (existing.length > 1)
     throw new HttpError(
       409,
@@ -198,66 +201,69 @@ export function confirmCompany(input: z.infer<typeof researchCandidateSchema>) {
     createdAt: now(),
     updatedAt: now(),
   };
-  db.insert(companies).values(row).run();
+  await db.insert(companies).values(row);
   return row;
 }
-function event(
+async function event(
   runId: string,
   type: "progress" | "text" | "done",
   text: string,
 ) {
-  db.insert(researchEvents)
-    .values({ runId, type, text, createdAt: now() })
-    .run();
+  await db
+    .insert(researchEvents)
+    .values({ runId, type, text, createdAt: now() });
 }
-export function recoverResearch() {
-  for (const run of db
+export async function recoverResearch() {
+  for (const run of await db
     .select()
     .from(researchRuns)
-    .where(eq(researchRuns.state, "running"))
-    .all()) {
-    db.update(researchRuns)
+    .where(eq(researchRuns.state, "running"))) {
+    await db
+      .update(researchRuns)
       .set({
         state: "interrupted",
         error:
           "Backend restarted. Saved evidence is available; refresh or retry to continue.",
         completedAt: now(),
       })
-      .where(eq(researchRuns.id, run.id))
-      .run();
-    event(run.id, "done", "interrupted");
+      .where(eq(researchRuns.id, run.id));
+    await event(run.id, "done", "interrupted");
   }
 }
-export function cancelResearch(companyId: string, runId: string) {
-  const run = db
-    .select()
-    .from(researchRuns)
-    .where(
-      and(eq(researchRuns.id, runId), eq(researchRuns.companyId, companyId)),
-    )
-    .get();
+export async function cancelResearch(companyId: string, runId: string) {
+  const run = (
+    await db
+      .select()
+      .from(researchRuns)
+      .where(
+        and(eq(researchRuns.id, runId), eq(researchRuns.companyId, companyId)),
+      )
+      .limit(1)
+  )[0];
   if (!run) throw new HttpError(404, "Research run not found.");
   controllers.get(runId)?.abort(new Error("Stopped by you."));
   return { ok: true };
 }
-export function startResearch(
+export async function startResearch(
   companyId: string,
   question?: { question: string; webSearch: boolean },
   linksOnly = false,
 ) {
-  const owner = company(companyId);
-  requireAI();
+  const owner = await company(companyId);
+  await requireAI();
   if (
-    db
-      .select()
-      .from(researchRuns)
-      .where(
-        and(
-          eq(researchRuns.companyId, companyId),
-          eq(researchRuns.state, "running"),
-        ),
-      )
-      .get()
+    (
+      await db
+        .select()
+        .from(researchRuns)
+        .where(
+          and(
+            eq(researchRuns.companyId, companyId),
+            eq(researchRuns.state, "running"),
+          ),
+        )
+        .limit(1)
+    )[0]
   )
     throw new HttpError(409, "Research is already running for this company.");
   const run = {
@@ -275,24 +281,22 @@ export function startResearch(
     completedAt: null,
   };
   const controller = new AbortController();
-  db.transaction((tx) => {
-    tx.insert(researchRuns).values(run).run();
+  await db.transaction(async (tx) => {
+    await tx.insert(researchRuns).values(run);
     if (question)
-      tx.insert(researchMessages)
-        .values({
-          id: newId(),
-          companyId,
-          runId: run.id,
-          question: question.question,
-          answer: null,
-          webSearch: question.webSearch,
-          sourceIds: [],
-          createdAt: now(),
-        })
-        .run();
+      await tx.insert(researchMessages).values({
+        id: newId(),
+        companyId,
+        runId: run.id,
+        question: question.question,
+        answer: null,
+        webSearch: question.webSearch,
+        sourceIds: [],
+        createdAt: now(),
+      });
   });
   controllers.set(run.id, controller);
-  event(
+  await event(
     run.id,
     "progress",
     question?.webSearch === false
@@ -320,7 +324,7 @@ async function executeResearch(
     AbortSignal.timeout(env.RESEARCH_TIMEOUT_MS),
   ]);
   const webEnabled = !question || question.webSearch;
-  const all = details(owner.id);
+  const all = await details(owner.id);
   const contextSources = question
     ? evidenceForQuestion(all.sources, question.question)
     : [];
@@ -354,7 +358,7 @@ async function executeResearch(
       }),
     },
   ];
-  function saveSource(
+  async function saveSource(
     value: Omit<ResearchSource, "id" | "companyId" | "runId">,
   ) {
     const source = {
@@ -363,7 +367,7 @@ async function executeResearch(
       companyId: owner.id,
       runId: run.id,
     };
-    db.insert(researchSources).values(source).run();
+    await db.insert(researchSources).values(source);
     evidence.set(source.id, source);
     return source;
   }
@@ -383,17 +387,20 @@ async function executeResearch(
     let output: unknown;
     if (name === "search_web") {
       const query = searchInput.parse(input);
-      event(run.id, "progress", `Searching: ${query.query}`);
-      output = (await searchWeb(query, signal)).map((r) =>
-        saveSource({
-          url: r.url,
-          title: r.title,
-          text: r.content,
-          links: [],
-          kind: "search",
-          status: "snippet",
-          retrievedAt: now(),
-        }),
+      await event(run.id, "progress", `Searching: ${query.query}`);
+      output = await Promise.all(
+        (await searchWeb(query, signal)).map(
+          async (r) =>
+            await saveSource({
+              url: r.url,
+              title: r.title,
+              text: r.content,
+              links: [],
+              kind: "search",
+              status: "snippet",
+              retrievedAt: now(),
+            }),
+        ),
       );
     } else {
       if (pages >= env.RESEARCH_MAX_PAGES) {
@@ -405,15 +412,15 @@ async function executeResearch(
       }
       pages++;
       const request = crawlInput.parse(input);
-      event(run.id, "progress", `Reading: ${request.url}`);
+      await event(run.id, "progress", `Reading: ${request.url}`);
       try {
-        output = saveSource({
+        output = await saveSource({
           ...(await crawlPage(request, signal)),
           kind: "page",
         });
       } catch (error) {
         signal.throwIfAborted();
-        output = saveSource({
+        output = await saveSource({
           url: request.url,
           title: request.url,
           text: "",
@@ -428,13 +435,17 @@ async function executeResearch(
     return output;
   }
   async function reviewLinks() {
-    event(run.id, "progress", "AI is checking which company links are useful");
+    await event(
+      run.id,
+      "progress",
+      "AI is checking which company links are useful",
+    );
     const links = await verifyCompanyLinks({
       company: owner,
       sources: [...all.sources, ...evidence.values()],
       signal,
       saveSource,
-      progress: (text) => event(run.id, "progress", text),
+      progress: async (text) => await event(run.id, "progress", text),
     });
     signal.throwIfAborted();
     const review = {
@@ -443,19 +454,19 @@ async function executeResearch(
       links,
       checkedAt: now(),
     };
-    db.insert(companyLinkReviews)
-      .values(review)
-      .onConflictDoUpdate({ target: companyLinkReviews.companyId, set: review })
-      .run();
+    await db.insert(companyLinkReviews).values(review).onConflictDoUpdate({
+      target: companyLinkReviews.companyId,
+      set: review,
+    });
   }
   try {
     if (run.kind === "links") {
       await reviewLinks();
-      db.update(researchRuns)
+      await db
+        .update(researchRuns)
         .set({ state: "completed", completedAt: now() })
-        .where(eq(researchRuns.id, run.id))
-        .run();
-      event(run.id, "done", "completed");
+        .where(eq(researchRuns.id, run.id));
+      await event(run.id, "done", "completed");
       return;
     }
     // Initial reports always gather fresh evidence, even if the model elects not to call tools.
@@ -495,14 +506,14 @@ async function executeResearch(
         messages,
         webEnabled && !lastRound ? toolDefinitions : [],
         signal,
-        (text) => {
+        async (text) => {
           lastDraft = text;
           if (Date.now() - lastFlush > 200) {
-            db.update(researchRuns)
+            await db
+              .update(researchRuns)
               .set({ draft: text })
-              .where(eq(researchRuns.id, run.id))
-              .run();
-            event(run.id, "text", text);
+              .where(eq(researchRuns.id, run.id));
+            await event(run.id, "text", text);
             lastFlush = Date.now();
           }
         },
@@ -529,7 +540,7 @@ async function executeResearch(
             output = {
               error: error instanceof Error ? error.message : "Tool failed",
             };
-            event(
+            await event(
               run.id,
               "progress",
               `Tool failed: ${(output as { error: string }).error}`,
@@ -542,11 +553,11 @@ async function executeResearch(
           });
         }
         lastDraft = "";
-        db.update(researchRuns)
+        await db
+          .update(researchRuns)
           .set({ draft: "" })
-          .where(eq(researchRuns.id, run.id))
-          .run();
-        event(run.id, "text", "");
+          .where(eq(researchRuns.id, run.id));
+        await event(run.id, "text", "");
         continue;
       }
       let result: ReturnType<typeof citeMarkdown>;
@@ -556,7 +567,7 @@ async function executeResearch(
         ]);
       } catch (error) {
         if (citationRepairs++ >= 1 || lastRound) throw error;
-        event(run.id, "progress", "Checking source citations");
+        await event(run.id, "progress", "Checking source citations");
         messages.push({
           role: "user",
           content: JSON.stringify({
@@ -578,7 +589,7 @@ async function executeResearch(
         } catch (error) {
           signal.throwIfAborted();
           partial = true;
-          event(
+          await event(
             run.id,
             "progress",
             error instanceof Error
@@ -588,33 +599,31 @@ async function executeResearch(
         }
       }
       signal.throwIfAborted();
-      db.transaction((tx) => {
+      await db.transaction(async (tx) => {
         if (question)
-          tx.update(researchMessages)
+          await tx
+            .update(researchMessages)
             .set({ answer: result.markdown, sourceIds: result.sourceIds })
-            .where(eq(researchMessages.runId, run.id))
-            .run();
+            .where(eq(researchMessages.runId, run.id));
         else
-          tx.insert(researchReports)
-            .values({
-              id: newId(),
-              companyId: owner.id,
-              runId: run.id,
-              ...result,
-              model: modelName,
-              createdAt: now(),
-            })
-            .run();
-        tx.update(researchRuns)
+          await tx.insert(researchReports).values({
+            id: newId(),
+            companyId: owner.id,
+            runId: run.id,
+            ...result,
+            model: modelName,
+            createdAt: now(),
+          });
+        await tx
+          .update(researchRuns)
           .set({
             state: partial ? "partial" : "completed",
             draft: "",
             completedAt: now(),
           })
-          .where(eq(researchRuns.id, run.id))
-          .run();
+          .where(eq(researchRuns.id, run.id));
       });
-      event(run.id, "done", partial ? "partial" : "completed");
+      await event(run.id, "done", partial ? "partial" : "completed");
       return;
     }
     throw new Error(
@@ -628,12 +637,12 @@ async function executeResearch(
         : "failed";
     const message =
       error instanceof Error ? error.message : "Research could not finish.";
-    db.update(researchRuns)
+    await db
+      .update(researchRuns)
       .set({ state, error: message, draft: lastDraft, completedAt: now() })
-      .where(eq(researchRuns.id, run.id))
-      .run();
-    event(run.id, "progress", message);
-    event(run.id, "done", state);
+      .where(eq(researchRuns.id, run.id));
+    await event(run.id, "progress", message);
+    await event(run.id, "done", state);
   } finally {
     controllers.delete(run.id);
   }

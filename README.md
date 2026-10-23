@@ -2,10 +2,10 @@
 
 A local job-review workspace: what is worth reviewing, why it fits, and where to act.
 Jobs, Companies, Activity and Profile share a Vite, React, React Router,
-TanStack Query and shadcn interface backed by Hono, Bun, Drizzle and SQLite.
+TanStack Query and shadcn interface backed by Hono, Bun, Drizzle and PostgreSQL.
 Turborepo coordinates builds and checks across the Bun workspaces. API contracts
 and TypeScript presets are shared from `packages/`; company research uses bundled
-SearXNG and Crawlee services, and application data stays in SQLite.
+SearXNG and Crawlee services, and application data stays in PostgreSQL.
 
 ## Development
 
@@ -25,35 +25,33 @@ bun run dev
 production uses port 3001. A persistent DEV/PROD tag appears in the app corner.
 Vite proxies `/api` to the backend on port 4000
 during development. The Docker web server also proxies `/api` to the backend.
-Use `BACKEND_URL` for a different backend. SQLite defaults to
-`data/development/surface.sqlite` in development and `data/surface.sqlite` in
-production; raw content-addressed snapshots live beside the active database.
-This keeps development records, backups, snapshots and login signing keys separate
-from production. `bun run db:migrate` applies migrations to the development database.
-For a fixed development login, copy
-`apps/backend/.env.development.example` to `apps/backend/.env.development` and set
-`AUTH_EMAIL`; without it, the isolated development environment accepts any valid
-email. Compose runs in production mode and keeps its database under `./data`.
-Set `AUTH_EMAIL` in the root `.env` to restrict production login, or leave it empty
-to use the email saved in the production profile.
-The backend performs monitoring and analysis while the browser is closed.
-Run one backend executor per data directory.
+Use `BACKEND_URL` for a different backend. PostgreSQL runs in the existing
+`primary-pg` container. Production uses `surface-data`; development uses
+`surface-dev-data`. Set `PRODUCTION_DATABASE_URL` and `DEVELOPMENT_DATABASE_URL`
+in `apps/backend/.env` (see its example). `APP_ENV` selects the matching URL;
+`DATABASE_URL` is an explicit override. Development and test startup reject
+`surface-data` to protect production. Create the databases before running migrations.
 
-The database starts from a generated baseline: `apps/backend/drizzle/0000_surface.sql`.
-Its `meta` folder contains the snapshot and journal Drizzle needs to generate future
-changes. The baseline creates the current schema and seeds the five default feeds.
-Its journal timestamp retains the final migration cutoff from the previous chain,
-so databases that completed that chain skip the baseline. The existing local
-database was backed up and its migration history consolidated without changing
-application data; the previous SQL files are archived under `data/backups`.
-Older, partially migrated databases must finish the previous chain before using
-this baseline.
+Raw content-addressed snapshots and the login signing key remain on disk.
+`DATA_DIR` defaults to `data/` for production and `data/development/` for development.
+Keep the production snapshot files and `.surface-auth-secret` together with database
+backups. Copy `apps/backend/.env.development.example` to
+`apps/backend/.env.development` for development-only login overrides.
+Development accepts any valid email when no owner is configured; production uses
+`AUTH_EMAIL` or the email saved in its profile.
 
-Before applying future pending migrations to an existing database, startup creates
-a consistent SQLite backup in `data/backups`, migrates a verification copy, checks
-existing records and foreign keys, and then applies them. Stop development watchers
-during schema rollout. Legacy assessments remain labeled stale, and profile
-revisions preserve their context.
+The generated PostgreSQL baseline is in `apps/backend/drizzle/`. The previous
+SQLite migrations and the original database are retained in migration backups.
+Startup applies pending PostgreSQL migrations. Before future production schema
+changes, stop writers, take a `pg_dump -Fc` backup, and rehearse the migration on
+an isolated restore. PostgreSQL migration history is separate from SQLite history.
+See [database migration and recovery](docs/postgres-migration.md) for the data
+transfer safeguards, verification report, backup locations and recovery steps.
+
+`bun run db:migrate` defaults to development. For production, use
+`APP_ENV=production bun run db:migrate`. The backend performs monitoring and
+analysis while the browser is closed; an expiring PostgreSQL lease coordinates
+executors for each database.
 
 ## Collect and review
 
@@ -154,17 +152,24 @@ default. Use `OMNIROUTE_DOCKER_BASE_URL` when OmniRoute is reachable elsewhere;
 keep the local-development `OMNIROUTE_BASE_URL` value separate because
 `127.0.0.1` inside a container refers to that container.
 
-Separate web/backend services persist SQLite, backups and snapshots under `./data`.
+The backend connects to `primary-pg` through the existing external Docker network.
+Set `DOCKER_DATABASE_URL` in root `.env` to the `primary-pg:5432/surface-data` URL
+and `POSTGRES_NETWORK` to a network containing that container (currently
+`grill-me_default`). Compose does not create or replace PostgreSQL or its volume.
+Database files remain in the PostgreSQL volume; snapshots and the session key
+remain mounted under `./data`.
 Set `FIELDWORK_DATA_DIR` for a different local mount and
 `FIELDWORK_PROD_WEB_PORT` for a production port other than 3001. The backend
 reaches a host gateway using `host.docker.internal`; `OMNIROUTE_BASE_URL` can
 override that address.
 The web port binds to loopback; the backend is internal to the Compose network.
+The production crawler binds to host port 4101 (`FIELDWORK_PROD_CRAWLER_PORT`),
+so the development crawler can keep using 4100.
 
 If a machine lacks Docker Buildx, install/repair its plugin or build with its
 available legacy builder and use `docker compose up --no-build` with matching
 project image names. Dependency install scripts are disabled in the image because
-the runtime uses Bun SQLite and does not need Drizzle Studio's native driver.
+the PostgreSQL driver is JavaScript and requires no native SQLite module.
 
 ## Verification
 
@@ -172,7 +177,12 @@ the runtime uses Bun SQLite and does not need Drizzle Studio's native driver.
 bun run lint
 bun run check-types
 bun run build
+bun --cwd apps/backend test
 ```
+
+The backend test runner creates and drops a disposable `surface-test-*` PostgreSQL
+database; neither application database is used for tests. Its configured user needs
+permission to create databases.
 
 Browser review remains manual: desktop/mobile, keyboard, long titles, reader focus,
 empty/error states, source links and stability during background updates.

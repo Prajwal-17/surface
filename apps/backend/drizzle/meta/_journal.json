@@ -1,33 +1,12 @@
 {
   "version": "7",
-  "dialect": "sqlite",
+  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
-      "version": "6",
-      "when": 1788727302950,
-      "tag": "0000_surface",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1788794082162,
-      "tag": "0001_job_description_summary",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1788935023138,
-      "tag": "0002_lush_chimera",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1788940713034,
-      "tag": "0003_silky_jasper_sitwell",
+      "version": "7",
+      "when": 1792740849091,
+      "tag": "0000_lovely_cardiac",
       "breakpoints": true
     }
   ]

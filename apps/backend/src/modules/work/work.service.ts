@@ -4,18 +4,16 @@ import { configuredSources, companies } from "../workspace/workspace.tables";
 import { runs, workItems, runItems, savedSearches } from "./work.tables";
 import { HttpError } from "../../shared/errors/http-error";
 export const minimumFetchHours = (_provider: string) => 6;
-export function syncRuns() {
-  for (const run of db
+export async function syncRuns() {
+  for (const run of await db
     .select()
     .from(runs)
-    .where(inArray(runs.state, ["queued", "running"]))
-    .all()) {
-    const items = db
+    .where(inArray(runs.state, ["queued", "running"]))) {
+    const items = await db
       .select({ state: workItems.state })
       .from(runItems)
       .innerJoin(workItems, eq(runItems.workId, workItems.id))
-      .where(eq(runItems.runId, run.id))
-      .all();
+      .where(eq(runItems.runId, run.id));
     const active = items.some(
       (i) => i.state === "queued" || i.state === "running",
     );
@@ -30,42 +28,44 @@ export function syncRuns() {
           : items.some((i) => i.state === "failed")
             ? "failed"
             : "interrupted";
-    db.update(runs)
+    await db
+      .update(runs)
       .set({ state, completedAt: active ? null : new Date().toISOString() })
-      .where(eq(runs.id, run.id))
-      .run();
+      .where(eq(runs.id, run.id));
   }
 }
-export function enqueueCollection(
+export async function enqueueCollection(
   sourceIds: string[],
   label = "Manual refresh",
 ) {
-  return db.transaction((tx) => {
+  return await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext('surface:enqueue-work'))`,
+    );
     const now = new Date().toISOString(),
       id = crypto.randomUUID();
-    const sources = tx
+    const sources = await tx
       .select()
       .from(configuredSources)
-      .where(inArray(configuredSources.id, [...new Set(sourceIds)]))
-      .all();
+      .where(inArray(configuredSources.id, [...new Set(sourceIds)]));
     if (!sources.length || sources.length !== new Set(sourceIds).size)
       throw new HttpError(400, "Choose valid configured sources.");
-    tx.insert(runs)
-      .values({
-        id,
-        kind: "collection",
-        label,
-        state: "queued",
-        createdAt: now,
-      })
-      .run();
+    await tx.insert(runs).values({
+      id,
+      kind: "collection",
+      label,
+      state: "queued",
+      createdAt: now,
+    });
     for (const source of sources) {
       const company = source.companyId
-        ? tx
-            .select()
-            .from(companies)
-            .where(eq(companies.id, source.companyId))
-            .get()
+        ? (
+            await tx
+              .select()
+              .from(companies)
+              .where(eq(companies.id, source.companyId))
+              .limit(1)
+          )[0]
         : null;
       if (
         source.paused ||
@@ -79,72 +79,77 @@ export function enqueueCollection(
             : "Resume the source and restore its company before collecting.",
         );
       const identity = `source:${source.id}`;
-      let work = tx
-        .select()
-        .from(workItems)
-        .where(
-          and(
-            eq(workItems.identity, identity),
-            inArray(workItems.state, ["queued", "running"]),
-          ),
-        )
-        .get();
+      let work = (
+        await tx
+          .select()
+          .from(workItems)
+          .where(
+            and(
+              eq(workItems.identity, identity),
+              inArray(workItems.state, ["queued", "running"]),
+            ),
+          )
+          .limit(1)
+      )[0];
       if (
         !work &&
         source.lastSuccessAt &&
         Date.now() - Date.parse(source.lastSuccessAt) <
           minimumFetchHours(source.provider) * 3600000
       ) {
-        work = tx
-          .select()
-          .from(workItems)
-          .where(
-            and(
-              eq(workItems.identity, identity),
-              eq(workItems.state, "completed"),
-            ),
-          )
-          .orderBy(desc(workItems.completedAt))
-          .get();
+        work = (
+          await tx
+            .select()
+            .from(workItems)
+            .where(
+              and(
+                eq(workItems.identity, identity),
+                eq(workItems.state, "completed"),
+              ),
+            )
+            .orderBy(desc(workItems.completedAt))
+            .limit(1)
+        )[0];
       }
       if (!work) {
         const retryAt =
           source.retryAt && source.retryAt > now ? source.retryAt : now;
-        work = tx
-          .insert(workItems)
-          .values({
-            id: crypto.randomUUID(),
-            kind: "collection",
-            sourceId: source.id,
-            identity,
-            state: "queued",
-            retryAt,
-            createdAt: now,
-          })
-          .returning()
-          .get()!;
+        work = (
+          await tx
+            .insert(workItems)
+            .values({
+              id: crypto.randomUUID(),
+              kind: "collection",
+              sourceId: source.id,
+              identity,
+              state: "queued",
+              retryAt,
+              createdAt: now,
+            })
+            .returning()
+        )[0]!;
       }
-      tx.insert(runItems).values({ runId: id, workId: work.id }).run();
+      await tx.insert(runItems).values({ runId: id, workId: work.id });
     }
     return { runId: id };
   });
 }
-export function getRun(id: string) {
-  syncRuns();
-  const run = db.select().from(runs).where(eq(runs.id, id)).get();
+export async function getRun(id: string) {
+  await syncRuns();
+  const run = (await db.select().from(runs).where(eq(runs.id, id)).limit(1))[0];
   if (!run) throw new HttpError(404, "Run not found.");
-  const items = db
-    .select({ work: workItems })
-    .from(runItems)
-    .innerJoin(workItems, eq(runItems.workId, workItems.id))
-    .where(eq(runItems.runId, id))
-    .all()
-    .map((r) => r.work);
+  const items = (
+    await db
+      .select({ work: workItems })
+      .from(runItems)
+      .innerJoin(workItems, eq(runItems.workId, workItems.id))
+      .where(eq(runItems.runId, id))
+  ).map((r) => r.work);
   return { ...run, items };
 }
-export function enqueueDueSchedules(now = new Date()) {
+export async function enqueueDueSchedules(now = new Date()) {
   const stamp = now.toISOString();
-  for (const source of db
+  for (const source of await db
     .select()
     .from(configuredSources)
     .where(
@@ -156,14 +161,14 @@ export function enqueueDueSchedules(now = new Date()) {
           sql`${configuredSources.nextDueAt} IS NULL`,
         ),
       ),
-    )
-    .all()) {
+    )) {
     try {
-      enqueueCollection([source.id], `Monitoring · ${source.label}`);
+      await enqueueCollection([source.id], `Monitoring · ${source.label}`);
     } catch (error) {
       if (!(error instanceof HttpError)) throw error;
     }
-    db.update(configuredSources)
+    await db
+      .update(configuredSources)
       .set({
         nextDueAt: new Date(
           now.getTime() +
@@ -171,10 +176,9 @@ export function enqueueDueSchedules(now = new Date()) {
               3600000,
         ).toISOString(),
       })
-      .where(eq(configuredSources.id, source.id))
-      .run();
+      .where(eq(configuredSources.id, source.id));
   }
-  for (const search of db
+  for (const search of await db
     .select()
     .from(savedSearches)
     .where(
@@ -186,20 +190,22 @@ export function enqueueDueSchedules(now = new Date()) {
           sql`${savedSearches.nextDueAt} IS NULL`,
         ),
       ),
-    )
-    .all()) {
+    )) {
     try {
-      enqueueCollection(search.sourceIds, `Saved search · ${search.name}`);
+      await enqueueCollection(
+        search.sourceIds,
+        `Saved search · ${search.name}`,
+      );
     } catch (error) {
       if (!(error instanceof HttpError)) throw error;
     }
-    db.update(savedSearches)
+    await db
+      .update(savedSearches)
       .set({
         nextDueAt: new Date(
           now.getTime() + search.scheduleHours * 3600000,
         ).toISOString(),
       })
-      .where(eq(savedSearches.id, search.id))
-      .run();
+      .where(eq(savedSearches.id, search.id));
   }
 }

@@ -87,8 +87,8 @@ export async function verifyCompanyLinks({
   signal: AbortSignal;
   saveSource: (
     source: Omit<ResearchSource, "id" | "companyId" | "runId">,
-  ) => ResearchSource;
-  progress: (text: string) => void;
+  ) => ResearchSource | Promise<ResearchSource>;
+  progress: (text: string) => void | Promise<void>;
 }) {
   const candidates = new Map<
     string,
@@ -170,10 +170,10 @@ export async function verifyCompanyLinks({
             throw new Error(
               "Inspection limit reached. Publish only the useful pages already inspected.",
             );
-          progress(`Verifying link: ${normalized}`);
+          await progress(`Verifying link: ${normalized}`);
           attempted.set(normalized, { error: "Inspection unavailable" });
           try {
-            const source = saveSource({
+            const source = await saveSource({
               ...(await crawlPage({ url: normalized }, signal)),
               kind: "page",
             });

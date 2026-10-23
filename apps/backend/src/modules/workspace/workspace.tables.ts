@@ -1,15 +1,15 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-export const companies = sqliteTable("companies", {
+import { boolean, integer, pgTable, text } from "drizzle-orm/pg-core";
+export const companies = pgTable("companies", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   website: text("website").notNull().default(""),
   notes: text("notes").notNull().default(""),
   watchReason: text("watch_reason").notNull().default(""),
-  archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+  archived: boolean("archived").notNull().default(false),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
-export const configuredSources = sqliteTable("configured_sources", {
+export const configuredSources = pgTable("configured_sources", {
   scheduleHours: integer("schedule_hours").notNull().default(12),
   nextDueAt: text("next_due_at"),
   lastSuccessAt: text("last_success_at"),
@@ -28,7 +28,7 @@ export const configuredSources = sqliteTable("configured_sources", {
     .$type<import("@surface/contracts").SourceInspection["support"]>()
     .notNull(),
   reason: text("reason").notNull(),
-  paused: integer("paused", { mode: "boolean" }).notNull().default(false),
+  paused: boolean("paused").notNull().default(false),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

@@ -4,12 +4,11 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import { snapshots } from "./collection.tables";
 import { snapshotDirectory } from "./snapshots";
-export function cleanupSnapshots(remove = false) {
-  const rows = db
+export async function cleanupSnapshots(remove = false) {
+  const rows = await db
     .select()
     .from(snapshots)
-    .orderBy(desc(snapshots.fetchedAt))
-    .all();
+    .orderBy(desc(snapshots.fetchedAt));
   const latest = new Map<string, string>();
   for (const row of rows)
     if (!latest.has(row.resourceId)) latest.set(row.resourceId, row.hash);
@@ -21,10 +20,10 @@ export function cleanupSnapshots(remove = false) {
   if (remove)
     for (const hash of hashes) {
       rmSync(join(snapshotDirectory, hash), { force: true });
-      db.update(snapshots)
+      await db
+        .update(snapshots)
         .set({ removedAt: new Date().toISOString() })
-        .where(eq(snapshots.hash, hash))
-        .run();
+        .where(eq(snapshots.hash, hash));
     }
   return {
     files: hashes.length,

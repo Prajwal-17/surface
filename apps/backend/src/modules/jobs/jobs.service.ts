@@ -2,18 +2,18 @@ import type { JobsListQuery, JobStatus } from "@surface/contracts";
 import { HttpError } from "../../shared/errors/http-error";
 import { findJobById, listJobs, setJobStatus } from "./jobs.repository";
 
-export function getJobs(input: JobsListQuery) {
-  return listJobs(input);
+export async function getJobs(input: JobsListQuery) {
+  return await listJobs(input);
 }
 
-export function getJob(id: string) {
-  const job = findJobById(id);
+export async function getJob(id: string) {
+  const job = await findJobById(id);
   if (!job) throw new HttpError(404, "Job not found.");
   return job;
 }
 
-export function updateJobStatus(id: string, status: JobStatus) {
-  const job = setJobStatus(id, status);
+export async function updateJobStatus(id: string, status: JobStatus) {
+  const job = await setJobStatus(id, status);
   if (!job) throw new HttpError(404, "Job not found.");
   return job;
 }

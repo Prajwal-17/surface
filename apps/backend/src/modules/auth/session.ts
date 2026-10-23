@@ -19,7 +19,7 @@ function getSigningSecret(): string {
   if (env.AUTH_SECRET) return env.AUTH_SECRET;
   if (cachedSecret) return cachedSecret;
 
-  const secretPath = join(dirname(env.DB_FILE_NAME), ".surface-auth-secret");
+  const secretPath = join(env.DATA_DIR, ".surface-auth-secret");
   mkdirSync(dirname(secretPath), { recursive: true });
 
   if (existsSync(secretPath)) {

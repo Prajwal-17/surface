@@ -22,11 +22,13 @@ export async function collectSource(
 ): Promise<CollectionResult> {
   if (source.support === "unsupported") throw new Error(source.reason);
   const company = source.companyId
-    ? db
-        .select()
-        .from(companies)
-        .where(eq(companies.id, source.companyId))
-        .get()
+    ? (
+        await db
+          .select()
+          .from(companies)
+          .where(eq(companies.id, source.companyId))
+          .limit(1)
+      )[0]
     : undefined;
   const candidates: JobCandidate[] = [];
   const seen = new Set<string>();
@@ -57,7 +59,7 @@ export async function collectSource(
         };
       seen.add(url);
       const payload = await fetcher(url);
-      const snapshot = snapshotter(payload);
+      const snapshot = await snapshotter(payload);
       bytesFetched +=
         payload.rawBytes?.byteLength ?? Buffer.byteLength(payload.body);
       if (bytesFetched > 64 * 1024 * 1024)

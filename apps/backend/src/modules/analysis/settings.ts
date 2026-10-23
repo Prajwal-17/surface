@@ -5,40 +5,44 @@ import { env } from "../../config/env";
 import { analysisSettings } from "./analysis.tables";
 import { workItems } from "../work/work.tables";
 
-export function getSettings() {
-  db.insert(analysisSettings).values({ id: "me" }).onConflictDoNothing().run();
-  const row = db
-    .select()
-    .from(analysisSettings)
-    .where(eq(analysisSettings.id, "me"))
-    .get()!;
-  const queued = db
-    .select({ n: count() })
-    .from(workItems)
-    .where(and(eq(workItems.kind, "analysis"), eq(workItems.state, "queued")))
-    .get()!.n;
+export async function getSettings() {
+  await db.insert(analysisSettings).values({ id: "me" }).onConflictDoNothing();
+  const row = (
+    await db
+      .select()
+      .from(analysisSettings)
+      .where(eq(analysisSettings.id, "me"))
+      .limit(1)
+  )[0]!;
+  const queued = (
+    await db
+      .select({ n: count() })
+      .from(workItems)
+      .where(and(eq(workItems.kind, "analysis"), eq(workItems.state, "queued")))
+      .limit(1)
+  )[0]!.n;
   return { ...row, configured: Boolean(env.OMNIROUTE_API_KEY), queued };
 }
-export function saveSettings(input: { paused: boolean }) {
-  getSettings();
-  db.update(analysisSettings)
+export async function saveSettings(input: { paused: boolean }) {
+  await getSettings();
+  await db
+    .update(analysisSettings)
     .set(input)
-    .where(eq(analysisSettings.id, "me"))
-    .run();
-  return getSettings();
+    .where(eq(analysisSettings.id, "me"));
+  return await getSettings();
 }
-export function enableAnalysis() {
-  getSettings();
-  db.update(analysisSettings)
+export async function enableAnalysis() {
+  await getSettings();
+  await db
+    .update(analysisSettings)
     .set({ enabled: true })
-    .where(eq(analysisSettings.id, "me"))
-    .run();
+    .where(eq(analysisSettings.id, "me"));
 }
-export function canRequestModel(
+export async function canRequestModel(
   configured = Boolean(env.OMNIROUTE_API_KEY),
   manual = false,
 ) {
-  const settings = getSettings();
+  const settings = await getSettings();
   return (
     configured &&
     modelCapacityAvailable() &&

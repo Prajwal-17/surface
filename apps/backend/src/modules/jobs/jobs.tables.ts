@@ -1,13 +1,15 @@
 import type { JobStatus, SourceKey } from "@surface/contracts";
 import {
+  boolean,
+  jsonb,
   index,
   integer,
-  sqliteTable,
+  pgTable,
   text,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 
-export const jobs = sqliteTable(
+export const jobs = pgTable(
   "jobs",
   {
     id: text("id").primaryKey(),
@@ -16,12 +18,10 @@ export const jobs = sqliteTable(
     title: text("title").notNull(),
     company: text("company").notNull(),
     location: text("location").notNull().default("Location not listed"),
-    isRemote: integer("is_remote", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    isRemote: boolean("is_remote").notNull().default(false),
     employmentType: text("employment_type"),
     description: text("description").notNull().default(""),
-    descriptionSummary: text("description_summary", { mode: "json" }).$type<
+    descriptionSummary: jsonb("description_summary").$type<
       import("@surface/contracts").DescriptionSummary
     >(),
     applyUrl: text("apply_url").notNull(),
@@ -32,23 +32,17 @@ export const jobs = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     reviewedAt: text("reviewed_at"),
-    analysisRequested: integer("analysis_requested", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    analysisRequested: boolean("analysis_requested").notNull().default(false),
     companyId: text("company_id"),
     descriptionHtml: text("description_html"),
     workMode: text("work_mode")
       .$type<"remote" | "hybrid" | "onsite" | "unknown">()
       .notNull()
       .default("unknown"),
-    compensation: text("compensation", { mode: "json" }).$type<
-      import("@surface/contracts").Compensation
-    >(),
-    countries: text("countries", { mode: "json" })
-      .$type<string[]>()
-      .notNull()
-      .default([]),
-    evidence: text("evidence", { mode: "json" })
+    compensation:
+      jsonb("compensation").$type<import("@surface/contracts").Compensation>(),
+    countries: jsonb("countries").$type<string[]>().notNull().default([]),
+    evidence: jsonb("evidence")
       .$type<import("@surface/contracts").FieldEvidence[]>()
       .notNull()
       .default([]),
@@ -57,8 +51,8 @@ export const jobs = sqliteTable(
     fitScore: integer("fit_score"),
     fitVerdict: text("fit_verdict").$type<"strong" | "possible" | "weak">(),
     fitSummary: text("fit_summary"),
-    fitStrengths: text("fit_strengths", { mode: "json" }).$type<string[]>(),
-    fitConcerns: text("fit_concerns", { mode: "json" }).$type<string[]>(),
+    fitStrengths: jsonb("fit_strengths").$type<string[]>(),
+    fitConcerns: jsonb("fit_concerns").$type<string[]>(),
     fitModel: text("fit_model"),
     fitAnalyzedAt: text("fit_analyzed_at"),
   },
@@ -70,7 +64,7 @@ export const jobs = sqliteTable(
   ],
 );
 
-export const jobSources = sqliteTable(
+export const jobSources = pgTable(
   "job_sources",
   {
     id: text("id").primaryKey(),

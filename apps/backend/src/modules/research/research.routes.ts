@@ -20,7 +20,7 @@ import {
 import { researchEvents, researchRuns } from "./research.tables";
 import { HttpError } from "../../shared/errors/http-error";
 export const researchRoutes = new Hono();
-researchRoutes.get("/research", (c) => c.json(library()));
+researchRoutes.get("/research", async (c) => c.json(await library()));
 researchRoutes.post(
   "/research/resolve",
   zValidator("json", z.object({ query: z.string().trim().min(1).max(2048) })),
@@ -29,36 +29,39 @@ researchRoutes.post(
 researchRoutes.post(
   "/research/confirm",
   zValidator("json", researchCandidateSchema),
-  (c) => c.json(confirmCompany(c.req.valid("json"))),
+  async (c) => c.json(await confirmCompany(c.req.valid("json"))),
 );
-researchRoutes.get("/companies/:id/research", (c) =>
-  c.json(details(c.req.param("id"))),
+researchRoutes.get("/companies/:id/research", async (c) =>
+  c.json(await details(c.req.param("id"))),
 );
-researchRoutes.post("/companies/:id/research/links", (c) =>
-  c.json(startResearch(c.req.param("id"), undefined, true), 202),
+researchRoutes.post("/companies/:id/research/links", async (c) =>
+  c.json(await startResearch(c.req.param("id"), undefined, true), 202),
 );
-researchRoutes.post("/companies/:id/research", (c) =>
-  c.json(startResearch(c.req.param("id")), 202),
+researchRoutes.post("/companies/:id/research", async (c) =>
+  c.json(await startResearch(c.req.param("id")), 202),
 );
 researchRoutes.post(
   "/companies/:id/research/questions",
   zValidator("json", researchQuestionInputSchema),
-  (c) => c.json(startResearch(c.req.param("id"), c.req.valid("json")), 202),
+  async (c) =>
+    c.json(await startResearch(c.req.param("id"), c.req.valid("json")), 202),
 );
-researchRoutes.post("/companies/:id/research/runs/:runId/cancel", (c) =>
-  c.json(cancelResearch(c.req.param("id"), c.req.param("runId"))),
+researchRoutes.post("/companies/:id/research/runs/:runId/cancel", async (c) =>
+  c.json(await cancelResearch(c.req.param("id"), c.req.param("runId"))),
 );
-researchRoutes.get("/companies/:id/research/runs/:runId/events", (c) => {
+researchRoutes.get("/companies/:id/research/runs/:runId/events", async (c) => {
   const companyId = c.req.param("id"),
     runId = c.req.param("runId");
-  company(companyId);
-  const run = db
-    .select()
-    .from(researchRuns)
-    .where(
-      and(eq(researchRuns.id, runId), eq(researchRuns.companyId, companyId)),
-    )
-    .get();
+  await company(companyId);
+  const run = (
+    await db
+      .select()
+      .from(researchRuns)
+      .where(
+        and(eq(researchRuns.id, runId), eq(researchRuns.companyId, companyId)),
+      )
+      .limit(1)
+  )[0];
   if (!run) throw new HttpError(404, "Research run not found.");
   let after = Number(
     c.req.header("Last-Event-ID") || c.req.query("after") || 0,
@@ -72,15 +75,14 @@ researchRoutes.get("/companies/:id/research/runs/:runId/events", (c) => {
     });
     for (;;) {
       if (aborted) break;
-      const events = db
+      const events = await db
         .select()
         .from(researchEvents)
         .where(
           and(eq(researchEvents.runId, runId), gt(researchEvents.id, after)),
         )
         .orderBy(researchEvents.id)
-        .limit(100)
-        .all();
+        .limit(100);
       for (const row of events) {
         await stream.writeSSE({
           id: String(row.id),
@@ -90,11 +92,13 @@ researchRoutes.get("/companies/:id/research/runs/:runId/events", (c) => {
         after = row.id;
       }
       if (events.length === 100) continue;
-      const state = db
-        .select()
-        .from(researchRuns)
-        .where(eq(researchRuns.id, runId))
-        .get()?.state;
+      const state = (
+        await db
+          .select()
+          .from(researchRuns)
+          .where(eq(researchRuns.id, runId))
+          .limit(1)
+      )[0]?.state;
       if (state !== "running") {
         await stream.writeSSE({
           event: "end",

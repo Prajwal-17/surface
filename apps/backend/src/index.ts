@@ -4,9 +4,9 @@ import { app } from "./app";
 import { env } from "./config/env";
 import { runMigrations } from "./infrastructure/database/migrate";
 
-runMigrations();
-recoverResearch();
-startExecutor();
+await runMigrations();
+await recoverResearch();
+await startExecutor();
 
 const server = Bun.serve({
   port: env.PORT,

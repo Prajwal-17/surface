@@ -8,14 +8,12 @@ export const discoveryRoutes = new Hono();
 discoveryRoutes.post(
   "/search",
   zValidator("json", discoverySearchSchema),
-  (c) => {
-    const sources = db
-      .select()
-      .from(configuredSources)
-      .all()
-      .filter((s) => !s.paused && s.support !== "unsupported");
+  async (c) => {
+    const sources = (await db.select().from(configuredSources)).filter(
+      (s) => !s.paused && s.support !== "unsupported",
+    );
     return c.json(
-      enqueueCollection(
+      await enqueueCollection(
         sources.map((s) => s.id),
         `Search · ${c.req.valid("json").query}`,
       ),

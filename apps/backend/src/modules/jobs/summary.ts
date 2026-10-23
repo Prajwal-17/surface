@@ -61,11 +61,13 @@ export async function summariseJob(
   configured?: boolean,
   onText?: (text: string) => void,
 ) {
-  const job = db
-    .select()
-    .from(jobs)
-    .where(and(eq(jobs.id, id), isNull(jobs.mergedInto)))
-    .get();
+  const job = (
+    await db
+      .select()
+      .from(jobs)
+      .where(and(eq(jobs.id, id), isNull(jobs.mergedInto)))
+      .limit(1)
+  )[0];
   if (!job) throw new HttpError(404, "Job not found.");
   if (
     !regenerate &&
@@ -81,10 +83,10 @@ export async function summariseJob(
       409,
       "A summary is already being generated for this job.",
     );
-  const settings = getSettings();
+  const settings = await getSettings();
   if (settings.paused)
     throw new HttpError(409, "AI is paused. Resume it in Settings first.");
-  const usage = canRequestModel(configured, true);
+  const usage = await canRequestModel(configured, true);
   if (!usage)
     throw new HttpError(
       409,
@@ -115,18 +117,19 @@ export async function summariseJob(
       generatedAt: new Date().toISOString(),
       formatVersion: DESCRIPTION_SUMMARY_FORMAT_VERSION,
     });
-    const saved = db
-      .update(jobs)
-      .set({ descriptionSummary: summary })
-      .where(
-        and(
-          eq(jobs.id, id),
-          eq(jobs.currentVersionId, job.currentVersionId),
-          isNull(jobs.mergedInto),
-        ),
-      )
-      .returning({ id: jobs.id })
-      .get();
+    const saved = (
+      await db
+        .update(jobs)
+        .set({ descriptionSummary: summary })
+        .where(
+          and(
+            eq(jobs.id, id),
+            eq(jobs.currentVersionId, job.currentVersionId),
+            isNull(jobs.mergedInto),
+          ),
+        )
+        .returning({ id: jobs.id })
+    )[0];
     if (!saved)
       throw new HttpError(
         409,

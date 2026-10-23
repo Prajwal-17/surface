@@ -36,7 +36,11 @@ const envSchema = z.object({
   RESEARCH_MAX_PAGES: z.coerce.number().int().positive().default(60),
   RESEARCH_TIMEOUT_MS: z.coerce.number().int().min(1000).default(900000),
   PORT: z.coerce.number().int().positive().default(4000),
-  DB_FILE_NAME: z.string().optional(),
+  DATABASE_URL: z.string().url().optional(),
+  PRODUCTION_DATABASE_URL: z.string().url().optional(),
+  DEVELOPMENT_DATABASE_URL: z.string().url().optional(),
+  TEST_DATABASE_URL: z.string().url().optional(),
+  DATA_DIR: z.string().optional(),
   SOURCE_TIMEOUT_MS: z.coerce.number().int().min(1_000).default(12_000),
   OMNIROUTE_BASE_URL: z.string().url().default("http://127.0.0.1:20128/v1"),
   OMNIROUTE_API_KEY: z
@@ -48,12 +52,39 @@ const envSchema = z.object({
 });
 
 const parsedEnvironment = envSchema.parse(process.env);
-const databaseDirectory =
-  parsedEnvironment.APP_ENV === "production" ? [] : [parsedEnvironment.APP_ENV];
-
+const appEnvironment = parsedEnvironment.APP_ENV;
+const databaseUrl =
+  parsedEnvironment.DATABASE_URL ??
+  (appEnvironment === "production"
+    ? parsedEnvironment.PRODUCTION_DATABASE_URL
+    : appEnvironment === "test"
+      ? parsedEnvironment.TEST_DATABASE_URL
+      : parsedEnvironment.DEVELOPMENT_DATABASE_URL);
+if (!databaseUrl) {
+  throw new Error(
+    `Configure ${appEnvironment === "production" ? "PRODUCTION_DATABASE_URL" : appEnvironment === "test" ? "TEST_DATABASE_URL" : "DEVELOPMENT_DATABASE_URL"} or DATABASE_URL for PostgreSQL.`,
+  );
+}
+const database = new URL(databaseUrl);
+if (!["postgres:", "postgresql:"].includes(database.protocol)) {
+  throw new Error("DATABASE_URL must be a PostgreSQL connection URL.");
+}
+if (
+  appEnvironment !== "production" &&
+  decodeURIComponent(database.pathname.slice(1)) === "surface-data"
+) {
+  throw new Error(
+    "Development and tests must never connect to the production surface-data database.",
+  );
+}
 export const env = {
   ...parsedEnvironment,
-  DB_FILE_NAME:
-    parsedEnvironment.DB_FILE_NAME ??
-    resolve(workspaceDirectory, "data", ...databaseDirectory, "surface.sqlite"),
+  DATABASE_URL: databaseUrl,
+  DATA_DIR:
+    parsedEnvironment.DATA_DIR ??
+    resolve(
+      workspaceDirectory,
+      "data",
+      ...(appEnvironment === "production" ? [] : [appEnvironment]),
+    ),
 };

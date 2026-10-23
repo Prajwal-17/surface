@@ -74,40 +74,46 @@ jobsRoutes.post(
 jobsRoutes.post("/:id/assess", async (context) => {
   const id = context.req.param("id");
   await assessJobNow(id);
-  return context.json(getJob(id));
+  return context.json(await getJob(id));
 });
 
-jobsRoutes.get("/", zValidator("query", jobsListQuerySchema), (context) => {
-  const input = context.req.valid("query");
-  return context.json(getJobs(input));
-});
+jobsRoutes.get(
+  "/",
+  zValidator("query", jobsListQuerySchema),
+  async (context) => {
+    const input = context.req.valid("query");
+    return context.json(await getJobs(input));
+  },
+);
 
-jobsRoutes.get("/:id", (context) => {
-  return context.json(getJob(context.req.param("id")));
+jobsRoutes.get("/:id", async (context) => {
+  return context.json(await getJob(context.req.param("id")));
 });
 
 jobsRoutes.patch(
   "/:id/status",
   zValidator("json", updateJobStatusSchema),
-  (context) => {
+  async (context) => {
     const input = context.req.valid("json");
-    return context.json(updateJobStatus(context.req.param("id"), input.status));
+    return context.json(
+      await updateJobStatus(context.req.param("id"), input.status),
+    );
   },
 );
 
 jobsRoutes.patch(
   "/:id/review",
   zValidator("json", z.object({ reviewed: z.boolean() })),
-  (c) => {
-    const job = getJob(c.req.param("id"));
-    db.update(jobs)
+  async (c) => {
+    const job = await getJob(c.req.param("id"));
+    await db
+      .update(jobs)
       .set({
         reviewedAt: c.req.valid("json").reviewed
           ? new Date().toISOString()
           : null,
       })
-      .where(eq(jobs.id, job.id))
-      .run();
-    return c.json(getJob(job.id));
+      .where(eq(jobs.id, job.id));
+    return c.json(await getJob(job.id));
   },
 );

@@ -1,19 +1,16 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import { env } from "../../config/env";
 import { resources, snapshots } from "./collection.tables";
 import type { FetchedPayload } from "./public-http";
-export const snapshotDirectory = join(
-  dirname(resolve(env.DB_FILE_NAME)),
-  "snapshots",
-);
-export function persistSnapshot(payload: FetchedPayload): {
+export const snapshotDirectory = join(env.DATA_DIR, "snapshots");
+export async function persistSnapshot(payload: FetchedPayload): Promise<{
   resourceId: string;
   snapshotId: string;
-} {
+}> {
   const now = new Date().toISOString();
   const raw = payload.rawBytes ?? Buffer.from(payload.body);
   const hash = createHash("sha256").update(raw).digest("hex");
@@ -22,16 +19,18 @@ export function persistSnapshot(payload: FetchedPayload): {
     flag: "w",
     mode: 0o600,
   });
-  return db.transaction((tx) => {
-    tx.insert(resources)
+  return await db.transaction(async (tx) => {
+    await tx
+      .insert(resources)
       .values({ id: crypto.randomUUID(), url: payload.url, createdAt: now })
-      .onConflictDoNothing()
-      .run();
-    const resource = tx
-      .select()
-      .from(resources)
-      .where(eq(resources.url, payload.url))
-      .get()!;
+      .onConflictDoNothing();
+    const resource = (
+      await tx
+        .select()
+        .from(resources)
+        .where(eq(resources.url, payload.url))
+        .limit(1)
+    )[0]!;
     const snapshot = {
       id: crypto.randomUUID(),
       resourceId: resource.id,
@@ -41,7 +40,7 @@ export function persistSnapshot(payload: FetchedPayload): {
       byteLength: raw.byteLength,
       fetchedAt: now,
     };
-    tx.insert(snapshots).values(snapshot).run();
+    await tx.insert(snapshots).values(snapshot);
     return { resourceId: resource.id, snapshotId: snapshot.id };
   });
 }

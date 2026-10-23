@@ -18,7 +18,9 @@ import { findProfile, saveProfile } from "./profile.repository";
 
 export const profileRoutes = new Hono();
 
-profileRoutes.get("/context", (c) => c.json({ profile: findProfile() }));
+profileRoutes.get("/context", async (c) =>
+  c.json({ profile: await findProfile() }),
+);
 profileRoutes.put(
   "/context",
   zValidator(
@@ -27,9 +29,9 @@ profileRoutes.put(
       expectedRevision: z.number().int().nonnegative().optional(),
     }),
   ),
-  (c) => {
+  async (c) => {
     const { expectedRevision, ...input } = c.req.valid("json");
-    const previous = findProfile();
+    const previous = await findProfile();
     if (
       expectedRevision !== undefined &&
       expectedRevision !== (previous?.revision ?? 0)
@@ -39,12 +41,12 @@ profileRoutes.put(
         "Your profile changed in another tab. Reload the page to review the latest version before saving.",
       );
     validateProfileLocations(input, previous);
-    return c.json({ profile: saveProfile(input) });
+    return c.json({ profile: await saveProfile(input) });
   },
 );
 
-profileRoutes.get("/history", (c) =>
-  c.json(db.select().from(profileRevisions).all()),
+profileRoutes.get("/history", async (c) =>
+  c.json(await db.select().from(profileRevisions)),
 );
 
 profileRoutes.get("/catalogs", (c) =>

@@ -1,13 +1,16 @@
 import {
+  bigint,
+  boolean,
+  jsonb,
   index,
   integer,
   primaryKey,
-  sqliteTable,
+  pgTable,
   text,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-export const runs = sqliteTable("runs", {
+export const runs = pgTable("runs", {
   id: text("id").primaryKey(),
   kind: text("kind").$type<"collection" | "analysis">().notNull(),
   label: text("label").notNull(),
@@ -17,7 +20,7 @@ export const runs = sqliteTable("runs", {
   createdAt: text("created_at").notNull(),
   completedAt: text("completed_at"),
 });
-export const workItems = sqliteTable(
+export const workItems = pgTable(
   "work_items",
   {
     id: text("id").primaryKey(),
@@ -31,7 +34,7 @@ export const workItems = sqliteTable(
     attempts: integer("attempts").notNull().default(0),
     retryAt: text("retry_at").notNull(),
     error: text("error"),
-    result: text("result", { mode: "json" }).$type<Record<string, unknown>>(),
+    result: jsonb("result").$type<Record<string, unknown>>(),
     createdAt: text("created_at").notNull(),
     startedAt: text("started_at"),
     completedAt: text("completed_at"),
@@ -43,7 +46,7 @@ export const workItems = sqliteTable(
       .where(sql`${t.state} IN ('queued','running')`),
   ],
 );
-export const runItems = sqliteTable(
+export const runItems = pgTable(
   "run_items",
   {
     runId: text("run_id")
@@ -55,23 +58,23 @@ export const runItems = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.runId, t.workId] })],
 );
-export const savedSearches = sqliteTable("saved_searches", {
+export const savedSearches = pgTable("saved_searches", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   query: text("query").notNull().default(""),
-  sourceIds: text("source_ids", { mode: "json" }).$type<string[]>().notNull(),
-  filters: text("filters", { mode: "json" })
+  sourceIds: jsonb("source_ids").$type<string[]>().notNull(),
+  filters: jsonb("filters")
     .$type<Record<string, string>>()
     .notNull()
     .default({}),
   scheduleHours: integer("schedule_hours").notNull().default(12),
-  paused: integer("paused", { mode: "boolean" }).notNull().default(false),
+  paused: boolean("paused").notNull().default(false),
   nextDueAt: text("next_due_at"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
-export const executorLease = sqliteTable("executor_lease", {
+export const executorLease = pgTable("executor_lease", {
   id: text("id").primaryKey(),
   owner: text("owner").notNull(),
-  expiresAt: integer("expires_at").notNull(),
+  expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
 });

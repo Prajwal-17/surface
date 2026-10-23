@@ -10,7 +10,7 @@ src/
 ├── index.ts                # Bun server entry point
 ├── config/                 # Environment configuration
 ├── infrastructure/
-│   └── database/           # SQLite, Drizzle schema, and migrations
+│   └── database/           # PostgreSQL, Drizzle schema, and migrations
 ├── modules/
 │   ├── discovery/          # Routes, service, repository, tables, sources
 │   └── jobs/               # Routes, service, repository, and tables
@@ -35,10 +35,14 @@ bun run dev
 Environment variables:
 
 - `PORT` — API port, defaults to `4000`
-- `APP_ENV` — `development`, `production` or `test`; controls the default database directory
-- `DB_FILE_NAME` — SQLite file path; development defaults to `data/development/surface.sqlite`, production to `data/surface.sqlite`
+- `APP_ENV` — `development`, `production` or `test`; selects the production, development or test database URL
+- `PRODUCTION_DATABASE_URL` — PostgreSQL URL for `primary-pg` database `surface-data`
+- `DEVELOPMENT_DATABASE_URL` — PostgreSQL URL for `primary-pg` database `surface-dev-data`
+- `DATABASE_URL` — optional explicit URL override; development/tests reject `surface-data`
+- `TEST_DATABASE_URL` — a disposable `surface-test-*` database, supplied by the test runner
+- `DATA_DIR` — filesystem snapshots and signing key; defaults to `data/` in production, `data/development/` in development
 - `AUTH_EMAIL` — optional allowed login email; otherwise the saved profile email is used
-- `AUTH_SECRET` — optional session signing key; when omitted, a private key is saved beside the active database
+- `AUTH_SECRET` — optional session signing key; when omitted, a private key is saved in `DATA_DIR`
 - `AUTH_COOKIE_SECURE` — set to `true` when serving over HTTPS
 - `SOURCE_TIMEOUT_MS` — timeout per upstream feed, defaults to `12000`
 
@@ -70,3 +74,16 @@ Job-fit analysis uses an OpenAI-compatible OmniRoute endpoint. Configure:
 `@surface/contracts` is the workspace package for browser-safe API schemas,
 constants, and inferred types shared by the backend and frontend. Keep server
 modules, Bun APIs, database clients, and environment configuration out of it.
+
+## PostgreSQL migration and tests
+
+`bun run db:generate` generates PostgreSQL migrations. `bun run db:migrate` applies
+them to the environment-selected database. Production: `APP_ENV=production bun run db:migrate`.
+Take a PostgreSQL dump before applying production changes.
+
+`bun test` alone requires `TEST_DATABASE_URL` naming a disposable `surface-test-*`
+database. Prefer `bun run test`: it creates a fresh test database, runs the suite,
+and removes it even when tests fail. The connection user needs `CREATEDB`.
+
+The completed SQLite transfer's backups, verification results and recovery steps
+are documented in [the migration record](../../docs/postgres-migration.md).

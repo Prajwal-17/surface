@@ -1,7 +1,7 @@
 import type { SourceKey } from "@surface/contracts";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, pgTable, text } from "drizzle-orm/pg-core";
 
-export const discoveryRuns = sqliteTable(
+export const discoveryRuns = pgTable(
   "discovery_runs",
   {
     id: text("id").primaryKey(),
@@ -19,7 +19,7 @@ export const discoveryRuns = sqliteTable(
   (table) => [index("discovery_runs_started_at_idx").on(table.startedAt)],
 );
 
-export const discoverySourceRuns = sqliteTable(
+export const discoverySourceRuns = pgTable(
   "discovery_source_runs",
   {
     id: text("id").primaryKey(),

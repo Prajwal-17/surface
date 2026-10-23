@@ -23,7 +23,7 @@ export type ToolDefinition = {
 // Research has its own decoder: a tool-call finish is valid here, unlike a JSON summary.
 export async function decodeResearchResponse(
   response: Response,
-  onText: (text: string) => void,
+  onText: (text: string) => void | Promise<void>,
 ) {
   let content = "",
     model = "",
@@ -42,13 +42,13 @@ export async function decodeResearchResponse(
     finish = choice.finish_reason;
     for (const [i, call] of (choice.message.tool_calls ?? []).entries())
       calls.set(i, call);
-    if (content) onText(content);
+    if (content) await onText(content);
   } else {
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
     let pending = "",
       size = 0;
-    const line = (value: string) => {
+    const line = async (value: string) => {
       if (!value.startsWith("data:")) return;
       const data = value.slice(5).trim();
       if (!data || data === "[DONE]") return;
@@ -61,7 +61,7 @@ export async function decodeResearchResponse(
       if (choice.finish_reason) finish = choice.finish_reason;
       if (typeof choice.delta?.content === "string") {
         content += choice.delta.content;
-        onText(content);
+        await onText(content);
       }
       for (const delta of choice.delta?.tool_calls ?? []) {
         if (!Number.isInteger(delta.index))
@@ -87,9 +87,9 @@ export async function decodeResearchResponse(
         pending += decoder.decode(part.value, { stream: true });
         const lines = pending.split("\n");
         pending = lines.pop()!;
-        for (const value of lines) line(value);
+        for (const value of lines) await line(value);
       }
-      line(pending + decoder.decode());
+      await line(pending + decoder.decode());
     } finally {
       await reader.cancel().catch(() => {});
       reader.releaseLock();
@@ -142,13 +142,13 @@ async function boundedBody(response: Response) {
   }
   return Buffer.concat(parts).toString("utf8");
 }
-export function researchModel(
+export async function researchModel(
   messages: ModelMessage[],
   tools: ToolDefinition[],
   signal: AbortSignal,
-  onText: (text: string) => void,
+  onText: (text: string) => void | Promise<void>,
 ) {
-  return withModelSlot(async () => {
+  return await withModelSlot(async () => {
     const response = await fetch(
       `${env.OMNIROUTE_BASE_URL.replace(/\/$/, "")}/chat/completions`,
       {
@@ -172,6 +172,6 @@ export function researchModel(
       throw new Error(
         `OmniRoute rejected research (HTTP ${response.status}). Check the configured model supports function tools and the supplied context size.`,
       );
-    return decodeResearchResponse(response, onText);
+    return await decodeResearchResponse(response, onText);
   });
 }

@@ -4,13 +4,28 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 const directory = mkdtempSync(join(tmpdir(), "surface-research-test-"));
-process.env.DB_FILE_NAME = join(directory, "test.sqlite");
+if (!process.env.TEST_DATABASE_URL)
+  throw new Error(
+    "Set TEST_DATABASE_URL to a dedicated PostgreSQL test database.",
+  );
+const testDatabase = new URL(process.env.TEST_DATABASE_URL);
+if (
+  !decodeURIComponent(testDatabase.pathname.slice(1)).startsWith(
+    "surface-test-",
+  )
+) {
+  throw new Error("Tests require a disposable surface-test-* database.");
+}
+process.env.APP_ENV = "test";
+process.env.AUTH_EMAIL = "postgres-test@example.com";
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+process.env.DATA_DIR = directory;
 process.env.OMNIROUTE_API_KEY = "test-key";
 process.env.OMNIROUTE_BASE_URL = "http://model.test/v1";
 process.env.SEARXNG_BASE_URL = "http://search.test";
 process.env.CRAWLER_BASE_URL = "http://crawler.test";
 const { runMigrations } = await import("../../infrastructure/database/migrate");
-const { db, sqlite } = await import("../../infrastructure/database/client");
+const { db, pg } = await import("../../infrastructure/database/client");
 const service = await import("./research.service");
 const { companyDomain, normalizedName, inputUrl, citeMarkdown } =
   await import("./evidence");
@@ -22,6 +37,12 @@ const { researchRuns, researchSources } = await import("./research.tables");
 const { app } = await import("../../app");
 const { eq } = await import("drizzle-orm");
 const originalFetch = globalThis.fetch;
+let cookie = "";
+const authenticatedRequest = (path: string, init: RequestInit = {}) => {
+  const headers = new Headers(init.headers);
+  headers.set("Cookie", cookie);
+  return app.request(path, { ...init, headers });
+};
 let network: string[] = [],
   modelBodies: Record<string, any>[] = [];
 let mode: "normal" | "tool" | "fail" | "wait" | "bad-citation" = "normal";
@@ -30,8 +51,8 @@ const json = (value: unknown) =>
   new Response(JSON.stringify(value), {
     headers: { "Content-Type": "application/json" },
   });
-beforeAll(() => {
-  runMigrations();
+beforeAll(async () => {
+  await runMigrations();
   globalThis.fetch = (async (
     input: string | URL | Request,
     init?: RequestInit,
@@ -153,7 +174,7 @@ beforeAll(() => {
       const source =
         /"id":"([\w-]+)","companyId"/.exec(
           JSON.stringify(body.messages).replaceAll('\\"', '"'),
-        )?.[1] ?? db.select().from(researchSources).all().at(-1)?.id;
+        )?.[1] ?? (await db.select().from(researchSources)).at(-1)?.id;
       return json({
         model: "test",
         choices: [
@@ -170,65 +191,75 @@ beforeAll(() => {
     }
     throw new Error(`Unexpected network destination ${url}`);
   }) as typeof fetch;
+  const login = await app.request("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "postgres-test@example.com" }),
+  });
+  expect(login.status).toBe(200);
+  cookie = login.headers.get("set-cookie")!.split(";")[0]!;
 });
-afterAll(() => {
+afterAll(async () => {
   globalThis.fetch = originalFetch;
-  sqlite.close();
+  await pg.end();
   rmSync(directory, { recursive: true });
 });
 async function finish(run: { id: string }) {
   for (let i = 0; i < 200; i++) {
-    const row = db
-      .select()
-      .from(researchRuns)
-      .where(eq(researchRuns.id, run.id))
-      .get()!;
+    const row = (
+      await db
+        .select()
+        .from(researchRuns)
+        .where(eq(researchRuns.id, run.id))
+        .limit(1)
+    )[0]!;
     if (row.state !== "running") return row;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error("Run did not finish");
 }
-let owner: ReturnType<typeof service.confirmCompany>;
+let owner: Awaited<ReturnType<typeof service.confirmCompany>>;
 describe("company research", () => {
-  test("migration removes quota storage and creates research relationships", () => {
-    expect(
-      sqlite
-        .query("SELECT name FROM sqlite_schema WHERE name='ai_usage'")
-        .get(),
-    ).toBeNull();
-    const columns = sqlite
-      .query("PRAGMA table_info(analysis_settings)")
-      .all() as { name: string }[];
+  test("PostgreSQL schema has research relationships and no quota storage", async () => {
+    const [legacy] = await pg`SELECT to_regclass('public.ai_usage') AS name`;
+    expect(legacy!.name).toBeNull();
+    const columns =
+      await pg`SELECT column_name AS name FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='analysis_settings' ORDER BY ordinal_position`;
     expect(columns.map((c) => c.name)).toEqual(["id", "enabled", "paused"]);
-    expect(sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
+    const [keys] = await pg`SELECT count(*)::integer AS n FROM pg_constraint
+      WHERE contype='f' AND conrelid='public.research_sources'::regclass`;
+    expect(keys!.n).toBe(2);
   });
   test("normalized identities reopen companies and survive renaming", async () => {
     expect(inputUrl("example.com/about")).toBe("https://example.com/about");
     expect(companyDomain("https://www.Example.com/about")).toBe("example.com");
     expect(normalizedName(" Example, INC. ")).toBe("example inc");
-    owner = service.confirmCompany({
+    owner = await service.confirmCompany({
       name: "Example",
       website: "https://example.com",
       description: "",
     });
     expect(
-      service.confirmCompany({
-        name: "Another spelling",
-        website: "https://www.example.com/about",
-        description: "",
-      }).id,
+      (
+        await service.confirmCompany({
+          name: "Another spelling",
+          website: "https://www.example.com/about",
+          description: "",
+        })
+      ).id,
     ).toBe(owner.id);
     expect((await service.resolveCompany("EXAMPLE")).companyId).toBe(owner.id);
-    db.update(companies)
+    await db
+      .update(companies)
       .set({ name: "Example Tools" })
-      .where(eq(companies.id, owner.id))
-      .run();
+      .where(eq(companies.id, owner.id));
     expect((await service.resolveCompany("example.com")).companyId).toBe(
       owner.id,
     );
   });
   test("same names on different domains remain separate", async () => {
-    service.confirmCompany({
+    await service.confirmCompany({
       name: "Example Tools",
       website: "https://another.example",
       description: "",
@@ -238,9 +269,9 @@ describe("company research", () => {
     expect(result.candidates).toHaveLength(2);
   });
   test("report searches, crawls, validates citations and persists", async () => {
-    const run = await finish(service.startResearch(owner.id));
+    const run = await finish(await service.startResearch(owner.id));
     expect(run.state).toBe("completed");
-    const data = service.details(owner.id);
+    const data = await service.details(owner.id);
     expect(data.reports).toHaveLength(1);
     expect(data.sources.length).toBeGreaterThan(1);
     expect(data.reports[0]!.sourceIds.length).toBeGreaterThan(0);
@@ -248,26 +279,29 @@ describe("company research", () => {
   });
   test("AI-reviewed links persist independently and failed rechecks preserve the selection", async () => {
     mode = "normal";
-    const before = service.details(owner.id);
+    const before = await service.details(owner.id);
     expect(before.linkReview?.links.length).toBe(1);
-    const run = service.startResearch(owner.id, undefined, true);
+    const run = await service.startResearch(owner.id, undefined, true);
     expect((await finish(run)).state).toBe("completed");
-    const reviewed = service.details(owner.id);
+    const reviewed = await service.details(owner.id);
     expect(reviewed.reports).toEqual(before.reports);
     expect(reviewed.messages).toEqual(before.messages);
     expect(reviewed.linkReview?.runId).toBe(run.id);
     expect(reviewed.linkReview?.links[0]?.sourceId).toBeTruthy();
     mode = "fail";
     expect(
-      (await finish(service.startResearch(owner.id, undefined, true))).state,
+      (await finish(await service.startResearch(owner.id, undefined, true)))
+        .state,
     ).toBe("failed");
-    expect(service.details(owner.id).linkReview).toEqual(reviewed.linkReview);
+    expect((await service.details(owner.id)).linkReview).toEqual(
+      reviewed.linkReview,
+    );
     mode = "normal";
   });
   test("default Q&A cannot search/crawl and receives only company evidence", async () => {
     network = [];
     modelBodies = [];
-    const response = await app.request(
+    const response = await authenticatedRequest(
       `/api/companies/${owner.id}/research/questions`,
       {
         method: "POST",
@@ -283,14 +317,16 @@ describe("company research", () => {
     );
     expect(modelBodies[0]!.tools).toBeUndefined();
     expect(JSON.stringify(modelBodies)).not.toContain("another.example");
-    expect(service.details(owner.id).messages.at(-1)?.webSearch).toBe(false);
+    expect((await service.details(owner.id)).messages.at(-1)?.webSearch).toBe(
+      false,
+    );
   });
   test("explicit web Q&A executes a custom tool and preserves the report", async () => {
     network = [];
     mode = "tool";
     toolSent = false;
     const run = await finish(
-      service.startResearch(owner.id, {
+      await service.startResearch(owner.id, {
         question: "Check current careers",
         webSearch: true,
       }),
@@ -299,54 +335,54 @@ describe("company research", () => {
     expect(network.some((url) => url.startsWith("http://crawler.test"))).toBe(
       true,
     );
-    expect(service.details(owner.id).reports).toHaveLength(1);
+    expect((await service.details(owner.id)).reports).toHaveLength(1);
     mode = "normal";
   });
   test("provider failures and invalid citations preserve previous reports", async () => {
     mode = "fail";
-    await finish(service.startResearch(owner.id));
-    expect(service.details(owner.id).reports).toHaveLength(1);
+    await finish(await service.startResearch(owner.id));
+    expect((await service.details(owner.id)).reports).toHaveLength(1);
     mode = "bad-citation";
-    const run = await finish(service.startResearch(owner.id));
+    const run = await finish(await service.startResearch(owner.id));
     expect(run.error).toContain("outside");
-    expect(service.details(owner.id).reports).toHaveLength(1);
+    expect((await service.details(owner.id)).reports).toHaveLength(1);
     mode = "normal";
   });
   test("duplicate operations are rejected; cancel aborts model work", async () => {
     mode = "wait";
-    const run = service.startResearch(owner.id, {
+    const run = await service.startResearch(owner.id, {
       question: "Wait",
       webSearch: false,
     });
-    expect(() => service.startResearch(owner.id)).toThrow();
+    expect(async () => await service.startResearch(owner.id)).toThrow();
     await new Promise((resolve) => setTimeout(resolve, 20));
-    service.cancelResearch(owner.id, run.id);
+    await service.cancelResearch(owner.id, run.id);
     expect((await finish(run)).state).toBe("cancelled");
     mode = "normal";
   });
-  test("restart recovery retains evidence and exposes interrupted state", () => {
-    db.insert(researchRuns)
-      .values({
-        id: "interrupted-test",
-        companyId: owner.id,
-        kind: "report",
-        state: "running",
-        createdAt: new Date().toISOString(),
-      })
-      .run();
-    service.recoverResearch();
+  test("restart recovery retains evidence and exposes interrupted state", async () => {
+    await db.insert(researchRuns).values({
+      id: "interrupted-test",
+      companyId: owner.id,
+      kind: "report",
+      state: "running",
+      createdAt: new Date().toISOString(),
+    });
+    await service.recoverResearch();
     expect(
-      db
-        .select()
-        .from(researchRuns)
-        .where(eq(researchRuns.id, "interrupted-test"))
-        .get()?.state,
+      (
+        await db
+          .select()
+          .from(researchRuns)
+          .where(eq(researchRuns.id, "interrupted-test"))
+          .limit(1)
+      )[0]?.state,
     ).toBe("interrupted");
-    expect(service.details(owner.id).reports).toHaveLength(1);
+    expect((await service.details(owner.id)).reports).toHaveLength(1);
   });
   test("more than 20 model requests succeed without a quota or reset", async () => {
     for (let i = 0; i < 25; i++) {
-      expect(canRequestModel(true, true)).toBe(true);
+      expect(await canRequestModel(true, true)).toBe(true);
       expect(
         (
           await requestModelJson(
@@ -359,21 +395,23 @@ describe("company research", () => {
         ).output.ok,
       ).toBe(true);
     }
-    expect(getSettings()).not.toHaveProperty("dailyLimit");
-    expect(getSettings()).not.toHaveProperty("used");
+    expect(await getSettings()).not.toHaveProperty("dailyLimit");
+    expect(await getSettings()).not.toHaveProperty("used");
   });
   test("SSE events replay and company ownership is checked", async () => {
-    const run = service
-      .details(owner.id)
-      .runs.find((r) => r.state === "completed")!;
-    const response = await app.request(
+    const run = (await service.details(owner.id)).runs.find(
+      (r) => r.state === "completed",
+    )!;
+    const response = await authenticatedRequest(
       `/api/companies/${owner.id}/research/runs/${run.id}/events`,
     );
     expect(await response.text()).toContain("event: done");
-    const other = service.library().find((row) => row.company.id !== owner.id)!;
+    const other = (await service.library()).find(
+      (row) => row.company.id !== owner.id,
+    )!;
     expect(
       (
-        await app.request(
+        await authenticatedRequest(
           `/api/companies/${other.company.id}/research/runs/${run.id}/events`,
         )
       ).status,
@@ -493,4 +531,105 @@ test("link selection rejects uninspected, blocked, empty and duplicate destinati
     validateLinkSelection({ links: [choice] }, new Map([["page", page]]))[0]
       ?.url,
   ).toBe(page.url);
+});
+test("PostgreSQL supports job filters, transactional collection, JSON, booleans and bigint leases", async () => {
+  const { jobsListQuerySchema } = await import("@surface/contracts");
+  const { upsertCandidates, listJobs, findJobById, setJobStatus } =
+    await import("../jobs/jobs.repository");
+  const { normalizeCandidate } =
+    await import("../../shared/normalization/job-normalization");
+  const { executorLease } = await import("../work/work.tables");
+  const { persistSnapshot } = await import("../collection/snapshots");
+  const candidate = normalizeCandidate({
+    source: "arbeitnow",
+    externalId: "pg-test",
+    title: "Postgres Engineer",
+    company: "PG Test",
+    location: "Remote",
+    isRemote: true,
+    employmentType: null,
+    description: "Build reliable systems with PostgreSQL.",
+    applyUrl: "https://pg-test.example/jobs/1",
+    sourceUrl: "https://pg-test.example/jobs/1",
+    postedAt: null,
+    tags: ["SQL"],
+    countries: ["IN"],
+    workMode: "remote",
+  });
+  await expect(
+    db.transaction(async (tx) => {
+      await upsertCandidates([candidate], tx);
+      throw new Error("rollback proof");
+    }),
+  ).rejects.toThrow("rollback proof");
+  expect(
+    (
+      await listJobs(
+        jobsListQuerySchema.parse({ search: "pg test", relevance: "all" }),
+      )
+    ).total,
+  ).toBe(0);
+  await Promise.all([
+    upsertCandidates([candidate]),
+    upsertCandidates([candidate]),
+  ]);
+  const listed = await listJobs(
+    jobsListQuerySchema.parse({
+      search: "pOsTgReS",
+      relevance: "all",
+      source: "arbeitnow",
+    }),
+  );
+  expect(listed.total).toBe(1);
+  expect(listed.jobs[0]!.description).toBe(candidate.description);
+  expect(typeof listed.collectedTotal).toBe("number");
+  const job = await findJobById(listed.jobs[0]!.id);
+  expect(job!.isRemote).toBe(true);
+  expect(job!.countries).toEqual(["IN"]);
+  expect(job!.sourceReferences).toHaveLength(1);
+  expect(job!.observations).toHaveLength(2);
+  expect(job!.versions).toHaveLength(1);
+  expect((await setJobStatus(job!.id, "saved"))!.status).toBe("saved");
+  expect(
+    (
+      await listJobs(
+        jobsListQuerySchema.parse({ status: "saved", relevance: "all" }),
+      )
+    ).total,
+  ).toBe(1);
+  const expiresAt = Date.now() + 30_000;
+  await db
+    .insert(executorLease)
+    .values({ id: "test", owner: "test", expiresAt });
+  expect(
+    (
+      await db.select().from(executorLease).where(eq(executorLease.id, "test"))
+    )[0]!.expiresAt,
+  ).toBe(expiresAt);
+  const snapshot = await persistSnapshot({
+    url: candidate.sourceUrl,
+    body: "evidence",
+    mediaType: "text/plain",
+    statusCode: 200,
+  });
+  expect(snapshot.resourceId).toBeString();
+  expect(snapshot.snapshotId).toBeString();
+  await expect(
+    Promise.resolve(
+      db.execute(
+        "INSERT INTO research_sources (id, company_id, run_id, url, title, kind, text, links, status, retrieved_at) VALUES ('bad-fk','missing','missing','https://example.com','test','page','text','[]','ok','now')",
+      ),
+    ),
+  ).rejects.toThrow();
+  const health = await app.request("/api/health");
+  expect(health.status).toBe(200);
+  const schema = await authenticatedRequest("/api/schema");
+  expect(schema.status).toBe(200);
+  const structure = (await schema.json()) as {
+    tables: { name: string; foreignKeys: unknown[] }[];
+  };
+  expect(structure.tables).toHaveLength(26);
+  expect(
+    structure.tables.find((t) => t.name === "research_sources")!.foreignKeys,
+  ).toHaveLength(2);
 });

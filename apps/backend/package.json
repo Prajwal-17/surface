@@ -10,16 +10,18 @@
     "check-types": "tsc --noEmit",
     "lint": "oxlint --config ../../.oxlintrc.json .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "APP_ENV=development NODE_ENV=development bun run src/infrastructure/database/migrate.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:migrate": "bun run src/infrastructure/database/migrate.ts",
+    "db:studio": "drizzle-kit studio",
+    "test": "bun run scripts/test-postgres.ts"
   },
   "dependencies": {
-    "@surface/contracts": "workspace:*",
     "@hono/zod-validator": "latest",
+    "@surface/contracts": "workspace:*",
     "drizzle-orm": "latest",
     "fast-xml-parser": "latest",
     "hono": "^4.13.5",
     "linkedom": "^0.18.13",
+    "postgres": "^3.4.9",
     "sanitize-html": "^2.17.7",
     "unpdf": "1.8.1",
     "zod": "latest"
@@ -29,7 +31,6 @@
     "@types/bun": "latest",
     "@types/node": "26.3.0",
     "@types/sanitize-html": "^2.16.1",
-    "better-sqlite3": "^13.0.3",
     "drizzle-kit": "latest",
     "typescript": "npm:typescript@6.0.2"
   }
