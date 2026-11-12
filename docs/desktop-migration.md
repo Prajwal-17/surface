@@ -10,7 +10,9 @@ production deployment was not started, stopped, migrated, or otherwise mutated.
 - `145e633` — checksummed desktop export/import and data CLI.
 - `8f5b49e` — Electron shell, settings UI, SearXNG Compose, packaging, docs.
 - `17a48bc` — final console-event handling and verification notes.
-- `73a9416` — repository formatting and final AppImage checksum.
+- `73a9416` — repository formatting.
+- `10d837d` — generated migration metadata excluded from Prettier checks.
+- `058b4b5` — final AppImage checksum.
 
 AppImage SHA-256:
 `3b4674fce7d931d0a9ef7f00ee368d6f70f21306a3ff324050c09d72983ab16b`
