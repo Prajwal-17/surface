@@ -254,8 +254,17 @@ function createWindow(): void {
       `[${new Date().toISOString()}] renderer gone reason=${details.reason} code=${details.exitCode}`,
     );
   });
-  mainWindow.webContents.on("console-message", (_event, level, message) => {
-    if (level >= 2) mainLog?.write(`[renderer] ${message}`);
+  mainWindow.webContents.on("console-message", (event) => {
+    const details = event as unknown as {
+      level?: string;
+      message?: string;
+    };
+    if (
+      details.message &&
+      (details.level === "warning" || details.level === "error")
+    ) {
+      mainLog?.write(`[renderer:${details.level}] ${details.message}`);
+    }
   });
   mainWindow.once("ready-to-show", () => mainWindow?.show());
   mainWindow.on("closed", () => {

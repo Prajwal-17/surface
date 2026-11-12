@@ -4,6 +4,16 @@ This report records what was actually run for the Electron/Surface migration on
 the Linux build host. Commands were run against copied or temporary data. The
 production deployment was not started, stopped, migrated, or otherwise mutated.
 
+## Milestone commits
+
+- `744989f` — Node backend, PGlite driver, row-lock coordination, verification.
+- `145e633` — checksummed desktop export/import and data CLI.
+- `8f5b49e` — Electron shell, settings UI, SearXNG Compose, packaging, docs.
+
+AppImage SHA-256:
+`31d04e2ebf059123cab9fb6ac3820c0b2e71d4398aefa6a7ff7132ee66c4f210`
+(`data/desktop-verification/AppImage.sha256`).
+
 ## Safety boundary
 
 - No production container was started, stopped, recreated, or removed.
@@ -130,10 +140,12 @@ Recorded smoke evidence:
 
 - `data/desktop-verification/final-app-run1.log`
 - `data/desktop-verification/final-app-run2.log`
+- `data/desktop-verification/final-appimage-fuse.log`
 - `data/desktop-verification/appimage-imported-smoke.log`
 - `data/desktop-verification/packaged-data-import.log`
 - `data/desktop-verification/packaged-data-verify2.log`
 - `data/desktop-verification/appimage-data-verify.log`
+- `data/desktop-verification/final-appimage-data-verify.log`
 - `data/desktop-verification/single-instance.log`
 - `data/desktop-verification/second-instance.log`
 - `data/desktop-verification/port-conflict.log`
@@ -193,8 +205,8 @@ external OmniRoute endpoint.
 - Verify AI summaries/assessments/research with the real OmniRoute endpoint and
   chosen model. A fake OpenAI-compatible endpoint was used for the lifecycle
   test only.
-- The AppImage was run through `--appimage-extract-and-run`; FUSE mounting was
-  not exercised on this host. The unpacked binary and AppImage both started.
+- The AppImage was run through `--appimage-extract-and-run` and also directly
+  through FUSE; both started and shut down cleanly.
 - The package is unsigned and uses the default Electron icon. Tray, close-to-tray
   and autostart are intentionally deferred.
 - `safeStorage` protection depends on the Linux keyring. The test host reported
