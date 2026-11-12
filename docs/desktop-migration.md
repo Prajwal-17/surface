@@ -9,6 +9,8 @@ production deployment was not started, stopped, migrated, or otherwise mutated.
 - `744989f` — Node backend, PGlite driver, row-lock coordination, verification.
 - `145e633` — checksummed desktop export/import and data CLI.
 - `8f5b49e` — Electron shell, settings UI, SearXNG Compose, packaging, docs.
+- `17a48bc` — final console-event handling and verification notes.
+- `73a9416` — repository formatting and final AppImage checksum.
 
 AppImage SHA-256:
 `1d3de246e4a2a53422472c6c501f7633cb9aa37b9727ad38f8ffe7b8a76065d2`
@@ -151,6 +153,7 @@ Recorded smoke evidence:
 - `data/desktop-verification/port-conflict.log`
 - `data/desktop-verification/failure-settings.log`
 - `data/desktop-verification/failure-backend.log`
+- `data/desktop-verification/runtime-config-server.log`
 
 Observed:
 
@@ -185,6 +188,10 @@ Observed:
   still returned the imported 7,930 jobs.
 - With SearXNG running, diagnostics reported `ok: true`, HTTP 200 and 20
   results.
+- A `PUT /api/desktop/config` changed the running backend's SearXNG URL from an
+  unreachable port to a working test service; the next diagnostics call
+  reported `ok: true`. This verifies that saving Settings applies immediately,
+  not only after restart.
 - The crawler package (staged Chromium) fetched `https://example.com/` and
   returned a readable page.
 - A disposable OpenAI-compatible model endpoint completed a company research

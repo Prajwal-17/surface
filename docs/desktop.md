@@ -187,12 +187,17 @@ Only after all checks pass are `pglite/` and `data/` moved into the profile. A
 failed import leaves the original profile untouched and the staged attempt
 available for inspection.
 
-Verify an existing import again:
+Verify the import immediately, before launching the app:
 
 ```sh
 ./Surface-0.1.0-x86_64.AppImage --surface-data verify \
   --input /secure/surface-desktop-export
 ```
+
+The check compares content hashes with the export. Once Surface has run,
+monitoring may add jobs, the executor lease changes, and settings can be edited,
+so a later comparison is expected to differ even though the migration was
+correct.
 
 ### 3. Keep the rollback path
 
