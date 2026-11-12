@@ -1,7 +1,8 @@
 import { roleMatcher } from "../jobs/relevance";
 import { findProfile } from "../profile/profile.repository";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { db } from "../../infrastructure/database/client";
+import { db, pgQuery } from "../../infrastructure/database/client";
+import { lockCoordination } from "../../infrastructure/database/locks";
 import { companies } from "../workspace/workspace.tables";
 import { jobs } from "../jobs/jobs.tables";
 import { researchReports, researchRuns } from "../research/research.tables";
@@ -34,9 +35,7 @@ export async function persistCandidate(
   confirmedId?: string,
 ) {
   return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`SELECT pg_advisory_xact_lock(hashtext('surface:company-identity'))`,
-    );
+    await lockCoordination(tx, "surface:company-identity");
     const domain = websiteIdentity(candidate.website);
     if (!domain) throw new Error("Company website requires confirmation.");
     const all = await tx.select().from(companies);
@@ -395,7 +394,7 @@ export async function companyDetail(id: string) {
         eq(companySearchMatches.searchId, companyDiscoverySearches.id),
       )
       .where(eq(companySearchMatches.companyId, id)),
-    db.execute(
+    pgQuery<{ "?column?": number }>(
       sql`SELECT 1 FROM work_items WHERE kind='company-enrichment' AND state IN ('queued','running') AND payload->>'companyId'=${id} LIMIT 1`,
     ),
   ]);

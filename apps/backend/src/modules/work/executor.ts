@@ -337,6 +337,10 @@ export async function startExecutor() {
   const timer = setInterval(runTick, 2000);
   const stop = async () => {
     clearInterval(timer);
+    const deadline = Date.now() + 10_000;
+    while ((tickActive || analysisActive) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
     await db
       .delete(executorLease)
       .where(

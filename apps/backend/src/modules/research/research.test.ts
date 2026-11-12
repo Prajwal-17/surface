@@ -25,7 +25,9 @@ process.env.OMNIROUTE_BASE_URL = "http://model.test/v1";
 process.env.SEARXNG_BASE_URL = "http://search.test";
 process.env.CRAWLER_BASE_URL = "http://crawler.test";
 const { runMigrations } = await import("../../infrastructure/database/migrate");
-const { db, pg } = await import("../../infrastructure/database/client");
+const { closeDatabase, db, pg } = await import(
+  "../../infrastructure/database/client"
+);
 const service = await import("./research.service");
 const { companyDomain, normalizedName, inputUrl, citeMarkdown } =
   await import("./evidence");
@@ -201,7 +203,7 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   globalThis.fetch = originalFetch;
-  await pg.end();
+  await closeDatabase();
   rmSync(directory, { recursive: true });
 });
 async function finish(run: { id: string }) {

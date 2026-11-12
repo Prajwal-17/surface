@@ -1,12 +1,18 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Context } from "hono";
-import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie";
+import {
+  deleteCookie,
+  getCookie,
+  getSignedCookie,
+  setSignedCookie,
+} from "hono/cookie";
 import { z } from "zod";
 import { env } from "../../config/env";
 
 const cookieName = "surface_session";
+const desktopCookieName = "surface_desktop_token";
 export const sessionDurationSeconds = 60 * 60 * 24 * 7;
 let cachedSecret: string | undefined;
 
@@ -63,9 +69,30 @@ const cookieOptions = {
   secure: env.AUTH_COOKIE_SECURE,
 };
 
+export function hasDesktopToken(context: Context): boolean {
+  const expected = env.SURFACE_DESKTOP_TOKEN;
+  if (!expected) return false;
+  const header = context.req.header("x-surface-desktop-token");
+  const authorization = context.req.header("authorization");
+  const bearer = authorization?.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length)
+    : undefined;
+  const supplied =
+    header ?? bearer ?? getCookie(context, desktopCookieName) ?? "";
+  const expectedBytes = Buffer.from(expected);
+  const suppliedBytes = Buffer.from(supplied);
+  return (
+    expectedBytes.length === suppliedBytes.length &&
+    timingSafeEqual(expectedBytes, suppliedBytes)
+  );
+}
+
 export async function readSession(
   context: Context,
 ): Promise<SessionPayload | null> {
+  if (hasDesktopToken(context)) {
+    return { email: "desktop@localhost", expiresAt: Date.now() + 60_000 };
+  }
   const value = await getSignedCookie(context, getSigningSecret(), cookieName);
   if (typeof value !== "string") return null;
 

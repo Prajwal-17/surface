@@ -6,6 +6,7 @@ import {
   companySearchInputSchema,
 } from "@surface/contracts";
 import { db } from "../../infrastructure/database/client";
+import { lockCoordination } from "../../infrastructure/database/locks";
 import { companies } from "../workspace/workspace.tables";
 import { runs, workItems, runItems } from "../work/work.tables";
 import { companyDiscoverySearches } from "./tables";
@@ -29,9 +30,7 @@ export async function enqueueCompanyWork(
   label: string,
 ) {
   return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`SELECT pg_advisory_xact_lock(hashtext('surface:company-enqueue'))`,
-    );
+    await lockCoordination(tx, "surface:company-enqueue");
     const now = new Date().toISOString();
     let [work] = await tx
       .select()
@@ -77,9 +76,7 @@ export async function enqueueCompanySearch(id: string, scheduled = false) {
     const now = new Date();
     if (scheduled && row.nextRunAt && row.nextRunAt > now.toISOString())
       return null;
-    await tx.execute(
-      sql`SELECT pg_advisory_xact_lock(hashtext('surface:company-enqueue'))`,
-    );
+    await lockCoordination(tx, "surface:company-enqueue");
     const identity = `company-search:${id}`;
     let [work] = await tx
       .select()
@@ -503,9 +500,7 @@ export async function retryCompanyRun(items: WorkItem[], label: string) {
   const runId = crypto.randomUUID(),
     now = new Date().toISOString();
   await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`SELECT pg_advisory_xact_lock(hashtext('surface:company-enqueue'))`,
-    );
+    await lockCoordination(tx, "surface:company-enqueue");
     await tx.insert(runs).values({
       id: runId,
       kind: items[0]!.kind,

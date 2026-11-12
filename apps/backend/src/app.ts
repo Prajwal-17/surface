@@ -1,6 +1,10 @@
 import { companyDiscoveryRoutes } from "./modules/company-discovery/routes";
+import { existsSync } from "node:fs";
+import { extname, resolve } from "node:path";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { env } from "./config/env";
 import { pg } from "./infrastructure/database/client";
 import { discoveryRoutes } from "./modules/discovery";
 import { jobsRoutes } from "./modules/jobs";
@@ -17,9 +21,22 @@ import { workspaceRoutes } from "./modules/workspace/workspace.routes";
 import { researchRoutes } from "./modules/research/research.routes";
 import { authRoutes } from "./modules/auth";
 import { readSession } from "./modules/auth/session";
+import { desktopRoutes } from "./modules/desktop/routes";
 
 export const app = new Hono();
 
+app.use("*", async (context, next) => {
+  context.header("X-Content-Type-Options", "nosniff");
+  context.header("Referrer-Policy", "no-referrer");
+  context.header("X-Frame-Options", "DENY");
+  if (env.WEB_DIST_DIR) {
+    context.header(
+      "Content-Security-Policy",
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+    );
+  }
+  await next();
+});
 app.use("*", requestLogger());
 app.use(
   "/api/*",
@@ -104,6 +121,7 @@ app.get("/api/schema", async (context) => {
   });
 });
 
+app.route("/api/desktop", desktopRoutes);
 app.route("/api", researchRoutes);
 app.route("/api/company-discovery", companyDiscoveryRoutes);
 app.route("/api/discovery", discoveryRoutes);
@@ -114,6 +132,31 @@ app.route("/api", collectionRoutes);
 app.route("/api", workRoutes);
 app.route("/api/analysis", analysisRoutes);
 app.route("/api", eventsRoutes);
+
+if (env.WEB_DIST_DIR && existsSync(resolve(env.WEB_DIST_DIR, "index.html"))) {
+  const root = resolve(env.WEB_DIST_DIR);
+  const staticFiles = serveStatic({
+    root,
+    onFound: (path, context) => {
+      if (path.includes("/assets/")) {
+        context.header("Cache-Control", "public, max-age=31536000, immutable");
+      } else {
+        context.header("Cache-Control", "no-cache");
+      }
+    },
+  });
+  const index = serveStatic({ root, path: "index.html" });
+  app.use("*", staticFiles);
+  app.get("*", async (context, next) => {
+    if (
+      context.req.path.startsWith("/api/") ||
+      extname(context.req.path) !== ""
+    ) {
+      return next();
+    }
+    return index(context, next);
+  });
+}
 
 app.notFound((context) =>
   context.json({ error: "The requested endpoint does not exist." }, 404),

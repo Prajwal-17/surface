@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import postgres from "postgres";
 import { env } from "../src/config/env";
 // Always restore to an isolated database. This command never migrates its source.
+if (!env.DATABASE_URL) throw new Error("DATABASE_URL is required.");
 const sourceUrl = new URL(
   process.env.PRODUCTION_DATABASE_URL ?? env.DATABASE_URL,
 );

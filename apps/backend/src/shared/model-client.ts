@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { env } from "../config/env";
+import { getRuntimeSettings } from "../config/runtime";
 import { readModelStream } from "./model-stream";
 let activeRequests = 0;
 export function modelCapacityAvailable() {
@@ -49,18 +49,19 @@ async function sendModelJson<T>(
   maxTokens: number,
   onJson?: (json: string) => void,
 ) {
+  const settings = getRuntimeSettings();
   const response = await fetch(
-    `${env.OMNIROUTE_BASE_URL.replace(/\/$/, "")}/chat/completions`,
+    `${settings.omnirouteBaseUrl.replace(/\/$/, "")}/chat/completions`,
     {
       method: "POST",
       signal: AbortSignal.timeout(120000),
       headers: {
-        Authorization: `Bearer ${env.OMNIROUTE_API_KEY}`,
+        Authorization: `Bearer ${settings.omnirouteApiKey}`,
         "Content-Type": "application/json",
         "X-OmniRoute-No-Memory": "true",
       },
       body: JSON.stringify({
-        model: env.OMNIROUTE_MODEL,
+        model: settings.omnirouteModel,
         stream: Boolean(onJson),
         max_tokens: maxTokens,
         messages: [
@@ -90,7 +91,7 @@ async function sendModelJson<T>(
     const result = await readModelStream(response.body, onJson);
     return {
       output: schema.parse(JSON.parse(result.content)),
-      model: result.model || env.OMNIROUTE_MODEL,
+      model: result.model || settings.omnirouteModel,
     };
   }
   const reader = response.body?.getReader();

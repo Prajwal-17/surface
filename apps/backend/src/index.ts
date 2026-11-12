@@ -1,17 +1,27 @@
-import { recoverResearch } from "./modules/research/research.service";
-import { startExecutor } from "./modules/work/executor";
-import { app } from "./app";
-import { env } from "./config/env";
-import { runMigrations } from "./infrastructure/database/migrate";
+import "dotenv/config";
+import { startSurfaceServer } from "./server";
 
-await runMigrations();
-await recoverResearch();
-await startExecutor();
+const server = await startSurfaceServer();
 
-const server = Bun.serve({
-  port: env.PORT,
-  idleTimeout: 150,
-  fetch: app.fetch,
-});
+let stopping = false;
+async function shutdown(signal: string) {
+  if (stopping) return;
+  stopping = true;
+  console.info(`Received ${signal}; stopping Surface.`);
+  try {
+    await server.stop();
+    process.exitCode = 0;
+  } catch (error) {
+    console.error("Surface shutdown failed.", error);
+    process.exitCode = 1;
+  } finally {
+    // The Electron launcher observes process exit; do not leave timers behind.
+    process.exit(process.exitCode ?? 0);
+  }
+}
 
-console.info(`Surface API listening on http://localhost:${server.port}`);
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    void shutdown(signal);
+  });
+}

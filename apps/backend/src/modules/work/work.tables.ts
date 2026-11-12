@@ -87,3 +87,12 @@ export const executorLease = pgTable("executor_lease", {
   owner: text("owner").notNull(),
   expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
 });
+
+/**
+ * Transaction-scoped coordination that works identically on PostgreSQL and
+ * PGlite. A row lock replaces pg_advisory_xact_lock, which depends on
+ * PostgreSQL-specific advisory-lock process state.
+ */
+export const coordinationLocks = pgTable("coordination_locks", {
+  name: text("name").primaryKey(),
+});

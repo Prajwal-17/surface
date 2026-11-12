@@ -1,21 +1,20 @@
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { db, pg } from "./client";
+import { migrate as migratePglite } from "drizzle-orm/pglite/migrator";
+import { migrate as migratePostgres } from "drizzle-orm/postgres-js/migrator";
+import { env } from "../../config/env";
+import {
+  db,
+  resolveMigrationsFolder,
+  type Database,
+} from "./client";
 
-export async function runMigrations(): Promise<void> {
-  await migrate(db, {
-    migrationsFolder: join(
-      dirname(fileURLToPath(import.meta.url)),
-      "../../../drizzle",
-    ),
-  });
-}
-if (import.meta.main) {
-  try {
-    await runMigrations();
-    console.info("PostgreSQL migrations applied.");
-  } finally {
-    await pg.end();
+export async function runMigrations(): Promise<string> {
+  const migrationsFolder = resolveMigrationsFolder();
+  if (env.EMBEDDED_DATABASE) {
+    await migratePglite(db, { migrationsFolder });
+  } else {
+    await migratePostgres(db as never, { migrationsFolder });
   }
+  return migrationsFolder;
 }
+
+export type { Database };

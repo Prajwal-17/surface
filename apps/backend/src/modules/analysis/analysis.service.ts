@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
+import { lockCoordination } from "../../infrastructure/database/locks";
 import { env } from "../../config/env";
 import { jobs } from "../jobs/jobs.tables";
 import { findProfile } from "../profile/profile.repository";
@@ -160,9 +161,7 @@ export async function enqueueAnalysis(onlyIds: string[]) {
   if (!profile)
     throw new HttpError(409, "Save your profile before assessing a job.");
   return await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`SELECT pg_advisory_xact_lock(hashtext('surface:enqueue-work'))`,
-    );
+    await lockCoordination(tx, "surface:enqueue-work");
     const now = new Date().toISOString();
     const candidates = await tx
       .select()

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { HttpError } from "../../shared/errors/http-error";
 import { env } from "../../config/env";
+import { getRuntimeSettings } from "../../config/runtime";
 import { publicUrlSchema, crawlMetadataSchema } from "@surface/contracts";
 import type { ToolDefinition } from "./model";
 export const searchInput = z
@@ -51,7 +52,11 @@ export async function searchWeb(
   input: z.infer<typeof searchInput>,
   signal?: AbortSignal,
 ) {
-  const url = new URL("search", env.SEARXNG_BASE_URL.replace(/\/?$/, "/"));
+  const settings = getRuntimeSettings();
+  const url = new URL(
+    "search",
+    `${settings.searxngBaseUrl.replace(/\/?$/, "")}/`,
+  );
   url.search = new URLSearchParams({
     q: input.query,
     format: "json",

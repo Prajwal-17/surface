@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { db } from "../../infrastructure/database/client";
 import { enqueueCollection } from "../work/work.service";
@@ -38,9 +39,10 @@ collectionRoutes.get("/snapshots/:id/download", async (c) => {
       410,
       "Raw evidence has been removed or is unavailable.",
     );
-  const file = Bun.file(join(snapshotDirectory, row.hash));
-  if (!(await file.exists()))
-    throw new HttpError(410, "Raw evidence file is unavailable.");
+  const file = await readFile(join(snapshotDirectory, row.hash)).catch(
+    () => null,
+  );
+  if (!file) throw new HttpError(410, "Raw evidence file is unavailable.");
   return new Response(file, {
     headers: {
       "Content-Type": "application/octet-stream",
