@@ -154,6 +154,8 @@ Recorded smoke evidence:
 - `data/desktop-verification/failure-settings.log`
 - `data/desktop-verification/failure-backend.log`
 - `data/desktop-verification/runtime-config-server.log`
+- `data/desktop-verification/snapshot-download.log`
+- `data/desktop-verification/monitoring-evidence.txt`
 
 Observed:
 
@@ -167,6 +169,11 @@ Observed:
 - The same imported profile in another run started collection and grew to
   11,785 jobs before the smoke shutdown, demonstrating monitoring/collection in
   the packaged process (only the disposable profile was changed).
+- A separate 20-second monitoring run on a disposable imported profile grew
+  from 7,930 jobs / 7,944 collected to 11,288 / 11,302. The before/after values
+  are in `monitoring-evidence.txt`.
+- A snapshot download returned HTTP 200, 656,759 bytes and a SHA-256 digest;
+  see `snapshot-download.log`.
 - A second launch exited immediately while the first stayed alive; terminating
   the first left no backend/crawler processes.
 - A deliberately occupied backend port produced exit code 1 with a clear
