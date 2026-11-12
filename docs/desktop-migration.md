@@ -13,7 +13,7 @@ production deployment was not started, stopped, migrated, or otherwise mutated.
 - `73a9416` — repository formatting and final AppImage checksum.
 
 AppImage SHA-256:
-`1d3de246e4a2a53422472c6c501f7633cb9aa37b9727ad38f8ffe7b8a76065d2`
+`63154ddf091ff56098e8132538dbbd6cb97e948234ae70739131bd0682facb93`
 (`data/desktop-verification/AppImage.sha256`).
 
 ## Safety boundary

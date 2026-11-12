@@ -83,19 +83,21 @@ export class SettingsStore {
     validateUrl(input.omnirouteUrl, "OmniRoute URL");
     const model = input.omnirouteModel.trim();
     if (!model) throw new Error("OmniRoute model is required.");
-    if (input.clearOmniRouteKey) this.apiKey = "";
-    if (input.omnirouteApiKey?.trim()) {
-      this.apiKey = input.omnirouteApiKey.trim();
-    }
-    this.stored = {
+    const nextKey = input.clearOmniRouteKey
+      ? ""
+      : input.omnirouteApiKey?.trim() || this.apiKey;
+    const nextStored: StoredSettings = {
       version: 1,
       searxngUrl: normalizeUrl(input.searxngUrl),
       omnirouteUrl: normalizeUrl(input.omnirouteUrl),
       omnirouteModel: model,
-      ...(this.apiKey ? { apiKey: await encryptKey(this.apiKey) } : {}),
+      ...(nextKey ? { apiKey: await encryptKey(nextKey) } : {}),
     };
-    this.secretStorage = await storageBackend(this.stored);
-    writeStored(this.file, this.stored);
+    const nextStorage = await storageBackend(nextStored);
+    writeStored(this.file, nextStored);
+    this.stored = nextStored;
+    this.apiKey = nextKey;
+    this.secretStorage = nextStorage;
     return this.snapshot();
   }
 }
