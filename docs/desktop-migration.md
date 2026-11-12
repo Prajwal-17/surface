@@ -158,6 +158,7 @@ Recorded smoke evidence:
 - `data/desktop-verification/runtime-config-server.log`
 - `data/desktop-verification/snapshot-download.log`
 - `data/desktop-verification/monitoring-evidence.txt`
+- `data/desktop-verification/no-bun-smoke.log`
 
 Observed:
 
@@ -186,6 +187,9 @@ Observed:
   58 snapshots. The AppImage `--surface-data verify` command also passed.
 - The settings file was mode `0600`, used `safeStorage` ciphertext, and did not
   contain the test key in plaintext.
+- The final AppImage also started with `PATH=/usr/bin:/bin`, which excludes the
+  Bun installation, and passed the same smoke checks. No Bun, dev server,
+  PostgreSQL, or Surface backend/web/crawler container was used at runtime.
 
 ## SearXNG and research behavior
 
