@@ -68,7 +68,7 @@ backend, web or crawler container is required.
 
 ```sh
 bun install
-bun --cwd apps/desktop run package
+bun --cwd apps/desktop package
 ./apps/desktop/release/Surface-0.1.0-x86_64.AppImage
 ```
 

@@ -24,8 +24,8 @@ by the desktop app.
 ```sh
 bun install
 node apps/desktop/scripts/build.mjs
-(bun --cwd apps/desktop run package) # AppImage
-# or: bun --cwd apps/desktop run package:dir
+(bun --cwd apps/desktop package) # AppImage
+# or: bun --cwd apps/desktop package:dir
 ```
 
 `apps/desktop/scripts/build.mjs` builds the web app, bundles the backend and
