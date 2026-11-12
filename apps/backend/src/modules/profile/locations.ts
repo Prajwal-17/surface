@@ -15,16 +15,19 @@ const dataFile = [
     new URL("./modules/profile/data/locations.json.gz", import.meta.url),
   ),
   join(process.cwd(), "src/modules/profile/data/locations.json.gz"),
-  join(process.cwd(), "apps/backend/src/modules/profile/data/locations.json.gz"),
-].find((candidate): candidate is string => Boolean(candidate && existsSync(candidate)));
+  join(
+    process.cwd(),
+    "apps/backend/src/modules/profile/data/locations.json.gz",
+  ),
+].find((candidate): candidate is string =>
+  Boolean(candidate && existsSync(candidate)),
+);
 if (!dataFile) {
   throw new Error(
     "The bundled location catalog is missing. Set LOCATIONS_DATA_FILE to locations.json.gz.",
   );
 }
-const data = JSON.parse(
-  gunzipSync(readFileSync(dataFile)).toString(),
-) as {
+const data = JSON.parse(gunzipSync(readFileSync(dataFile)).toString()) as {
   countries: { code: string; name: string }[];
   cities: [number, string, string, string][];
 };

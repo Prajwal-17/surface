@@ -11,7 +11,7 @@ production deployment was not started, stopped, migrated, or otherwise mutated.
 - `8f5b49e` — Electron shell, settings UI, SearXNG Compose, packaging, docs.
 
 AppImage SHA-256:
-`31d04e2ebf059123cab9fb6ac3820c0b2e71d4398aefa6a7ff7132ee66c4f210`
+`1d3de246e4a2a53422472c6c501f7633cb9aa37b9727ad38f8ffe7b8a76065d2`
 (`data/desktop-verification/AppImage.sha256`).
 
 ## Safety boundary
@@ -99,20 +99,20 @@ Evidence:
 
 Imported totals:
 
-| Check | Result |
-| --- | --- |
-| Tables | 26 exported, newer migrations applied on import |
-| Rows | 33,895 |
-| Jobs | 7,896 |
-| Job sources | 7,897 |
-| Job versions | 8,250 |
-| Observations | 8,806 |
-| Profile revisions | 6 |
-| Analysis settings | 1 verified |
-| Snapshot files | 58 content-hash verified |
-| Snapshot/observation links | verified |
-| Company logo links | 0 referenced |
-| Session signing key | checksum verified |
+| Check                      | Result                                          |
+| -------------------------- | ----------------------------------------------- |
+| Tables                     | 26 exported, newer migrations applied on import |
+| Rows                       | 33,895                                          |
+| Jobs                       | 7,896                                           |
+| Job sources                | 7,897                                           |
+| Job versions               | 8,250                                           |
+| Observations               | 8,806                                           |
+| Profile revisions          | 6                                               |
+| Analysis settings          | 1 verified                                      |
+| Snapshot files             | 58 content-hash verified                        |
+| Snapshot/observation links | verified                                        |
+| Company logo links         | 0 referenced                                    |
+| Session signing key        | checksum verified                               |
 
 Every table row count and content SHA-256 matched; each table also matched its
 representative-record hash. `import-manifest.json` records the checks. The

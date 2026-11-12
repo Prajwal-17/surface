@@ -34,7 +34,9 @@ type DesktopSettingsSnapshot = Awaited<
 
 export function DesktopSettings() {
   const desktop = window.surfaceDesktop;
-  const [settings, setSettings] = useState<DesktopSettingsSnapshot | null>(null);
+  const [settings, setSettings] = useState<DesktopSettingsSnapshot | null>(
+    null,
+  );
   const [searxngUrl, setSearxngUrl] = useState("");
   const [omnirouteUrl, setOmnirouteUrl] = useState("");
   const [omnirouteModel, setOmnirouteModel] = useState("auto");
@@ -88,7 +90,11 @@ export function DesktopSettings() {
           user data directory, with the OmniRoute key protected by the OS
           keychain when available.
         </p>
-        <ServiceDiagnostics diagnostics={diagnostics.data} error={diagnostics.error} loading={diagnostics.isLoading} />
+        <ServiceDiagnostics
+          diagnostics={diagnostics.data}
+          error={diagnostics.error}
+          loading={diagnostics.isLoading}
+        />
       </section>
     );
   }

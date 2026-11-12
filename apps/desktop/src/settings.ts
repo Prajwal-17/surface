@@ -26,10 +26,7 @@ export interface DesktopSettingsSnapshot {
 }
 
 export type SecretStorage =
-  | "os-encrypted"
-  | "basic-text"
-  | "plaintext"
-  | "unavailable";
+  "os-encrypted" | "basic-text" | "plaintext" | "unavailable";
 
 interface StoredSettings {
   version: 1;
@@ -147,9 +144,7 @@ function writeStored(file: string, settings: StoredSettings): void {
   }
 }
 
-async function encryptKey(
-  value: string,
-): Promise<StoredSettings["apiKey"]> {
+async function encryptKey(value: string): Promise<StoredSettings["apiKey"]> {
   if (await safeStorage.isAsyncEncryptionAvailable()) {
     return {
       scheme: "safeStorage",
@@ -182,9 +177,7 @@ async function decryptKey(
   }
 }
 
-async function storageBackend(
-  stored: StoredSettings,
-): Promise<SecretStorage> {
+async function storageBackend(stored: StoredSettings): Promise<SecretStorage> {
   if (!stored.apiKey) {
     return (await safeStorage.isAsyncEncryptionAvailable())
       ? selectedBackend()

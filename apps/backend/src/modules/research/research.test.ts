@@ -25,9 +25,8 @@ process.env.OMNIROUTE_BASE_URL = "http://model.test/v1";
 process.env.SEARXNG_BASE_URL = "http://search.test";
 process.env.CRAWLER_BASE_URL = "http://crawler.test";
 const { runMigrations } = await import("../../infrastructure/database/migrate");
-const { closeDatabase, db, pg } = await import(
-  "../../infrastructure/database/client"
-);
+const { closeDatabase, db, pg } =
+  await import("../../infrastructure/database/client");
 const service = await import("./research.service");
 const { companyDomain, normalizedName, inputUrl, citeMarkdown } =
   await import("./evidence");
@@ -675,9 +674,9 @@ test("PostgreSQL supports job filters, transactional collection, JSON, booleans 
     tables: { name: string; foreignKeys: unknown[] }[];
   };
   expect(structure.tables).toHaveLength(32);
-  expect(
-    structure.tables.some((t) => t.name === "coordination_locks"),
-  ).toBe(true);
+  expect(structure.tables.some((t) => t.name === "coordination_locks")).toBe(
+    true,
+  );
   expect(
     structure.tables.find((t) => t.name === "research_sources")!.foreignKeys,
   ).toHaveLength(2);

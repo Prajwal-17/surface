@@ -45,12 +45,10 @@ try {
     process.env.APP_ENV = process.env.APP_ENV ?? "production";
     const dataDir = value("--data-dir");
     if (dataDir) process.env.DATA_DIR = resolve(dataDir);
-    const { exportSurfaceData } = await import(
-      "../src/modules/migration/export"
-    );
-    const { closeDatabase } = await import(
-      "../src/infrastructure/database/client"
-    );
+    const { exportSurfaceData } =
+      await import("../src/modules/migration/export");
+    const { closeDatabase } =
+      await import("../src/infrastructure/database/client");
     try {
       const manifest = await exportSurfaceData({
         output,
@@ -104,12 +102,10 @@ try {
     delete process.env.DATABASE_URL;
     process.env.PGLITE_DATA_DIR = stageDatabase;
     process.env.DATA_DIR = stageData;
-    const { importSurfaceData } = await import(
-      "../src/modules/migration/import"
-    );
-    const { closeDatabase } = await import(
-      "../src/infrastructure/database/client"
-    );
+    const { importSurfaceData } =
+      await import("../src/modules/migration/import");
+    const { closeDatabase } =
+      await import("../src/infrastructure/database/client");
     try {
       const report = await importSurfaceData({
         input,
@@ -123,7 +119,13 @@ try {
       renameSync(stageDatabase, finalDatabase);
       renameSync(stageData, finalData);
       rmdirSync(stageRoot);
-      console.info(JSON.stringify({ ...report, database: finalDatabase, data: finalData }, null, 2));
+      console.info(
+        JSON.stringify(
+          { ...report, database: finalDatabase, data: finalData },
+          null,
+          2,
+        ),
+      );
     } catch (error) {
       await closeDatabase().catch(() => {});
       console.error(
@@ -139,12 +141,10 @@ try {
     delete process.env.DATABASE_URL;
     process.env.PGLITE_DATA_DIR = join(userData, "pglite");
     process.env.DATA_DIR = join(userData, "data");
-    const { verifyImportedData } = await import(
-      "../src/modules/migration/import"
-    );
-    const { closeDatabase } = await import(
-      "../src/infrastructure/database/client"
-    );
+    const { verifyImportedData } =
+      await import("../src/modules/migration/import");
+    const { closeDatabase } =
+      await import("../src/infrastructure/database/client");
     try {
       const report = await verifyImportedData(input, join(userData, "data"));
       console.info(JSON.stringify(report, null, 2));

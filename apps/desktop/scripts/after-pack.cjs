@@ -21,12 +21,7 @@ function copyDependencies(context, name) {
   if (!existsSync(source)) {
     throw new Error(`${name} dependencies are missing at ${source}`);
   }
-  const target = join(
-    context.appOutDir,
-    "resources",
-    name,
-    "node_modules",
-  );
+  const target = join(context.appOutDir, "resources", name, "node_modules");
   mkdirSync(target, { recursive: true });
   cpSync(source, target, { recursive: true, dereference: true });
 }

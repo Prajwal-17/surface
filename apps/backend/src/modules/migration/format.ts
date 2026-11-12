@@ -92,19 +92,13 @@ export function rowHash(row: TableRows): string {
  * postgres-js returns bigint/int8 as strings; PGlite returns numbers. Both
  * representations must hash identically for import verification.
  */
-export function normalizeRow(
-  row: TableRows,
-  columns: ColumnInfo[],
-): TableRows {
+export function normalizeRow(row: TableRows, columns: ColumnInfo[]): TableRows {
   const result: TableRows = {};
   for (const column of columns) {
     const value = row[column.name];
     if (value === null || value === undefined) {
       result[column.name] = null;
-    } else if (
-      column.dataType === "bigint" ||
-      column.dataType === "numeric"
-    ) {
+    } else if (column.dataType === "bigint" || column.dataType === "numeric") {
       result[column.name] = String(value);
     } else if (
       column.dataType === "integer" ||
@@ -180,9 +174,7 @@ export async function writeTableFile(
   };
 }
 
-export async function* readTableFile(
-  path: string,
-): AsyncGenerator<TableRows> {
+export async function* readTableFile(path: string): AsyncGenerator<TableRows> {
   const input = createReadStream(path);
   const gunzip = createGunzip();
   input.pipe(gunzip);

@@ -50,10 +50,12 @@ export async function pg<T = Record<string, unknown>[]>(
     const result = await pgliteClient.query(prepared.sql, prepared.params);
     return result.rows as T;
   }
-  const result = await (pgClient as unknown as (
-    strings: TemplateStringsArray,
-    ...values: unknown[]
-  ) => Promise<unknown[]>)(strings, ...values);
+  const result = await (
+    pgClient as unknown as (
+      strings: TemplateStringsArray,
+      ...values: unknown[]
+    ) => Promise<unknown[]>
+  )(strings, ...values);
   return [...result] as T;
 }
 
@@ -72,9 +74,11 @@ export async function executeStatement<T = Record<string, unknown>>(
     const result = await pgliteClient.query(query, parameters);
     return result.rows as T[];
   }
-  const result = await (pgClient as unknown as {
-    unsafe(query: string, parameters: unknown[]): Promise<unknown[]>;
-  }).unsafe(query, parameters);
+  const result = await (
+    pgClient as unknown as {
+      unsafe(query: string, parameters: unknown[]): Promise<unknown[]>;
+    }
+  ).unsafe(query, parameters);
   return [...result] as T[];
 }
 

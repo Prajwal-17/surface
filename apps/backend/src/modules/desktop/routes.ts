@@ -28,9 +28,7 @@ desktopRoutes.use("/config", async (context, next) => {
   return next();
 });
 
-desktopRoutes.get("/status", async (context) =>
-  context.json(statusPayload()),
-);
+desktopRoutes.get("/status", async (context) => context.json(statusPayload()));
 
 desktopRoutes.put("/config", async (context) => {
   let body: unknown;
@@ -56,8 +54,7 @@ desktopRoutes.put("/config", async (context) => {
   } catch (error) {
     return context.json(
       {
-        error:
-          error instanceof Error ? error.message : "Invalid service URL.",
+        error: error instanceof Error ? error.message : "Invalid service URL.",
       },
       400,
     );
@@ -116,10 +113,7 @@ async function probe(url: string) {
 
 async function probeSearxng(baseUrl: string) {
   try {
-    const url = new URL(
-      "search",
-      `${baseUrl.replace(/\/?$/, "")}/`,
-    );
+    const url = new URL("search", `${baseUrl.replace(/\/?$/, "")}/`);
     url.searchParams.set("q", "surface connectivity check");
     url.searchParams.set("format", "json");
     const response = await fetch(url, {

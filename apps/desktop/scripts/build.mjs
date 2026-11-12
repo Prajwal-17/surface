@@ -24,9 +24,13 @@ rmSync(buildDir, { recursive: true, force: true });
 mkdirSync(buildDir, { recursive: true });
 
 await step("web", async () => {
-  run(process.execPath, [join(webDir, "node_modules/vite/bin/vite.js"), "build"], {
-    cwd: webDir,
-  });
+  run(
+    process.execPath,
+    [join(webDir, "node_modules/vite/bin/vite.js"), "build"],
+    {
+      cwd: webDir,
+    },
+  );
   cpSync(join(webDir, "dist"), join(buildDir, "web"), {
     recursive: true,
   });
@@ -65,10 +69,7 @@ await step("crawler", async () => {
   run("bun", ["run", "build"], { cwd: crawlerDir });
   const target = join(buildDir, "crawler");
   mkdirSync(target, { recursive: true });
-  copyFileSync(
-    join(crawlerDir, "package.json"),
-    join(target, "package.json"),
-  );
+  copyFileSync(join(crawlerDir, "package.json"), join(target, "package.json"));
   copyFileSync(
     join(crawlerDir, "package-lock.json"),
     join(target, "package-lock.json"),

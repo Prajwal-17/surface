@@ -13,10 +13,7 @@ import { join, resolve } from "node:path";
 import { createLogSink, type LogSink } from "./logger";
 import { desktopPaths, type DesktopPaths } from "./paths";
 import { getFreePort } from "./ports";
-import {
-  startAndWait,
-  type ManagedProcess,
-} from "./processes";
+import { startAndWait, type ManagedProcess } from "./processes";
 import {
   SettingsStore,
   type DesktopSettingsInput,
@@ -124,12 +121,10 @@ async function bootstrap(): Promise<void> {
       `settings loaded secretStorage=${selected.secretStorage} omnirouteConfigured=${Boolean(selected.omnirouteApiKey)}`,
     );
 
-    const crawlerPort = Number(
-      process.env.SURFACE_DESKTOP_CRAWLER_PORT,
-    ) || (await getFreePort());
-    let backendPort = Number(
-      process.env.SURFACE_DESKTOP_BACKEND_PORT,
-    ) || (await getFreePort());
+    const crawlerPort =
+      Number(process.env.SURFACE_DESKTOP_CRAWLER_PORT) || (await getFreePort());
+    let backendPort =
+      Number(process.env.SURFACE_DESKTOP_BACKEND_PORT) || (await getFreePort());
     while (backendPort === crawlerPort) backendPort = await getFreePort();
     desktopToken = randomBytes(32).toString("base64url");
     const crawlerUrl = `http://127.0.0.1:${crawlerPort}`;

@@ -14,37 +14,31 @@ process.env.DATA_DIR = dataDirectory;
 
 const checks: Record<string, unknown> = {};
 try {
-  const { runMigrations, resolveMigrationsFolder } = await import(
-    "../src/infrastructure/database/migrate.ts"
-  ).then(async (module) => ({
-    runMigrations: module.runMigrations,
-    resolveMigrationsFolder: (
-      await import("../src/infrastructure/database/client.ts")
-    ).resolveMigrationsFolder,
-  }));
-  const { closeDatabase, db, pg } = await import(
-    "../src/infrastructure/database/client.ts"
-  );
-  const { lockCoordination } = await import(
-    "../src/infrastructure/database/locks.ts"
-  );
-  const { companies, configuredSources } = await import(
-    "../src/modules/workspace/workspace.tables.ts"
-  );
+  const { runMigrations, resolveMigrationsFolder } =
+    await import("../src/infrastructure/database/migrate.ts").then(
+      async (module) => ({
+        runMigrations: module.runMigrations,
+        resolveMigrationsFolder: (
+          await import("../src/infrastructure/database/client.ts")
+        ).resolveMigrationsFolder,
+      }),
+    );
+  const { closeDatabase, db, pg } =
+    await import("../src/infrastructure/database/client.ts");
+  const { lockCoordination } =
+    await import("../src/infrastructure/database/locks.ts");
+  const { companies, configuredSources } =
+    await import("../src/modules/workspace/workspace.tables.ts");
   const { jobs } = await import("../src/modules/jobs/jobs.tables.ts");
   const { workItems } = await import("../src/modules/work/work.tables.ts");
-  const { recoverInterruptedWork } = await import(
-    "../src/modules/work/executor.ts"
-  );
-  const { upsertCandidates } = await import(
-    "../src/modules/jobs/jobs.repository.ts"
-  );
-  const { persistSnapshot } = await import(
-    "../src/modules/collection/snapshots.ts"
-  );
-  const { enqueueCollection } = await import(
-    "../src/modules/work/work.service.ts"
-  );
+  const { recoverInterruptedWork } =
+    await import("../src/modules/work/executor.ts");
+  const { upsertCandidates } =
+    await import("../src/modules/jobs/jobs.repository.ts");
+  const { persistSnapshot } =
+    await import("../src/modules/collection/snapshots.ts");
+  const { enqueueCollection } =
+    await import("../src/modules/work/work.service.ts");
 
   const folder = resolveMigrationsFolder();
   checks.migrationsFolder = folder;
@@ -55,7 +49,9 @@ try {
     WHERE table_schema='public' AND table_type='BASE TABLE'`;
   checks.tableCount = tables[0]!.n;
   if (checks.tableCount !== 32) {
-    throw new Error(`Expected 32 application tables, found ${checks.tableCount}`);
+    throw new Error(
+      `Expected 32 application tables, found ${checks.tableCount}`,
+    );
   }
 
   const foreignKeys = await pg<{ n: number }[]>`
@@ -87,7 +83,10 @@ try {
     });
   });
   const committed = (
-    await db.select().from(companies).where(sql`${companies.id}=${committedId}`)
+    await db
+      .select()
+      .from(companies)
+      .where(sql`${companies.id}=${committedId}`)
   ).length;
   checks.transactionCommit = committed === 1;
 
@@ -103,10 +102,14 @@ try {
       throw new Error("rollback probe");
     });
   } catch (error) {
-    if (!(error instanceof Error) || error.message !== "rollback probe") throw error;
+    if (!(error instanceof Error) || error.message !== "rollback probe")
+      throw error;
   }
   const rolledBack = (
-    await db.select().from(companies).where(sql`${companies.id}=${rolledBackId}`)
+    await db
+      .select()
+      .from(companies)
+      .where(sql`${companies.id}=${rolledBackId}`)
   ).length;
   checks.transactionRollback = rolledBack === 0;
 
@@ -192,7 +195,10 @@ try {
   });
   await recoverInterruptedWork();
   const recovered = (
-    await db.select().from(workItems).where(sql`${workItems.id}=${runningId}`)
+    await db
+      .select()
+      .from(workItems)
+      .where(sql`${workItems.id}=${runningId}`)
   )[0]!;
   checks.recoveryState = recovered.state;
   if (recovered.state !== "interrupted") {
@@ -227,7 +233,10 @@ try {
     checks,
   };
   const output = process.argv[2];
-  if (output) writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
+  if (output)
+    writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`, {
+      mode: 0o600,
+    });
   console.info(JSON.stringify(report, null, 2));
 } finally {
   rmSync(temporary, { recursive: true, force: true });

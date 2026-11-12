@@ -372,9 +372,7 @@ async function verifyTable(table: TableManifest): Promise<void> {
   }
   const sample = hashes.toSorted()[0] ?? null;
   if (sample !== table.sampleSha256) {
-    throw new Error(
-      `Representative record mismatch for ${table.name}.`,
-    );
+    throw new Error(`Representative record mismatch for ${table.name}.`);
   }
 }
 
@@ -476,7 +474,9 @@ export async function verifyAssetLinks(dataDir: string): Promise<void> {
   for (const row of snapshots) {
     const path = join(dataDir, "snapshots", row.hash);
     if (!existsSync(path)) {
-      throw new Error(`Snapshot ${row.hash} is referenced but its file is missing.`);
+      throw new Error(
+        `Snapshot ${row.hash} is referenced but its file is missing.`,
+      );
     }
     const digest = await hashFile(path);
     if (digest !== row.hash) {

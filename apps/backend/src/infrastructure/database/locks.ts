@@ -14,10 +14,7 @@ export async function lockCoordination(
   tx: Transaction,
   name: string,
 ): Promise<void> {
-  await tx
-    .insert(coordinationLocks)
-    .values({ name })
-    .onConflictDoNothing();
+  await tx.insert(coordinationLocks).values({ name }).onConflictDoNothing();
   const [lock] = await tx
     .select({ name: coordinationLocks.name })
     .from(coordinationLocks)

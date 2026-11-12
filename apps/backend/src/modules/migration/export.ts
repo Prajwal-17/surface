@@ -223,9 +223,7 @@ async function copyAssets(
   const snapshotRows = await executeStatement<{
     hash: string;
     removed_at: string | null;
-  }>(
-    `SELECT hash, removed_at FROM snapshots WHERE removed_at IS NULL`,
-  );
+  }>(`SELECT hash, removed_at FROM snapshots WHERE removed_at IS NULL`);
   for (const row of snapshotRows) {
     const file = join(snapshotsTarget, row.hash);
     if (!existsSync(file)) {

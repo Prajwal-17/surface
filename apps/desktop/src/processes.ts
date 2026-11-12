@@ -34,12 +34,8 @@ export function startManagedProcess(
     resolveExit = resolve;
   });
 
-  child.stdout?.on("data", (chunk) =>
-    logChunk(options.log, chunk as Buffer),
-  );
-  child.stderr?.on("data", (chunk) =>
-    logChunk(options.log, chunk as Buffer),
-  );
+  child.stdout?.on("data", (chunk) => logChunk(options.log, chunk as Buffer));
+  child.stderr?.on("data", (chunk) => logChunk(options.log, chunk as Buffer));
   child.on("exit", (code) => {
     if (settled) return;
     settled = true;
