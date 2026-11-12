@@ -6,7 +6,10 @@ const workspaceDirectory = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "..",
 );
-const port = Number.parseInt(process.env.FIELDWORK_PROD_WEB_PORT ?? "17000", 10);
+const port = Number.parseInt(
+  process.env.FIELDWORK_PROD_WEB_PORT ?? "17000",
+  10,
+);
 
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
   throw new Error("FIELDWORK_PROD_WEB_PORT must be a valid TCP port.");

@@ -6,13 +6,16 @@ try {
       ? theme !== "light"
       : matchMedia("(prefers-color-scheme: dark)").matches,
   );
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
-    try {
-      if (localStorage.getItem("surface-theme")) return;
-    } catch {}
-    document.documentElement.classList.toggle("dark", event.matches);
-    window.dispatchEvent(new Event("surface-theme"));
-  });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener(
+    "change",
+    (event) => {
+      try {
+        if (localStorage.getItem("surface-theme")) return;
+      } catch {}
+      document.documentElement.classList.toggle("dark", event.matches);
+      window.dispatchEvent(new Event("surface-theme"));
+    },
+  );
 } catch {
   document.documentElement.classList.toggle(
     "dark",

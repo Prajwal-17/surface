@@ -3,3 +3,5 @@
 **/.next/
 **/.turbo/
 **/coverage/
+data/
+apps/backend/drizzle/meta/
