@@ -12,7 +12,11 @@ import {
 import { sql } from "drizzle-orm";
 export const runs = pgTable("runs", {
   id: text("id").primaryKey(),
-  kind: text("kind").$type<"collection" | "analysis">().notNull(),
+  kind: text("kind")
+    .$type<
+      "collection" | "analysis" | "company-discovery" | "company-enrichment"
+    >()
+    .notNull(),
   label: text("label").notNull(),
   state: text("state")
     .$type<import("@surface/contracts").WorkItem["state"]>()
@@ -24,9 +28,14 @@ export const workItems = pgTable(
   "work_items",
   {
     id: text("id").primaryKey(),
-    kind: text("kind").$type<"collection" | "analysis">().notNull(),
+    kind: text("kind")
+      .$type<
+        "collection" | "analysis" | "company-discovery" | "company-enrichment"
+      >()
+      .notNull(),
     sourceId: text("source_id"),
     jobId: text("job_id"),
+    payload: jsonb("payload").$type<Record<string, unknown>>(),
     identity: text("identity").notNull(),
     state: text("state")
       .$type<import("@surface/contracts").WorkItem["state"]>()

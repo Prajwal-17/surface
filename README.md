@@ -237,11 +237,21 @@ ODbL 1.0. The derived snapshot, checksum, attribution and license are in
 
 ## Company research
 
-Open **Research**, enter a company name or URL, and confirm the company. Its name is
-the library entry; reports, source snapshots, and Q&A belong to its stable company ID.
-A known domain or unambiguous saved name reopens existing research. Same-name companies
-on different domains remain separate, and renaming a company preserves its research.
-Existing company cards and job readers also link to Research.
+Open **Companies**, select a company, and switch its reader from **Overview** to
+**Research**. Choose **Run research** to generate a deeper cited report. Overview
+keeps company facts, funding, contacts, jobs, notes, decisions, and the optional
+short AI summary together. **Refresh details** checks public company information
+without generating a research report.
+
+Use **Has research** to find companies with saved reports across decision queues.
+List indicators distinguish saved reports, active research, and unfinished runs.
+**Expand** opens the company across the workspace; **Back to companies** restores
+the list, filters, scroll position, and any Q&A draft.
+
+Reports, source snapshots, questions, answers, and company notes keep their existing
+company IDs and storage. No data migration or deletion is needed for this navigation
+change. Old `/research` links redirect into Companies, and `/research/:companyId`
+opens the same saved research in the expanded company reader.
 
 The company bar shows only links selected by an AI review after a fresh Crawlee inspection.
 Use **Verify links** on an older report, or recheck the saved selection later. The custom
@@ -250,8 +260,9 @@ empty and duplicate destinations; the model filters out unrelated and unhelpful 
 Reviews are saved independently, and a failed recheck retains the previous selection.
 New report runs also review discovered links.
 
-The collapsible Q&A pane extends alongside the company bar. Questions and answers have
-distinct labels and separate copy controls.
+Report, Company Q&A, and Sources tabs share the research reader. Questions and
+answers have distinct labels and separate copy controls; older report versions
+remain selectable.
 
 The main pane contains a cited Markdown briefing covering products, open-source and
 license evidence, hiring from India, careers, engineering, and useful links. A company
@@ -261,7 +272,7 @@ Company research does not use provider-hosted search or automatically include yo
 New companies are saved, but career pages do not become monitoring sources until you
 connect them through Companies → Sources → Inspect sources.
 
-Reports are versioned. Refresh gathers fresh sources and retains the previous report
+Reports are versioned. Run research gathers fresh sources and retains the previous report
 until a valid replacement finishes. Stop cancels model and crawler work. Reloading
 reconnects to persisted events; backend restarts mark unfinished work interrupted, with
 sources retained for an explicit retry. Failed or partial drafts are labeled and do
@@ -315,3 +326,5 @@ bun run lint
 bun run check-types
 bun run build
 ```
+
+Company discovery (saved rules, funding/YC intake, contacts, and decisions) is documented in [docs/company-discovery.md](docs/company-discovery.md).

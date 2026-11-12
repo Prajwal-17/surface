@@ -281,7 +281,7 @@ describe("company research", () => {
     mode = "normal";
     const before = await service.details(owner.id);
     expect(before.linkReview?.links.length).toBe(1);
-    const run = await service.startResearch(owner.id, undefined, true);
+    const run = await service.startResearch(owner.id, undefined, "links");
     expect((await finish(run)).state).toBe("completed");
     const reviewed = await service.details(owner.id);
     expect(reviewed.reports).toEqual(before.reports);
@@ -290,7 +290,7 @@ describe("company research", () => {
     expect(reviewed.linkReview?.links[0]?.sourceId).toBeTruthy();
     mode = "fail";
     expect(
-      (await finish(await service.startResearch(owner.id, undefined, true)))
+      (await finish(await service.startResearch(owner.id, undefined, "links")))
         .state,
     ).toBe("failed");
     expect((await service.details(owner.id)).linkReview).toEqual(
@@ -320,6 +320,50 @@ describe("company research", () => {
     expect((await service.details(owner.id)).messages.at(-1)?.webSearch).toBe(
       false,
     );
+  });
+  test("manual summaries read the official site, persist citations, and retain prior answers on failure", async () => {
+    network = [];
+    modelBodies = [];
+    const before = await service.details(owner.id);
+    // Loading a reader only reads stored data; it never starts AI work.
+    expect(
+      (await authenticatedRequest(`/api/companies/${owner.id}/research`))
+        .status,
+    ).toBe(200);
+    expect(modelBodies).toHaveLength(0);
+    const response = await authenticatedRequest(
+      `/api/companies/${owner.id}/research/summary`,
+      { method: "POST" },
+    );
+    expect(response.status).toBe(202);
+    const started = await response.json();
+    expect(started.id).toBeTruthy();
+    expect(started.kind).toBe("summary");
+    expect((await finish(started)).state).toBe("completed");
+    expect(network.some((url) => url.startsWith("http://crawler.test"))).toBe(
+      true,
+    );
+    expect(network.some((url) => url.startsWith("http://search.test"))).toBe(
+      false,
+    );
+    expect(JSON.parse(modelBodies[0]!.messages[1].content).task).toBe(
+      "SUMMARY",
+    );
+    const saved = await service.details(owner.id);
+    const answer = saved.messages.find((m) => m.runId === started.id)!;
+    expect(answer.answer).toContain("](https://");
+    expect(answer.sourceIds.length).toBeGreaterThan(0);
+    expect(saved.reports).toEqual(before.reports);
+    expect(saved.linkReview).toEqual(before.linkReview);
+    mode = "fail";
+    const failed = await service.startResearch(owner.id, undefined, "summary");
+    expect((await finish(failed)).error).toBeTruthy();
+    expect(
+      (await service.details(owner.id)).messages.find(
+        (m) => m.runId === started.id,
+      ),
+    ).toEqual(answer);
+    mode = "normal";
   });
   test("explicit web Q&A executes a custom tool and preserves the report", async () => {
     network = [];
@@ -628,7 +672,7 @@ test("PostgreSQL supports job filters, transactional collection, JSON, booleans 
   const structure = (await schema.json()) as {
     tables: { name: string; foreignKeys: unknown[] }[];
   };
-  expect(structure.tables).toHaveLength(26);
+  expect(structure.tables).toHaveLength(31);
   expect(
     structure.tables.find((t) => t.name === "research_sources")!.foreignKeys,
   ).toHaveLength(2);

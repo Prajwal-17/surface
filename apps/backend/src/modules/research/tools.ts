@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { HttpError } from "../../shared/errors/http-error";
 import { env } from "../../config/env";
-import { publicUrlSchema } from "@surface/contracts";
+import { publicUrlSchema, crawlMetadataSchema } from "@surface/contracts";
 import type { ToolDefinition } from "./model";
 export const searchInput = z
   .object({
@@ -12,12 +12,18 @@ export const searchInput = z
 export const crawlInput = z
   .object({ url: publicUrlSchema, render: z.boolean().optional() })
   .strict();
-const linkSchema = z.object({ url: z.string().url(), title: z.string() });
+const linkSchema = z.object({
+  url: z.string().url(),
+  title: z.string(),
+  context: z.string().optional(),
+});
 export const crawlOutput = z.object({
   url: z.string().url(),
   title: z.string(),
   text: z.string().max(500000),
   links: z.array(linkSchema).max(1000),
+  metadata: crawlMetadataSchema,
+  snapshotId: z.string().optional(),
   status: z.string(),
   retrievedAt: z.string(),
 });
@@ -71,6 +77,7 @@ export async function searchWeb(
     );
   const body = z
     .object({
+      unresponsive_engines: z.array(z.array(z.string())).default([]),
       results: z.array(
         z.object({
           url: z.string(),
@@ -80,6 +87,11 @@ export async function searchWeb(
       ),
     })
     .parse(await response.json());
+  if (!body.results.length && body.unresponsive_engines.length)
+    throw new HttpError(
+      502,
+      `SearXNG returned no results; unavailable engines: ${body.unresponsive_engines.map((e) => e.join(": ")).join("; ")}`,
+    );
   const seen = new Set<string>();
   return body.results
     .filter((r) => {

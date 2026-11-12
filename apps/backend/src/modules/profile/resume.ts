@@ -5,11 +5,28 @@ import { canRequestModel } from "../analysis/settings";
 import { requestModelJson } from "../../shared/model-client";
 import {
   skillOptions,
+  publicUrlSchema,
   resumeDraftSchema,
   type ResumeDraft,
 } from "@surface/contracts";
 import { HttpError } from "../../shared/errors/http-error";
 const excerpt = z.string().max(100000);
+function normalizeProjectUrl(raw: string): string {
+  const value = raw.trim();
+  const existing = publicUrlSchema.safeParse(value);
+  if (existing.success) return existing.data;
+
+  // Only add a scheme to recognizable domain links, never to labels or paths.
+  const domainLink = value.replace(/^\/\//, "");
+  if (
+    !/^[^\s/:?#@\\]+\.[^\s/:?#@\\]+(?::\d+)?(?:[/?#][^\s\\]*)?$/.test(
+      domainLink,
+    )
+  )
+    return "";
+  const normalized = publicUrlSchema.safeParse(`https://${domainLink}`);
+  return normalized.success ? normalized.data : "";
+}
 // Extract exact evidence, then arrange it deterministically. The model cannot create preferences or hard requirements.
 export const resumeExtractionSchema = z.object({
   name: z.string().max(200),
@@ -68,13 +85,21 @@ export function validateResumeExtraction(
     : null;
   if (result.location && !residence && result.location.evidence)
     result.unmatched.push(result.location.evidence);
+  // Verify excerpts above before normalizing links, so added schemes cannot
+  // bypass the requirement that extracted content comes from the document.
+  const projects = result.projects.map((project) => {
+    const url = normalizeProjectUrl(project.url);
+    if (!url && project.url.trim() && !result.unmatched.includes(project.url))
+      result.unmatched.push(project.url);
+    return { ...project, url };
+  });
   return resumeDraftSchema.parse({
     name: result.name,
     residence,
     experience: result.experience.join("\n\n"),
     education: result.education.join("\n\n"),
     skills: [...new Set(result.skills.map((s) => s.skill))],
-    projects: result.projects,
+    projects,
     unmatched: result.unmatched,
   });
 }
@@ -141,9 +166,11 @@ export async function prefillResume(
   } catch (error) {
     throw new HttpError(
       502,
-      error instanceof Error
-        ? error.message
-        : "Résumé prefill failed. Your saved profile has not changed.",
+      error instanceof z.ZodError
+        ? "Could not prepare a valid résumé draft. Try again or fill the fields manually. Your saved profile has not changed."
+        : error instanceof Error
+          ? error.message
+          : "Résumé prefill failed. Your saved profile has not changed.",
     );
   }
 }

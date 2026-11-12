@@ -1,16 +1,10 @@
-import { useNavigate, useSearchParams } from "react-router";
-import { ResearchLibrary } from "@/features/research/research-library";
+import { Navigate, useSearchParams } from "react-router";
 
 export function Component() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-
-  return (
-    <ResearchLibrary
-      initialQuery={searchParams.get("q") ?? ""}
-      navigateToCompany={(companyId) =>
-        navigate(`/research/${encodeURIComponent(companyId)}`)
-      }
-    />
+  const query = searchParams.get("q");
+  const destination = new URLSearchParams(
+    query ? { q: query, queue: "all" } : { hasResearch: "true", queue: "all" },
   );
+  return <Navigate to={`/companies?${destination}`} replace />;
 }

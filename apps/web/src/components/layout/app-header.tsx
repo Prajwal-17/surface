@@ -10,7 +10,6 @@ import {
   Settings2,
   PanelLeft,
   Database,
-  Telescope,
   LogOut,
 } from "lucide-react";
 import {
@@ -31,7 +30,6 @@ import { useAuth } from "@/features/auth/auth-context";
 
 const destinations = [
   { href: "/", label: "Jobs", icon: BriefcaseBusiness },
-  { href: "/research", label: "Research", icon: Telescope },
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/activity", label: "Activity", icon: Activity },
 ] as const;
@@ -116,11 +114,7 @@ export function AppHeader() {
     ...destinations,
     ...referenceDestinations,
     profileDestination,
-  ].find(
-    (d) =>
-      d.href === pathname ||
-      (d.href === "/research" && pathname.startsWith("/research/")),
-  );
+  ].find((d) => d.href === pathname);
   return (
     <>
       <a
@@ -213,6 +207,18 @@ export function AppHeader() {
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="Sign out"
+                className="min-h-11 font-medium text-muted-foreground md:min-h-8"
+                onClick={() => void auth.signOut()}
+                aria-label="Sign out"
+                title={email ? `Sign out ${email}` : "Sign out"}
+              >
+                <LogOut />
+                <span>Sign out</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
@@ -248,27 +254,12 @@ export function AppHeader() {
           id="page-header-actions"
           className="ml-auto flex min-w-0 items-center gap-1"
         />
-        <div className="mr-10 flex shrink-0 items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void auth.signOut()}
-            aria-label="Sign out"
-            title={`Sign out ${auth.email}`}
-          >
-            <LogOut />
-            <span className="hidden sm:inline">Sign out</span>
-          </Button>
-        </div>
       </header>
     </>
   );
 }
 function destinationIsActive(pathname: string, href: string) {
-  return (
-    pathname === href ||
-    (href === "/research" && pathname.startsWith("/research/"))
-  );
+  return pathname === href;
 }
 function subscribe(callback: () => void) {
   window.addEventListener("surface-navigation", callback);

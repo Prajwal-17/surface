@@ -67,6 +67,11 @@ export interface FetchedPayload {
 export async function fetchPublic(
   input: string,
   outerSignal?: AbortSignal,
+  options: {
+    method?: "GET" | "POST";
+    body?: string;
+    headers?: Record<string, string>;
+  } = {},
 ): Promise<FetchedPayload> {
   const signal = AbortSignal.any([
     AbortSignal.timeout(env.SOURCE_TIMEOUT_MS),
@@ -108,17 +113,19 @@ export async function fetchPublic(
           url,
           {
             signal,
+            method: options.method ?? "GET",
             agent: false,
             headers: {
               "User-Agent": "Fieldwork/1.0 (local personal job monitoring)",
               Accept:
                 "application/json, application/rss+xml, text/html, text/xml",
               "Accept-Encoding": "identity",
+              ...options.headers,
             },
-            lookup: (_hostname, options, callback) =>
+            lookup: (_hostname, lookupOptions, callback) =>
               callback(
                 null,
-                options.all ? [address] : address.address,
+                lookupOptions.all ? [address] : address.address,
                 address.family,
               ),
           },
@@ -199,7 +206,7 @@ export async function fetchPublic(
           },
         );
         request.on("error", reject);
-        request.end();
+        request.end(options.body);
       },
     );
     if (![301, 302, 303, 307, 308].includes(result.statusCode)) return result;

@@ -1,3 +1,7 @@
+import {
+  executeCompanyWork,
+  enqueueCompanySchedules,
+} from "../company-discovery/service";
 import { executeAnalysis } from "../analysis/analysis.service";
 import { getSettings } from "../analysis/settings";
 import { and, eq, lte, sql } from "drizzle-orm";
@@ -54,6 +58,24 @@ export async function recoverInterruptedWork() {
       completedAt: new Date().toISOString(),
     })
     .where(eq(workItems.state, "running"));
+  await db
+    .update(workItems)
+    .set({
+      state: "queued",
+      retryAt: new Date().toISOString(),
+      completedAt: null,
+    })
+    .where(
+      and(
+        eq(workItems.state, "interrupted"),
+        sql`${workItems.kind} IN ('company-discovery','company-enrichment')`,
+        sql`${workItems.attempts}<3`,
+        eq(
+          workItems.error,
+          "Backend stopped while this item was running. Retry is available.",
+        ),
+      ),
+    );
   await syncRuns();
 }
 export async function executeCollection(
@@ -271,6 +293,21 @@ export async function startExecutor() {
     if (tickActive) return;
     tickActive = true;
     try {
+      await enqueueCompanySchedules();
+      const companyItems = await db
+        .select()
+        .from(workItems)
+        .where(
+          and(
+            sql`${workItems.kind} IN ('company-discovery','company-enrichment')`,
+            eq(workItems.state, "queued"),
+            lte(workItems.retryAt, new Date().toISOString()),
+          ),
+        )
+        .limit(2);
+      await Promise.allSettled(
+        companyItems.map((item) => executeCompanyWork(item)),
+      );
       await enqueueDueSchedules();
       const items = await db
         .select()

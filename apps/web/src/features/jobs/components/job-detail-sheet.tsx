@@ -211,7 +211,10 @@ export function JobDetailSheet({
   const companyLine = (
     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
       <span className="inline-flex min-w-0 items-center gap-1.5">
-        <CompanyMark name={job.company} className="size-4 rounded text-[10px]" />
+        <CompanyMark
+          name={job.company}
+          className="size-4 rounded text-[10px]"
+        />
         {job.companyWebsite ? (
           <a
             href={job.companyWebsite}
@@ -243,7 +246,11 @@ export function JobDetailSheet({
     <div className="flex shrink-0 items-center gap-0.5">
       <Button asChild variant="ghost" size="sm">
         <Link
-          to={`/research?q=${encodeURIComponent(job.companyWebsite || job.company)}`}
+          to={
+            job.companyId
+              ? `/companies?company=${encodeURIComponent(job.companyId)}&reader=research&queue=all`
+              : `/companies?q=${encodeURIComponent(job.companyWebsite || job.company)}&queue=all`
+          }
         >
           Research company
         </Link>

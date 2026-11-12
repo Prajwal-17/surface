@@ -12,18 +12,25 @@ let created = false;
 try {
   await admin`CREATE DATABASE ${admin(name)}`;
   created = true;
-  const child = Bun.spawn(["bun", "test", "src"], {
-    stdout: "inherit",
-    stderr: "inherit",
-    env: {
-      ...process.env,
-      APP_ENV: "test",
-      NODE_ENV: "test",
-      DATABASE_URL: testUrl.toString(),
-      TEST_DATABASE_URL: testUrl.toString(),
-    },
-  });
-  process.exitCode = await child.exited;
+  // Test modules own their DB clients and network mocks. Separate processes keep
+  // module caches and teardown from one suite from closing another suite's pool.
+  process.exitCode = 0;
+  for (const file of Array.from(
+    new Bun.Glob("src/**/*.test.ts").scanSync(),
+  ).toSorted()) {
+    const child = Bun.spawn(["bun", "test", file], {
+      stdout: "inherit",
+      stderr: "inherit",
+      env: {
+        ...process.env,
+        APP_ENV: "test",
+        NODE_ENV: "test",
+        DATABASE_URL: testUrl.toString(),
+        TEST_DATABASE_URL: testUrl.toString(),
+      },
+    });
+    if (await child.exited) process.exitCode = 1;
+  }
 } finally {
   if (created) {
     await admin`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=${name} AND pid<>pg_backend_pid()`;

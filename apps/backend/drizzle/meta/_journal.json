@@ -8,6 +8,20 @@
       "when": 1792740849091,
       "tag": "0000_lovely_cardiac",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792828257959,
+      "tag": "0001_smart_jackal",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792828813617,
+      "tag": "0002_glossy_celestials",
+      "breakpoints": true
     }
   ]
 }

@@ -1,3 +1,4 @@
+import { companyDiscoveryRoutes } from "./modules/company-discovery/routes";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { pg } from "./infrastructure/database/client";
@@ -24,7 +25,7 @@ app.use(
   "/api/*",
   cors({
     origin: ["http://localhost:17000", "http://127.0.0.1:17000"],
-    allowMethods: ["GET", "POST", "PUT", "PATCH", "OPTIONS"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   }),
 );
 
@@ -104,6 +105,7 @@ app.get("/api/schema", async (context) => {
 });
 
 app.route("/api", researchRoutes);
+app.route("/api/company-discovery", companyDiscoveryRoutes);
 app.route("/api/discovery", discoveryRoutes);
 app.route("/api/jobs", jobsRoutes);
 app.route("/api/profile", profileRoutes);

@@ -15,7 +15,12 @@ export const workStateSchema = z.enum([
 ]);
 export const runSchema = z.object({
   id: z.string(),
-  kind: z.enum(["collection", "analysis"]),
+  kind: z.enum([
+    "collection",
+    "analysis",
+    "company-discovery",
+    "company-enrichment",
+  ]),
   label: z.string(),
   state: workStateSchema,
   createdAt: z.string(),
@@ -23,9 +28,15 @@ export const runSchema = z.object({
 });
 export const workItemSchema = z.object({
   id: z.string(),
-  kind: z.enum(["collection", "analysis"]),
+  kind: z.enum([
+    "collection",
+    "analysis",
+    "company-discovery",
+    "company-enrichment",
+  ]),
   sourceId: z.string().nullable(),
   jobId: z.string().nullable(),
+  payload: z.record(z.string(), z.unknown()).nullable().default(null),
   identity: z.string(),
   state: workStateSchema,
   attempts: z.number(),

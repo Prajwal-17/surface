@@ -184,3 +184,5 @@ export * from "./work-contracts";
 export * from "./profile-catalogs";
 export * from "./resume-contracts";
 export * from "./research-contracts";
+export * from "./company-contact-contracts";
+export * from "./company-discovery-contracts";

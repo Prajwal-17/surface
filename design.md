@@ -55,9 +55,9 @@ A versioned `surface-ui-preferences` record stores `{ version: 1, sidebarExpande
 
 ## Other workflows
 
-Research uses aligned company, research-state, and update rows. Reports keep generous reading width, compact headers, citations, source evidence, streaming, recovery copy, and expandable progress. Company Q&A and clarification expansion retain existing behavior. The composer uses shared controls and a restrained outline.
+Research lives in the Companies reader, alongside Overview. Report, Company Q&A, and Sources use shared shadcn tabs inside Research. Run research explicitly generates a cited report; Refresh details checks public information. Expand opens the same company across the workspace, with a readable report measure and Back to companies restoring the list, filters, scroll, and Q&A draft. Report versions, streaming, citations, evidence, and saved questions stay attached to existing company IDs. The sidebar has one Companies destination; old Research URLs redirect into it.
 
-Companies uses dense watchlist rows with expandable reasons and notes. Each disclosure chevron sits directly beside its company name and rotates with its expanded state; the identity block remains the keyboard-accessible toggle. Research, edit, source, and archive actions remain. Sources align state, available last-success data, and actions, with expanded URL/provider/schedule details. No new health metrics or backend aggregation are introduced.
+Companies combines Discover, Searches, Watchlist, and Sources with a shared company reader. Overview contains facts, funding, contacts, linked roles, notes, decisions, and optional AI summaries. Has research filters actual saved reports before pagination, with small indicators for saved, running, or incomplete research. Summary-only and unresearched companies remain in the directory. Sources align collection state and available last-success data, with expanded URL/provider/schedule details.
 
 Activity uses a compact strip of existing run counts, readable run history, expandable work steps, schedules, sources, retry controls, and the existing cleanup preview. Settings uses compact section navigation for Appearance and AI settings.
 

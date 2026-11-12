@@ -42,7 +42,7 @@ export const researchMessageSchema = z.object({
 export const researchRunSchema = z.object({
   id: z.string(),
   companyId: z.string(),
-  kind: z.enum(["report", "question", "links"]),
+  kind: z.enum(["report", "question", "links", "summary"]),
   state: researchStateSchema,
   draft: z.string(),
   error: z.string().nullable(),

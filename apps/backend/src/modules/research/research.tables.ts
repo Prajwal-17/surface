@@ -19,7 +19,9 @@ export const researchRuns = pgTable(
   {
     id: text("id").primaryKey(),
     companyId: companyId(),
-    kind: text("kind").$type<"report" | "question" | "links">().notNull(),
+    kind: text("kind")
+      .$type<"report" | "question" | "links" | "summary">()
+      .notNull(),
     state: text("state")
       .$type<
         | "running"

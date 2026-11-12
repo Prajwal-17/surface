@@ -1,3 +1,4 @@
+import { retryCompanyRun } from "../company-discovery/service";
 import { enqueueAnalysis } from "../analysis/analysis.service";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
@@ -28,6 +29,10 @@ workRoutes.post("/runs/:id/retry", async (c) => {
   const failed = run.items.filter((i) =>
     ["failed", "interrupted", "partial"].includes(i.state),
   );
+  if (run.kind.startsWith("company-")) {
+    if (!failed.length) throw new HttpError(409, "No company work to retry.");
+    return c.json(await retryCompanyRun(failed, run.label), 202);
+  }
   if (run.kind === "analysis")
     return c.json(
       await enqueueAnalysis(failed.map((i) => i.jobId!).filter(Boolean)),

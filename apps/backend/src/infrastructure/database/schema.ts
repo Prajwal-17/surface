@@ -6,3 +6,4 @@ export * from "../../modules/collection/collection.tables";
 export * from "../../modules/work/work.tables";
 export * from "../../modules/analysis/analysis.tables";
 export * from "../../modules/research/research.tables";
+export * from "../../modules/company-discovery/tables";

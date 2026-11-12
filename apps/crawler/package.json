@@ -17,6 +17,7 @@
   },
   "devDependencies": {
     "@types/node": "26.3.0",
+    "cheerio": "1.0.0-rc.12",
     "typescript": "npm:typescript@6.0.2"
   },
   "engines": {

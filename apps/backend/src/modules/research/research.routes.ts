@@ -35,7 +35,10 @@ researchRoutes.get("/companies/:id/research", async (c) =>
   c.json(await details(c.req.param("id"))),
 );
 researchRoutes.post("/companies/:id/research/links", async (c) =>
-  c.json(await startResearch(c.req.param("id"), undefined, true), 202),
+  c.json(await startResearch(c.req.param("id"), undefined, "links"), 202),
+);
+researchRoutes.post("/companies/:id/research/summary", async (c) =>
+  c.json(await startResearch(c.req.param("id"), undefined, "summary"), 202),
 );
 researchRoutes.post("/companies/:id/research", async (c) =>
   c.json(await startResearch(c.req.param("id")), 202),
