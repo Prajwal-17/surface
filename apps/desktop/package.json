@@ -1,0 +1,63 @@
+{
+  "name": "desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Surface desktop shell",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "package": "node scripts/build.mjs && electron-builder --linux AppImage",
+    "package:dir": "node scripts/build.mjs && electron-builder --linux dir",
+    "check-types": "tsc --noEmit",
+    "lint": "oxlint --config ../../.oxlintrc.json ."
+  },
+  "devDependencies": {
+    "@surface/typescript-config": "workspace:*",
+    "@types/node": "26.3.0",
+    "electron": "latest",
+    "electron-builder": "latest",
+    "esbuild": "latest",
+    "typescript": "npm:typescript@6.0.2"
+  },
+  "build": {
+    "appId": "dev.surface.desktop",
+    "productName": "Surface",
+    "artifactName": "Surface-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/web",
+        "to": "web"
+      },
+      {
+        "from": "build/backend",
+        "to": "backend"
+      },
+      {
+        "from": "build/crawler",
+        "to": "crawler"
+      },
+      {
+        "from": "build/playwright",
+        "to": "playwright"
+      }
+    ],
+    "asar": true,
+    "npmRebuild": false,
+    "afterPack": "scripts/after-pack.cjs",
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility",
+      "executableName": "surface"
+    }
+  }
+}

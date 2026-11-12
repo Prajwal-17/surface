@@ -101,6 +101,7 @@ try {
     mkdirSync(stageRoot, { recursive: true, mode: 0o700 });
     process.env.APP_ENV = "production";
     process.env.NODE_ENV = "production";
+    delete process.env.DATABASE_URL;
     process.env.PGLITE_DATA_DIR = stageDatabase;
     process.env.DATA_DIR = stageData;
     const { importSurfaceData } = await import(
@@ -135,6 +136,7 @@ try {
     const userData = required("--user-data");
     process.env.APP_ENV = "production";
     process.env.NODE_ENV = "production";
+    delete process.env.DATABASE_URL;
     process.env.PGLITE_DATA_DIR = join(userData, "pglite");
     process.env.DATA_DIR = join(userData, "data");
     const { verifyImportedData } = await import(
@@ -153,4 +155,8 @@ try {
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
+} finally {
+  // PGlite can retain WASM/event-loop handles after a handled error. Exit
+  // explicitly so the Electron utility process and terminal command finish.
+  process.exit(process.exitCode ?? 0);
 }

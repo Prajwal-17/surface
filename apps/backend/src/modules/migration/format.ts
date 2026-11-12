@@ -72,7 +72,7 @@ export function canonicalize(value: unknown): unknown {
   }
   if (value instanceof Date) return value.toISOString();
   if (Buffer.isBuffer(value)) {
-    return { __surfaceType: "bytes", base64: value.toString("base64") };
+    return { surfaceType: "bytes", base64: value.toString("base64") };
   }
   if (Array.isArray(value)) return value.map(canonicalize);
   const record = value as Record<string, unknown>;

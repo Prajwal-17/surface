@@ -1,0 +1,28 @@
+# Optional web search for the Surface desktop app.
+#
+#   docker compose -f compose.searxng.yaml up -d
+#
+# This stack contains only SearXNG. It does not use the Surface PostgreSQL
+# network, the production Compose project, or any other Surface container.
+services:
+  searxng:
+    image: searxng/searxng:2026.9.8-3fdc6d753
+    volumes:
+      - ./services/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-surface-local-company-research}
+    ports:
+      - "127.0.0.1:${SEARXNG_PORT:-8080}:8080"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "--spider",
+          "http://127.0.0.1:8080/healthz",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5

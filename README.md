@@ -59,6 +59,28 @@ transfer safeguards, verification report, backup locations and recovery steps.
 analysis while the browser is closed; an expiring PostgreSQL lease coordinates
 executors for each database.
 
+## Desktop app
+
+Surface can run as a single Electron app with embedded PGlite, a Node backend
+utility process, and a local Crawlee/Playwright crawler. Only SearXNG remains
+optional Docker infrastructure; OmniRoute stays external. No PostgreSQL,
+backend, web or crawler container is required.
+
+```sh
+bun install
+bun --cwd apps/desktop run package
+./apps/desktop/release/Surface-0.1.0-x86_64.AppImage
+```
+
+Start optional web search with
+`docker compose -f compose.searxng.yaml up -d`. Data, snapshots, settings and
+logs live under Electron's user-data directory. Existing PostgreSQL data is
+moved with the explicit export/import command, not by copying a `pg_dump`.
+See [desktop](docs/desktop.md) and
+[desktop migration verification](docs/desktop-migration.md); the existing
+Docker Compose deployment remains unchanged and can be kept until the desktop
+install is verified.
+
 ## Collect and review
 
 - Configure company boards on Greenhouse, Lever or Ashby, documented job endpoints,

@@ -34,7 +34,7 @@ export function AnalysisSettings() {
       </h2>
       <p className="text-muted-foreground">
         {!data.configured
-          ? "OmniRoute is not configured. Add its endpoint, model, and API key to the backend environment."
+          ? "OmniRoute is not configured. Add its endpoint, model, and API key in Research and AI services above (desktop) or the backend environment."
           : "OmniRoute is connected. Research, summaries, and assessments run when you request them."}
       </p>
       <div className="rounded-lg border bg-card p-3 space-y-3">

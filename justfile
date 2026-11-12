@@ -25,6 +25,22 @@ db-studio-prod: db-up
 db-studio-dev: db-up
     APP_ENV=development bun run db:studio
 
+# Build the Electron desktop bundle and assets.
+desktop-build:
+    node apps/desktop/scripts/build.mjs
+
+# Build the Linux AppImage.
+desktop-package:
+    cd apps/desktop && ./node_modules/.bin/electron-builder --linux AppImage
+
+# Start optional SearXNG only (no PostgreSQL or Surface containers).
+searxng-up:
+    docker compose -f compose.searxng.yaml up -d
+
+# Stop the optional SearXNG stack.
+searxng-down:
+    docker compose -f compose.searxng.yaml down
+
 # Start the production stack.
 prod:
     docker compose up -d

@@ -1,3 +1,4 @@
+// oxlint-disable-next-line import/no-unassigned-import -- load .env before configuration is evaluated
 import "dotenv/config";
 import { startSurfaceServer } from "./server";
 

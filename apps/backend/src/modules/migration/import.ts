@@ -297,8 +297,8 @@ function encodeValue(column: ColumnInfo, value: unknown): unknown {
   if (
     typeof value === "object" &&
     value !== null &&
-    "__surfaceType" in value &&
-    (value as { __surfaceType?: string }).__surfaceType === "bytes"
+    "surfaceType" in value &&
+    (value as { surfaceType?: string }).surfaceType === "bytes"
   ) {
     return Buffer.from(
       String((value as { base64?: string }).base64 ?? ""),

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
@@ -28,12 +28,22 @@ try {
   const { lockCoordination } = await import(
     "../src/infrastructure/database/locks.ts"
   );
-  const { companies } = await import(
+  const { companies, configuredSources } = await import(
     "../src/modules/workspace/workspace.tables.ts"
   );
+  const { jobs } = await import("../src/modules/jobs/jobs.tables.ts");
   const { workItems } = await import("../src/modules/work/work.tables.ts");
   const { recoverInterruptedWork } = await import(
     "../src/modules/work/executor.ts"
+  );
+  const { upsertCandidates } = await import(
+    "../src/modules/jobs/jobs.repository.ts"
+  );
+  const { persistSnapshot } = await import(
+    "../src/modules/collection/snapshots.ts"
+  );
+  const { enqueueCollection } = await import(
+    "../src/modules/work/work.service.ts"
   );
 
   const folder = resolveMigrationsFolder();
@@ -103,6 +113,67 @@ try {
   const lockRows = await pg<{ n: number }[]>`
     SELECT count(*)::integer AS n FROM coordination_locks`;
   checks.coordinationLockRowsAfterCommit = lockRows[0]!.n;
+
+  const now = new Date().toISOString();
+  const upserted = await upsertCandidates([
+    {
+      source: "remotive",
+      externalId: "verification-job",
+      title: "Verification Engineer",
+      company: "Verification Co",
+      companyId: committedId,
+      location: "Remote",
+      isRemote: true,
+      employmentType: "full-time",
+      description: "A deterministic job used to verify the embedded database.",
+      applyUrl: "https://verification.example/jobs/1",
+      sourceUrl: "https://verification.example/jobs/1",
+      postedAt: now,
+      tags: [],
+    },
+  ]);
+  checks.jobUpsert = upserted;
+  const jobRows = await db.select().from(jobs);
+  checks.embeddedJobs = jobRows.length;
+  if (jobRows.length !== 1 || jobRows[0]!.title !== "Verification Engineer") {
+    throw new Error("Job upsert did not persist in PGlite.");
+  }
+
+  const snapshot = await persistSnapshot({
+    url: "https://verification.example/jobs/1",
+    body: "<html><body>Verification evidence</body></html>",
+    rawBytes: Buffer.from("<html><body>Verification evidence</body></html>"),
+    mediaType: "text/html",
+    statusCode: 200,
+  });
+  checks.snapshotPersisted = Boolean(snapshot.snapshotId);
+  const snapshotHash = (
+    await pg<{ hash: string }[]>`
+      SELECT hash FROM snapshots WHERE id=${snapshot.snapshotId}`
+  )[0]!.hash;
+  checks.snapshotFile = existsSync(
+    join(dataDirectory, "snapshots", snapshotHash),
+  );
+
+  const sourceId = crypto.randomUUID();
+  await db.insert(configuredSources).values({
+    id: sourceId,
+    label: "Verification feed",
+    url: "https://verification.example/feed",
+    endpoint: "https://verification.example/feed",
+    provider: "remotive",
+    support: "supported",
+    reason: "Verification source",
+    createdAt: now,
+    updatedAt: now,
+    scheduleHours: 12,
+  });
+  const queued = await enqueueCollection([sourceId], "Verification");
+  const queuedWork = await db.select().from(workItems);
+  checks.monitoringQueue = queuedWork.some(
+    (item) => item.kind === "collection" && item.state === "queued",
+  );
+  checks.queuedRunId = queued.runId;
 
   const advisory = await pg<{ locked: boolean }[]>`
     SELECT pg_try_advisory_lock(hashtext('surface:verification')) AS locked`;
