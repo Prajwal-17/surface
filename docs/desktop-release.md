@@ -160,7 +160,8 @@ reviewed before relying on this workflow.
 ### Tag release
 
 Push a tag named `desktop-v<version>` after the matching version is committed
-to `apps/desktop/package.json`:
+to `apps/desktop/package.json`. For tag pushes, use a commit that already
+contains this release workflow:
 
 ```sh
 git tag desktop-v0.1.0
@@ -195,9 +196,9 @@ Only the final publish job has `contents: write`, `id-token: write`, and
 the `desktop-release` GitHub environment; its protection rules are optional, so
 repository owners can add required reviewers there without blocking ordinary
 PR builds. Release jobs are serialized per ref and are not cancelled in
-progress. If GitHub attestations
-are unavailable for this private repository, leave `DESKTOP_ATTESTATIONS`
-unset; `BUILD-INFO.json` and `SHA256SUMS` are still published on every release.
+progress. If GitHub attestations are unavailable for this private repository,
+leave `DESKTOP_ATTESTATIONS` unset; `BUILD-INFO.json` and `SHA256SUMS` are still
+published on every release.
 
 GitHub generates release notes from commits and pull requests. The workflow
 does not create or delete git tags, does not modify the repository, and does
