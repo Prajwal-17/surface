@@ -143,9 +143,9 @@ and crawler unit tests, and the fresh SQLite verification. The `package` job
 installs Electron/Chromium system dependencies and Playwright's Chromium
 dependencies, builds the production AppImage and Debian package, launches the
 staged Chromium, runs the packaged AppImage smoke test, and writes
-`BUILD-INFO.json` and `SHA256SUMS`. It uploads the Linux installers, manifest, and checksums as the
-`surface-desktop-ci-linux-x64` Actions artifact for 14 days. That artifact is a CI download only; it is never
-published as a release.
+`BUILD-INFO.json` and `SHA256SUMS`. It uploads the Linux installers, manifest,
+and checksums as the `surface-desktop-ci-linux-x64` Actions artifact for 14
+days. That artifact is a CI download only; it is never published as a release.
 
 The packaged smoke test verifies the Electron 45 runtime and the backend's
 built-in `node:sqlite` implementation in the actual AppImage. No native SQLite
@@ -192,9 +192,10 @@ release has no public installers until the final publish step succeeds.
 
 Only the final publish job has `contents: write`, `id-token: write`, and
 `attestations: write`; the build jobs are read-only. The publish job runs in
-the optional `desktop-release` GitHub environment, so repository owners can add
-required reviewers there without blocking ordinary PR builds. Release jobs are
-serialized per ref and are not cancelled in progress. If GitHub attestations
+the `desktop-release` GitHub environment; its protection rules are optional, so
+repository owners can add required reviewers there without blocking ordinary
+PR builds. Release jobs are serialized per ref and are not cancelled in
+progress. If GitHub attestations
 are unavailable for this private repository, leave `DESKTOP_ATTESTATIONS`
 unset; `BUILD-INFO.json` and `SHA256SUMS` are still published on every release.
 
@@ -219,10 +220,10 @@ code.
   PGlite/PostgreSQL migration runs in CI, packaging, or the smoke test.
 - The AppImage is large because it bundles Chromium for the crawler; Actions
   artifacts are ZIP uploads and expire after 14 days.
-- This checkout has locally validated the helper, Playwright launch, packaged
-  AppImage smoke test, YAML parsing, and actionlint. The hosted GitHub Actions
-  workflows themselves have not been executed from this branch; the parent
-  integration run will be the first remote execution.
+- This checkout has locally validated the helper commands, Playwright launch,
+  packaged AppImage smoke test, YAML parsing, and actionlint. The hosted GitHub
+  Actions workflows themselves have not been executed from this branch; the
+  parent integration run will be the first remote execution.
 
 If a release fails before publishing, fix the cause and rerun the same tag or
 manual publish. If it fails after creating a draft, the next run updates that
