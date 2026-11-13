@@ -27,7 +27,6 @@ import { Button } from "@/components/ui/button";
 import { SurfaceLogo } from "@/components/ui/surface-logo";
 import { useProfile } from "@/features/profile/profile-query";
 import { useAuth } from "@/features/auth/auth-context";
-import { DesktopWindowControls } from "./desktop-window-controls";
 
 const destinations = [
   { href: "/", label: "Jobs", icon: BriefcaseBusiness },
@@ -255,7 +254,6 @@ export function AppHeader() {
           id="page-header-actions"
           className="ml-auto flex min-w-0 items-center gap-1"
         />
-        <DesktopWindowControls />
       </header>
     </>
   );

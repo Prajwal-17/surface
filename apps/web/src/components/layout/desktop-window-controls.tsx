@@ -51,44 +51,47 @@ export function DesktopWindowControls() {
 
   const MaximizeIcon = state.maximized ? Copy : Square;
   return (
-    <div
-      className="desktop-window-controls"
-      role="group"
-      aria-label="Window controls"
-      data-focused={state.focused}
-      data-maximized={state.maximized}
-    >
-      <button
-        type="button"
-        className="desktop-caption-button"
-        aria-label="Minimize window"
-        aria-keyshortcuts="Alt+F9"
-        title="Minimize (Alt+F9)"
-        onClick={() => void bridge.minimizeWindow()}
+    <>
+      <div className="desktop-drag-region" aria-hidden="true" />
+      <div
+        className="desktop-window-controls"
+        role="group"
+        aria-label="Window controls"
+        data-focused={state.focused}
+        data-maximized={state.maximized}
       >
-        <Minus size={12} strokeWidth={1.7} />
-      </button>
-      <button
-        type="button"
-        className="desktop-caption-button"
-        aria-label={state.maximized ? "Restore window" : "Maximize window"}
-        aria-keyshortcuts="Alt+F10"
-        aria-pressed={state.maximized}
-        title={state.maximized ? "Restore (Alt+F10)" : "Maximize (Alt+F10)"}
-        onClick={() => void bridge.toggleMaximize()}
-      >
-        <MaximizeIcon size={state.maximized ? 12 : 11} strokeWidth={1.7} />
-      </button>
-      <button
-        type="button"
-        className="desktop-caption-button desktop-caption-close"
-        aria-label="Close window"
-        aria-keyshortcuts="Alt+F4"
-        title="Close (Alt+F4)"
-        onClick={() => void bridge.closeWindow()}
-      >
-        <X size={12} strokeWidth={1.7} />
-      </button>
-    </div>
+        <button
+          type="button"
+          className="desktop-caption-button"
+          aria-label="Minimize window"
+          aria-keyshortcuts="Alt+F9"
+          title="Minimize (Alt+F9)"
+          onClick={() => void bridge.minimizeWindow()}
+        >
+          <Minus size={12} strokeWidth={1.7} />
+        </button>
+        <button
+          type="button"
+          className="desktop-caption-button"
+          aria-label={state.maximized ? "Restore window" : "Maximize window"}
+          aria-keyshortcuts="Alt+F10"
+          aria-pressed={state.maximized}
+          title={state.maximized ? "Restore (Alt+F10)" : "Maximize (Alt+F10)"}
+          onClick={() => void bridge.toggleMaximize()}
+        >
+          <MaximizeIcon size={state.maximized ? 12 : 11} strokeWidth={1.7} />
+        </button>
+        <button
+          type="button"
+          className="desktop-caption-button desktop-caption-close"
+          aria-label="Close window"
+          aria-keyshortcuts="Alt+F4"
+          title="Close (Alt+F4)"
+          onClick={() => void bridge.closeWindow()}
+        >
+          <X size={12} strokeWidth={1.7} />
+        </button>
+      </div>
+    </>
   );
 }

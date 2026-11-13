@@ -2221,12 +2221,18 @@ body:has([role="dialog"][data-state="open"]) .environment-tag {
   }
 }
 
-/* Frameless Linux title bar: the existing 44px workspace header is the drag
-   region, with explicit no-drag islands for every interactive control. */
+/* Frameless Ubuntu title bar: the workspace header and onboarding header are
+   native drag regions. Window controls float at the top right on every route,
+   including sign-in / session checks where no app header exists. */
 html[data-desktop="true"] .workspace-header,
+html[data-desktop="true"] .onboarding-top,
 html[data-desktop="true"] [data-sidebar="header"] {
   -webkit-app-region: drag;
   user-select: none;
+}
+html[data-desktop="true"] .workspace-header,
+html[data-desktop="true"] .onboarding-top {
+  padding-right: 118px;
 }
 html[data-desktop="true"] .workspace-header {
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
@@ -2235,17 +2241,38 @@ html[data-desktop="true"]
   .workspace-header
   :is(a, button, input, select, textarea, [role="button"], [role="combobox"]),
 html[data-desktop="true"]
+  .onboarding-top
+  :is(a, button, input, select, textarea, [role="button"], [role="combobox"]),
+html[data-desktop="true"]
   [data-sidebar="header"]
   :is(a, button, input, select, textarea, [role="button"], [role="combobox"]) {
   -webkit-app-region: no-drag;
 }
+.desktop-drag-region {
+  display: none;
+  position: fixed;
+  inset: 0 0 auto;
+  height: var(--header-height);
+  z-index: 60;
+  -webkit-app-region: drag;
+}
+/* Sign-in, session checking and other full-canvas routes still need a window
+   drag handle and caption buttons. */
+html[data-desktop="true"]
+  body:not(:has(.workspace-header)):not(:has(.onboarding-top))
+  .desktop-drag-region {
+  display: block;
+}
 .desktop-window-controls {
   -webkit-app-region: no-drag;
+  position: fixed;
+  top: 8px;
+  right: 10px;
+  z-index: 100;
   display: flex;
-  height: 100%;
+  height: 28px;
   align-items: center;
   gap: 2px;
-  margin-left: 2px;
   padding-left: 8px;
   border-left: 1px solid var(--border);
   transition: opacity var(--duration-feedback) ease-out;
@@ -2286,4 +2313,8 @@ html[data-desktop="true"]
   .desktop-window-controls {
     transition: none;
   }
+}
+html[data-desktop="true"] .environment-tag {
+  top: 48px;
+  right: 10px;
 }
