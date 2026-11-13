@@ -58,6 +58,10 @@ Results:
 - All 6 workspace lint tasks passed with 0 warnings and 0 errors.
 - All 6 workspace type checks passed.
 - The Turbo build completed, including the desktop asset build.
+- `bun --cwd apps/web test`: 36 pass, 0 fail.
+- `bun --cwd apps/crawler test`: 7 pass, 0 fail.
+- The PostgreSQL backend test suite was not run in this environment because no
+  PostgreSQL test server was configured; desktop CI uses SQLite only.
 - `bun install` removed `@electric-sql/pglite` from the lockfile and dependency
   tree.
 
