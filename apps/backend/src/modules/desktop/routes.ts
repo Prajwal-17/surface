@@ -82,7 +82,8 @@ function statusPayload() {
   const settings = getRuntimeSettings();
   return {
     desktop: Boolean(env.SURFACE_DESKTOP_TOKEN),
-    embeddedDatabase: env.EMBEDDED_DATABASE,
+    database: env.DATABASE_DIALECT,
+    databaseFile: env.SQLITE_DATABASE_FILE ?? null,
     dataDir: env.DATA_DIR,
     searxngUrl: settings.searxngBaseUrl,
     omnirouteUrl: settings.omnirouteBaseUrl,

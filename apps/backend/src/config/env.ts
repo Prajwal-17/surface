@@ -41,11 +41,13 @@ const envSchema = z.object({
   PRODUCTION_DATABASE_URL: z.string().url().optional(),
   DEVELOPMENT_DATABASE_URL: z.string().url().optional(),
   TEST_DATABASE_URL: z.string().url().optional(),
-  /** When set, Surface uses an embedded PGlite database at this path. */
-  PGLITE_DATA_DIR: z.string().optional(),
+  /** When set, Surface stores data in a real SQLite database at this file. */
+  SQLITE_DATABASE_FILE: z.string().min(1).optional(),
   DATA_DIR: z.string().optional(),
   WEB_DIST_DIR: z.string().optional(),
   MIGRATIONS_DIR: z.string().optional(),
+  /** Folder containing the generated SQLite migrations. */
+  SQLITE_MIGRATIONS_DIR: z.string().optional(),
   /** Set by the Electron launcher; protects local APIs for the desktop session. */
   SURFACE_DESKTOP_TOKEN: z.string().min(32).optional(),
   SOURCE_TIMEOUT_MS: z.coerce.number().int().min(1_000).default(12_000),
@@ -60,7 +62,8 @@ const envSchema = z.object({
 
 const parsedEnvironment = envSchema.parse(process.env);
 const appEnvironment = parsedEnvironment.APP_ENV;
-const embeddedDatabase = Boolean(parsedEnvironment.PGLITE_DATA_DIR);
+const sqliteDatabaseFile = parsedEnvironment.SQLITE_DATABASE_FILE?.trim();
+const databaseDialect = sqliteDatabaseFile ? "sqlite" : "postgres";
 const databaseUrl =
   parsedEnvironment.DATABASE_URL ??
   (appEnvironment === "production"
@@ -68,12 +71,17 @@ const databaseUrl =
     : appEnvironment === "test"
       ? parsedEnvironment.TEST_DATABASE_URL
       : parsedEnvironment.DEVELOPMENT_DATABASE_URL);
-if (!embeddedDatabase && !databaseUrl) {
+if (databaseDialect === "postgres" && !databaseUrl) {
   throw new Error(
-    `Configure ${appEnvironment === "production" ? "PRODUCTION_DATABASE_URL" : appEnvironment === "test" ? "TEST_DATABASE_URL" : "DEVELOPMENT_DATABASE_URL"}, DATABASE_URL, or PGLITE_DATA_DIR for Surface storage.`,
+    `Configure ${appEnvironment === "production" ? "PRODUCTION_DATABASE_URL" : appEnvironment === "test" ? "TEST_DATABASE_URL" : "DEVELOPMENT_DATABASE_URL"}, DATABASE_URL, or SQLITE_DATABASE_FILE for Surface storage.`,
   );
 }
-if (databaseUrl) {
+if (databaseDialect === "sqlite" && process.env.PGLITE_DATA_DIR) {
+  console.warn(
+    "PGLITE_DATA_DIR is set but ignored; Surface now uses SQLITE_DATABASE_FILE. No existing PGlite data is read or migrated.",
+  );
+}
+if (databaseDialect === "postgres" && databaseUrl) {
   const database = new URL(databaseUrl);
   if (!["postgres:", "postgresql:"].includes(database.protocol)) {
     throw new Error("DATABASE_URL must be a PostgreSQL connection URL.");
@@ -90,7 +98,8 @@ if (databaseUrl) {
 export const env = {
   ...parsedEnvironment,
   DATABASE_URL: databaseUrl,
-  EMBEDDED_DATABASE: embeddedDatabase,
+  DATABASE_DIALECT: databaseDialect,
+  SQLITE_DATABASE_FILE: sqliteDatabaseFile,
   DATA_DIR:
     parsedEnvironment.DATA_DIR ??
     resolve(

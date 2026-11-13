@@ -1,9 +1,47 @@
-export * from "../../modules/discovery/discovery.tables";
-export * from "../../modules/jobs/jobs.tables";
-export * from "../../modules/profile/profile.tables";
-export * from "../../modules/workspace/workspace.tables";
-export * from "../../modules/collection/collection.tables";
-export * from "../../modules/work/work.tables";
-export * from "../../modules/analysis/analysis.tables";
-export * from "../../modules/research/research.tables";
-export * from "../../modules/company-discovery/tables";
+export {
+  discoveryRuns,
+  discoverySourceRuns,
+} from "../../modules/discovery/discovery.tables";
+export { jobs, jobSources } from "../../modules/jobs/jobs.tables";
+export {
+  jobPreferences,
+  profileRevisions,
+} from "../../modules/profile/profile.tables";
+export {
+  companies,
+  configuredSources,
+} from "../../modules/workspace/workspace.tables";
+export {
+  duplicateDecisions,
+  jobVersions,
+  observations,
+  resources,
+  snapshots,
+} from "../../modules/collection/collection.tables";
+export {
+  coordinationLocks,
+  executorLease,
+  runItems,
+  runs,
+  savedSearches,
+  workItems,
+} from "../../modules/work/work.tables";
+export {
+  analysisSettings,
+  assessments,
+} from "../../modules/analysis/analysis.tables";
+export {
+  companyLinkReviews,
+  researchEvents,
+  researchMessages,
+  researchReports,
+  researchRuns,
+  researchSources,
+} from "../../modules/research/research.tables";
+export {
+  companyActions,
+  companyContacts,
+  companyDiscoverySearches,
+  companySearchMatches,
+  companySignals,
+} from "../../modules/company-discovery/tables";

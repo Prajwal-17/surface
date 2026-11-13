@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { companySignals, companyContacts } from "../company-discovery/tables";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "../../infrastructure/database/client";
+import { db, transaction } from "../../infrastructure/database/client";
 import { env } from "../../config/env";
 import { companies } from "../workspace/workspace.tables";
 import {
@@ -293,7 +293,7 @@ export async function startResearch(
     completedAt: null,
   };
   const controller = new AbortController();
-  await db.transaction(async (tx) => {
+  await transaction(async (tx) => {
     await tx.insert(researchRuns).values(run);
     if (question)
       await tx.insert(researchMessages).values({
@@ -620,7 +620,7 @@ async function executeResearch(
         }
       }
       signal.throwIfAborted();
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         if (question)
           await tx
             .update(researchMessages)

@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { db } from "../../infrastructure/database/client";
+import { db, transaction } from "../../infrastructure/database/client";
 import { lockCoordination } from "../../infrastructure/database/locks";
 import { env } from "../../config/env";
 import { jobs } from "../jobs/jobs.tables";
@@ -109,7 +109,7 @@ export async function assessJobNow(id: string) {
       );
     await syncRuns();
     const result = await requestAssessment(profile, job);
-    await db.transaction(async (tx) => {
+    await transaction(async (tx) => {
       const latestJob = (
         await tx.select().from(jobs).where(eq(jobs.id, id)).limit(1)
       )[0];
@@ -160,7 +160,7 @@ export async function enqueueAnalysis(onlyIds: string[]) {
   const profile = await findProfile();
   if (!profile)
     throw new HttpError(409, "Save your profile before assessing a job.");
-  return await db.transaction(async (tx) => {
+  return await transaction(async (tx) => {
     await lockCoordination(tx, "surface:enqueue-work");
     const now = new Date().toISOString();
     const candidates = await tx
@@ -255,7 +255,7 @@ export async function executeAnalysis(
       .where(eq(workItems.id, item.id));
     return;
   }
-  const reservation = await db.transaction(async (tx) => {
+  const reservation = await transaction(async (tx) => {
     const claimed = (
       await tx
         .update(workItems)
@@ -289,7 +289,7 @@ export async function executeAnalysis(
       result.output,
       assessmentContext(profile, job),
     );
-    await db.transaction(async (tx) => {
+    await transaction(async (tx) => {
       const latestJob = (
           await tx.select().from(jobs).where(eq(jobs.id, job.id)).limit(1)
         )[0],

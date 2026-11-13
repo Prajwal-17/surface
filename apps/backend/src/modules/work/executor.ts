@@ -7,7 +7,8 @@ import { getSettings } from "../analysis/settings";
 import { and, eq, lte, sql } from "drizzle-orm";
 import {
   db,
-  pg,
+  rawQuery,
+  transaction,
   type Database,
   type Transaction,
 } from "../../infrastructure/database/client";
@@ -169,7 +170,7 @@ export async function executeCollection(
     .where(eq(configuredSources.id, source.id));
   try {
     const result = await collector(configuredSourceSchema.parse(source));
-    const outcomes = await db.transaction(async (tx) => {
+    const outcomes = await transaction(async (tx) => {
       const counts = await upsertCandidates(result.candidates, tx);
       await recordInventory(source.id, result, tx);
       return counts;
@@ -242,7 +243,7 @@ export async function startExecutor() {
   let acquired = false;
   const heartbeat = async () => {
     const now = Date.now();
-    await pg`
+    await rawQuery`
       INSERT INTO executor_lease(id,owner,expires_at) VALUES('backend',${owner},${now + 30000})
       ON CONFLICT(id) DO UPDATE SET owner=excluded.owner,expires_at=excluded.expires_at
       WHERE executor_lease.owner=excluded.owner OR executor_lease.expires_at < ${now}`;

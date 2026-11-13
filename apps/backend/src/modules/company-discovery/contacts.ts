@@ -5,7 +5,7 @@ import {
   type CompanyContact,
   type ContactMethod,
 } from "@surface/contracts";
-import { db } from "../../infrastructure/database/client";
+import { transaction } from "../../infrastructure/database/client";
 import { lockCoordination } from "../../infrastructure/database/locks";
 import { companyContacts } from "./tables";
 import { normalizedName } from "./identity";
@@ -124,7 +124,7 @@ export async function saveContact(
     data.kind === "person"
       ? `person:${normalizedName(data.name)}`
       : `inbox:${data.methods.find((m) => m.kind === "email")?.value.toLowerCase() ?? normalizedName(data.role)}`;
-  return db.transaction(async (tx) => {
+  return transaction(async (tx) => {
     await lockCoordination(tx, `contacts:${companyId}`);
     const [existing] = await tx
       .select()

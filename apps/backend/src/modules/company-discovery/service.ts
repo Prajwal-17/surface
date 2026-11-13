@@ -5,8 +5,11 @@ import {
   type WorkItem,
   companySearchInputSchema,
 } from "@surface/contracts";
-import { db } from "../../infrastructure/database/client";
-import { lockCoordination } from "../../infrastructure/database/locks";
+import { db, transaction } from "../../infrastructure/database/client";
+import {
+  lockCoordination,
+  withRowLock,
+} from "../../infrastructure/database/locks";
 import { companies } from "../workspace/workspace.tables";
 import { runs, workItems, runItems } from "../work/work.tables";
 import { companyDiscoverySearches } from "./tables";
@@ -29,7 +32,7 @@ export async function enqueueCompanyWork(
   payload: Record<string, unknown>,
   label: string,
 ) {
-  return db.transaction(async (tx) => {
+  return transaction(async (tx) => {
     await lockCoordination(tx, "surface:company-enqueue");
     const now = new Date().toISOString();
     let [work] = await tx
@@ -64,12 +67,13 @@ export async function enqueueCompanyWork(
 }
 export async function enqueueCompanySearch(id: string, scheduled = false) {
   // Serialize against editing, pausing and concurrent scheduler ticks. The work owns its immutable rule revision.
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .select()
-      .from(companyDiscoverySearches)
-      .where(eq(companyDiscoverySearches.id, id))
-      .for("update");
+  return transaction(async (tx) => {
+    const [row] = await withRowLock(
+      tx
+        .select()
+        .from(companyDiscoverySearches)
+        .where(eq(companyDiscoverySearches.id, id)),
+    );
     if (!row) throw new HttpError(404, "Company search not found.");
     if (row.paused)
       throw new HttpError(409, "Resume this company search before running it.");
@@ -499,7 +503,7 @@ export async function executeCompanyWork(
 export async function retryCompanyRun(items: WorkItem[], label: string) {
   const runId = crypto.randomUUID(),
     now = new Date().toISOString();
-  await db.transaction(async (tx) => {
+  await transaction(async (tx) => {
     await lockCoordination(tx, "surface:company-enqueue");
     await tx.insert(runs).values({
       id: runId,

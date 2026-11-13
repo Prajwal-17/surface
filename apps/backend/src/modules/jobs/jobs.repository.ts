@@ -34,10 +34,15 @@ import {
 } from "drizzle-orm";
 import {
   db,
+  runTransaction,
   type Database,
   type Transaction,
 } from "../../infrastructure/database/client";
 import { lockCoordination } from "../../infrastructure/database/locks";
+import {
+  containsText,
+  countAsInteger,
+} from "../../infrastructure/database/sql-helpers";
 import {
   canonicalizeUrl,
   createJobFingerprint,
@@ -78,7 +83,7 @@ export async function upsertCandidates(
 ): Promise<UpsertResult> {
   let insertedCount = 0,
     updatedCount = 0;
-  await connection.transaction(async (tx) => {
+  await runTransaction(connection, async (tx) => {
     await lockCoordination(tx, "surface:job-upsert");
     for (const candidate of candidates) {
       const now = new Date().toISOString(),
@@ -528,9 +533,9 @@ export async function listJobs(
 
   if (input.search) {
     const textCondition = or(
-      sql`strpos(lower(${jobs.title}), lower(${input.search})) > 0`,
-      sql`strpos(lower(${jobs.company}), lower(${input.search})) > 0`,
-      sql`strpos(lower(${jobs.location}), lower(${input.search})) > 0`,
+      containsText(jobs.title, input.search),
+      containsText(jobs.company, input.search),
+      containsText(jobs.location, input.search),
     );
     if (textCondition) conditions.push(textCondition);
   }
@@ -571,10 +576,10 @@ export async function listJobs(
     .select({
       ...getTableColumns(jobs),
       description: sql<string>`''`.as("description"),
-      descriptionHtml: sql<string | null>`NULL::text`.as("description_html"),
+      descriptionHtml: sql<string | null>`NULL`.as("description_html"),
       descriptionSummary: sql<
         (typeof jobs.$inferSelect)["descriptionSummary"]
-      >`NULL::jsonb`.as("description_summary"),
+      >`NULL`.as("description_summary"),
     })
     .from(jobs)
     .where(where)
@@ -643,7 +648,7 @@ export async function listJobs(
     total,
     collectedTotal: (
       await db
-        .select({ total: sql<number>`count(*)::integer` })
+        .select({ total: countAsInteger() })
         .from(jobs)
         .where(isNull(jobs.mergedInto))
         .limit(1)
