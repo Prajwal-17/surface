@@ -9,8 +9,8 @@ not describe the web/PostgreSQL deployment.
 
 - **Supported host and target:** Ubuntu 24.04 x86_64 only. There are no
   macOS, Windows, or Linux ARM jobs, artifacts, or release assets.
-- **Packaging tools:** Node `24.20.0`, Bun `1.4.1`, and the versions pinned in
-  `apps/desktop/package.json` and the lockfiles.
+- **Packaging tools:** Node `24.20.0`, Bun `1.4.1`, and the resolved Electron,
+  electron-builder, Playwright, and Vite versions from the frozen lockfile.
 - **Version source:** `apps/desktop/package.json`. The release version must be a
   stable `major.minor.patch` value. A release tag is `desktop-v<version>`, for
   example `desktop-v0.1.0`.
@@ -57,8 +57,9 @@ node scripts/desktop-release.mjs package
 
 That helper cleans `apps/desktop/release`, runs
 `bun --cwd apps/desktop package`, rejects stale or unexpected installer files,
-and writes `apps/desktop/release/SHA256SUMS`. It does not publish, upload, tag,
-or create a GitHub release. The AppImage is required; a `.deb` is included
+writes `apps/desktop/release/BUILD-INFO.json`, and then writes
+`apps/desktop/release/SHA256SUMS`. It does not publish, upload, tag, or create
+a GitHub release. The AppImage is required; a `.deb` is included
 automatically when the current electron-builder configuration emits one.
 
 You can inspect and verify the helper independently:
@@ -82,8 +83,8 @@ node scripts/desktop-release.mjs smoke
   `surface.sqlite3`. The temporary profile is removed on success.
   `--no-sandbox` is used only for this headless test process; do not use it as
   a normal way to run Surface.
-- `package` and `checksums` accept `--tag desktop-v<version>`. The command fails
-  if the tag does not exactly match the version in
+- `package`, `manifest`, and `checksums` accept `--tag desktop-v<version>`. The
+  command fails if the tag does not exactly match the version in
   `apps/desktop/package.json`.
 
 `bun --cwd apps/desktop package` remains the canonical packaging command, but
