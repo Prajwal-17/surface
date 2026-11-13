@@ -3,12 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Surface desktop shell",
-  "author": "Surface",
+  "description": "Surface local-first job-review desktop app",
+  "author": {
+    "name": "Surface",
+    "email": "desktop@surface.local"
+  },
   "main": "dist/main.cjs",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "package": "node scripts/build.mjs && electron-builder --linux AppImage",
+    "package": "node scripts/build.mjs && electron-builder --linux AppImage deb",
+    "package:appimage": "node scripts/build.mjs && electron-builder --linux AppImage",
+    "package:deb": "node scripts/build.mjs && electron-builder --linux deb",
+    "package:ubuntu": "node scripts/build.mjs && electron-builder --linux AppImage deb",
     "package:dir": "node scripts/build.mjs && electron-builder --linux dir",
     "check-types": "tsc --noEmit",
     "lint": "oxlint --config ../../.oxlintrc.json ."
@@ -48,6 +54,10 @@
       {
         "from": "build/playwright",
         "to": "playwright"
+      },
+      {
+        "from": "resources/icon.png",
+        "to": "icon.png"
       }
     ],
     "asar": true,
@@ -55,10 +65,29 @@
     "afterPack": "scripts/after-pack.cjs",
     "linux": {
       "target": [
-        "AppImage"
+        "AppImage",
+        "deb"
       ],
       "category": "Utility",
-      "executableName": "surface"
+      "executableName": "surface",
+      "icon": "resources/icon.png",
+      "synopsis": "Local-first job-review workspace",
+      "description": "Surface finds, explains and tracks jobs that fit your profile. The desktop app keeps its SQLite database, snapshots and evidence on your machine.",
+      "desktop": {
+        "entry": {
+          "StartupWMClass": "surface"
+        }
+      },
+      "maintainer": "Surface <desktop@surface.local>",
+      "syncDesktopName": true
+    },
+    "deb": {
+      "packageName": "surface",
+      "compression": "xz"
+    },
+    "extraMetadata": {
+      "desktopName": "surface.desktop"
     }
-  }
+  },
+  "homepage": "https://github.com/Prajwal-17/surface"
 }

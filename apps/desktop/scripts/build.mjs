@@ -111,6 +111,9 @@ await step("verify build layout", async () => {
     "crawler/node_modules/playwright/package.json",
   ];
   const missing = required.filter((file) => !existsSync(join(buildDir, file)));
+  if (!existsSync(join(desktopDir, "resources/icon.png"))) {
+    missing.push("resources/icon.png");
+  }
   if (missing.length) {
     throw new Error(`Build is incomplete: ${missing.join(", ")}`);
   }

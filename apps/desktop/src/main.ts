@@ -1,4 +1,13 @@
-import { app, BrowserWindow, dialog, ipcMain, session, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  session,
+  shell,
+  type IpcMainInvokeEvent,
+} from "electron";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -53,6 +62,7 @@ let shutdownComplete = false;
 let running = false;
 
 async function bootstrap(): Promise<void> {
+  Menu.setApplicationMenu(null);
   paths = desktopPaths();
   mkdirSync(paths.data, { recursive: true, mode: 0o700 });
   mkdirSync(paths.logs, { recursive: true, mode: 0o700 });
@@ -167,6 +177,11 @@ function createWindow(): void {
     backgroundColor: "#0b0d10",
     show: false,
     title: "Surface",
+    icon: app.isPackaged
+      ? join(process.resourcesPath, "icon.png")
+      : join(app.getAppPath(), "resources", "icon.png"),
+    frame: false,
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -177,6 +192,30 @@ function createWindow(): void {
       devTools: !app.isPackaged,
       spellcheck: false,
     },
+  });
+  mainWindow.on("maximize", () => publishWindowState());
+  mainWindow.on("unmaximize", () => publishWindowState());
+  mainWindow.on("enter-full-screen", () => publishWindowState());
+  mainWindow.on("leave-full-screen", () => publishWindowState());
+  mainWindow.on("focus", () => publishWindowState());
+  mainWindow.on("blur", () => publishWindowState());
+  mainWindow.webContents.on("did-finish-load", () => publishWindowState());
+  mainWindow.webContents.on("before-input-event", (event, input) => {
+    if (input.type !== "keyDown" || !mainWindow) return;
+    if (input.key === "F11") {
+      event.preventDefault();
+      mainWindow.setFullScreen(!mainWindow.isFullScreen());
+      publishWindowState();
+      return;
+    }
+    if (!input.alt) return;
+    if (input.key === "F9") {
+      event.preventDefault();
+      mainWindow.minimize();
+    } else if (input.key === "F10") {
+      event.preventDefault();
+      toggleMaximize();
+    }
   });
   const allowedOrigin = new URL(backendUrl).origin;
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -229,6 +268,16 @@ function createWindow(): void {
         try {
           const result = (await mainWindow?.webContents.executeJavaScript(
             `(async () => {
+              const waitFor = async (selector, timeout = 10000) => {
+                const started = Date.now();
+                while (Date.now() - started < timeout) {
+                  const element = document.querySelector(selector);
+                  if (element) return element;
+                  await new Promise((resolve) => setTimeout(resolve, 100));
+                }
+                throw new Error("Timed out waiting for " + selector);
+              };
+              const header = await waitFor(".workspace-header");
               const [health, auth, status, jobs, research, schema] =
                 await Promise.all([
                   fetch("/api/health").then((response) => response.json()),
@@ -250,6 +299,14 @@ function createWindow(): void {
                 omnirouteApiKey: "smoke-test-key",
               });
               const after = await window.surfaceDesktop.getSettings();
+              await waitFor(".desktop-window-controls");
+              const windowBefore = await window.surfaceDesktop.getWindowState();
+              const maximized = await window.surfaceDesktop.toggleMaximize();
+              await new Promise((resolve) => setTimeout(resolve, 250));
+              const windowAfter = await window.surfaceDesktop.getWindowState();
+              await window.surfaceDesktop.toggleMaximize();
+              await new Promise((resolve) => setTimeout(resolve, 250));
+              const windowRestored = await window.surfaceDesktop.getWindowState();
               return {
                 health,
                 auth,
@@ -259,6 +316,21 @@ function createWindow(): void {
                 tables: Array.isArray(schema.tables) ? schema.tables.length : null,
                 saved,
                 after,
+                chrome: {
+                  controls: document.querySelectorAll(
+                    ".desktop-window-controls button",
+                  ).length,
+                  environmentTag: Boolean(
+                    document.querySelector(".environment-tag"),
+                  ),
+                  drag: getComputedStyle(header).getPropertyValue(
+                    "-webkit-app-region",
+                  ),
+                  windowBefore,
+                  maximized,
+                  windowAfter,
+                  windowRestored,
+                },
               };
             })()`,
           )) as unknown;
@@ -293,20 +365,20 @@ async function setDesktopCookie(): Promise<void> {
 
 function registerIpc(settings: SettingsStore): void {
   ipcMain.handle("desktop:settings:get", (event) => {
-    assertTrustedSender(event.senderFrame?.url);
+    assertTrustedSender(event);
     return settings.snapshot();
   });
   ipcMain.handle(
     "desktop:settings:save",
     async (event, input: DesktopSettingsInput) => {
-      assertTrustedSender(event.senderFrame?.url);
+      assertTrustedSender(event);
       const snapshot = await settings.save(input);
       const applied = await applyRuntimeSettings(settings.runtime());
       return { settings: snapshot, applied };
     },
   );
   ipcMain.handle("desktop:app:info", (event) => {
-    assertTrustedSender(event.senderFrame?.url);
+    assertTrustedSender(event);
     return {
       version: app.getVersion(),
       packaged: app.isPackaged,
@@ -316,13 +388,62 @@ function registerIpc(settings: SettingsStore): void {
     };
   });
   ipcMain.handle("desktop:open-data", async (event) => {
-    assertTrustedSender(event.senderFrame?.url);
+    assertTrustedSender(event);
     if (paths) await shell.openPath(paths.data);
+  });
+  ipcMain.handle("desktop:window:get-state", (event) => {
+    assertTrustedSender(event);
+    return windowState();
+  });
+  ipcMain.handle("desktop:window:minimize", (event) => {
+    assertTrustedSender(event);
+    mainWindow?.minimize();
+  });
+  ipcMain.handle("desktop:window:toggle-maximize", (event) => {
+    assertTrustedSender(event);
+    toggleMaximize();
+    return windowState();
+  });
+  ipcMain.handle("desktop:window:close", (event) => {
+    assertTrustedSender(event);
+    mainWindow?.close();
   });
 }
 
-function assertTrustedSender(frameUrl: string | undefined): void {
+function windowState(): {
+  maximized: boolean;
+  fullscreen: boolean;
+  focused: boolean;
+} {
+  return {
+    maximized: mainWindow?.isMaximized() ?? false,
+    fullscreen: mainWindow?.isFullScreen() ?? false,
+    focused: mainWindow?.isFocused() ?? false,
+  };
+}
+
+function publishWindowState(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send("desktop:window-state", windowState());
+}
+
+function toggleMaximize(): void {
+  if (!mainWindow) return;
+  if (mainWindow.isFullScreen()) mainWindow.setFullScreen(false);
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+  publishWindowState();
+}
+
+function assertTrustedSender(event: IpcMainInvokeEvent): void {
+  const frameUrl = event.senderFrame?.url;
   if (!frameUrl) throw new Error("Untrusted desktop IPC sender.");
+  if (
+    event.sender !== mainWindow?.webContents ||
+    event.senderFrame !== event.sender.mainFrame
+  ) {
+    throw new Error("Untrusted desktop IPC sender.");
+  }
   const origin = new URL(frameUrl).origin;
   if (origin !== new URL(backendUrl).origin) {
     throw new Error("Untrusted desktop IPC sender.");

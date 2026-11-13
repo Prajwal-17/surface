@@ -37,9 +37,17 @@ sqlite-verify:
 desktop-build:
     node apps/desktop/scripts/build.mjs
 
-# Build the Linux AppImage.
+# Build the Ubuntu AppImage and Debian package.
 desktop-package:
-    cd apps/desktop && ./node_modules/.bin/electron-builder --linux AppImage
+    cd apps/desktop && bun run package
+
+# Build only the Ubuntu AppImage.
+desktop-appimage:
+    cd apps/desktop && bun run package:appimage
+
+# Build only the Ubuntu Debian package.
+desktop-deb:
+    cd apps/desktop && bun run package:deb
 
 # Start optional SearXNG only (no PostgreSQL or Surface containers).
 searxng-up:

@@ -17,6 +17,12 @@ interface DesktopSettingsInput {
   clearOmniRouteKey?: boolean;
 }
 
+interface SurfaceWindowState {
+  maximized: boolean;
+  fullscreen: boolean;
+  focused: boolean;
+}
+
 interface SurfaceDesktopApi {
   getSettings(): Promise<DesktopSettingsSnapshot>;
   saveSettings(input: DesktopSettingsInput): Promise<{
@@ -31,6 +37,11 @@ interface SurfaceDesktopApi {
     database: string;
   }>;
   openDataDir(): Promise<void>;
+  getWindowState(): Promise<SurfaceWindowState>;
+  minimizeWindow(): Promise<void>;
+  toggleMaximize(): Promise<SurfaceWindowState>;
+  closeWindow(): Promise<void>;
+  onWindowState(listener: (state: SurfaceWindowState) => void): () => void;
 }
 
 declare global {

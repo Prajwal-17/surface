@@ -16,6 +16,10 @@ if (!rootElement) {
   throw new Error("The app root element was not found.");
 }
 
+if (window.surfaceDesktop?.getWindowState) {
+  document.documentElement.dataset.desktop = "true";
+}
+
 const queryClient = createAppQueryClient();
 
 createRoot(rootElement).render(
