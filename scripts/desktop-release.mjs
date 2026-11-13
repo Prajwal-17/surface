@@ -121,7 +121,9 @@ function readDesktopPackage() {
   try {
     return JSON.parse(readFileSync(path, "utf8"));
   } catch (error) {
-    throw new Error(`Could not read ${path}: ${error.message}`);
+    throw new Error(`Could not read ${path}: ${error.message}`, {
+      cause: error,
+    });
   }
 }
 
@@ -272,7 +274,7 @@ function findArtifacts() {
   const entries = readdirSync(releaseDirectory, { withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => entry.name)
-    .sort();
+    .toSorted();
   const artifacts = entries.filter((name) => artifactPattern.test(name));
   const unexpected = entries.filter(
     (name) => installerPattern.test(name) && !artifactPattern.test(name),
