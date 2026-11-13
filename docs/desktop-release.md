@@ -44,8 +44,10 @@ bun --cwd apps/crawler test
 bun run verify:sqlite
 ```
 
-`verify:sqlite` uses a new temporary directory. Do not substitute the backend
-PostgreSQL test, and do not point the desktop commands at a real profile.
+`verify:sqlite` uses a new temporary directory. The backend's PostgreSQL test
+is intentionally not part of desktop CI because it creates a PostgreSQL test
+database; desktop validation uses SQLite only. Do not point the desktop
+commands at a real profile.
 
 Build and package the production application:
 
