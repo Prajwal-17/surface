@@ -87,9 +87,13 @@ node scripts/desktop-release.mjs smoke
   command fails if the tag does not exactly match the version in
   `apps/desktop/package.json`.
 
-`bun --cwd apps/desktop package` remains the canonical packaging command, but
-the helper is the recommended release path because it also verifies the
-version and generates checksums.
+`bun --cwd apps/desktop package` remains the canonical packaging command and
+builds both Ubuntu targets in one run. `package:appimage`, `package:deb`, and
+`package:ubuntu` are narrower aliases; `package:dir` is unpacked-only. The
+`just desktop-package` recipe runs the full package command. CI and release
+automation always use the full command so the AppImage and `.deb` are produced
+together. The helper is the recommended release path because it also verifies
+the version and generates checksums.
 
 ## Artifacts
 
