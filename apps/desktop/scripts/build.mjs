@@ -42,16 +42,10 @@ await step("backend", async () => {
   await bundle(
     join(backendDir, "src/index.ts"),
     join(outdir, "index.mjs"),
-    ["@electric-sql/pglite"],
+    [],
     "esm",
   );
-  await bundle(
-    join(backendDir, "scripts/desktop-data.ts"),
-    join(outdir, "data-cli.mjs"),
-    ["@electric-sql/pglite"],
-    "esm",
-  );
-  cpSync(join(backendDir, "drizzle"), join(outdir, "drizzle"), {
+  cpSync(join(backendDir, "drizzle-sqlite"), join(outdir, "drizzle-sqlite"), {
     recursive: true,
   });
   mkdirSync(join(outdir, "data"), { recursive: true });
@@ -59,10 +53,6 @@ await step("backend", async () => {
     join(backendDir, "src/modules/profile/data/locations.json.gz"),
     join(outdir, "data/locations.json.gz"),
   );
-  const pglite = join(backendDir, "node_modules/@electric-sql/pglite");
-  const pgliteTarget = join(outdir, "node_modules/@electric-sql/pglite");
-  mkdirSync(dirname(pgliteTarget), { recursive: true });
-  cpSync(pglite, pgliteTarget, { recursive: true, dereference: true });
 });
 
 await step("crawler", async () => {
@@ -114,9 +104,8 @@ await step("verify build layout", async () => {
   const required = [
     "web/index.html",
     "backend/index.mjs",
-    "backend/data-cli.mjs",
-    "backend/drizzle/meta/_journal.json",
-    "backend/node_modules/@electric-sql/pglite/dist/index.js",
+    "backend/drizzle-sqlite/meta/_journal.json",
+    "backend/drizzle-sqlite/0000_wide_wither.sql",
     "backend/data/locations.json.gz",
     "crawler/dist/index.js",
     "crawler/node_modules/playwright/package.json",

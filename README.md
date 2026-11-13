@@ -61,10 +61,11 @@ executors for each database.
 
 ## Desktop app
 
-Surface can run as a single Electron app with embedded PGlite, a Node backend
-utility process, and a local Crawlee/Playwright crawler. Only SearXNG remains
-optional Docker infrastructure; OmniRoute stays external. No PostgreSQL,
-backend, web or crawler container is required.
+Surface can run as a single Electron app with a local SQLite database, a Node
+backend utility process, and a local Crawlee/Playwright crawler. The React
+renderer is the existing `apps/web` build. Only SearXNG remains optional Docker
+infrastructure; OmniRoute stays external. No PostgreSQL, backend, web or crawler
+container is required for the desktop app.
 
 ```sh
 bun install
@@ -74,12 +75,17 @@ bun --cwd apps/desktop package
 
 Start optional web search with
 `docker compose -f compose.searxng.yaml up -d`. Data, snapshots, settings and
-logs live under Electron's user-data directory. Existing PostgreSQL data is
-moved with the explicit export/import command, not by copying a `pg_dump`.
-See [desktop](docs/desktop.md) and
-[desktop migration verification](docs/desktop-migration.md); the existing
-Docker Compose deployment remains unchanged and can be kept until the desktop
-install is verified.
+logs live under Electron's user-data directory. The desktop database is a new
+`surface.sqlite3` file with its own from-scratch migrations in
+`apps/backend/drizzle-sqlite/`.
+
+The desktop build does not export, import, or automatically migrate PGlite or
+PostgreSQL data. Existing desktop `pglite/` files are left untouched and
+ignored. Start fresh by using a new `SURFACE_DESKTOP_USER_DATA` directory or by
+moving the old profile aside; never delete production backups. See
+[desktop](docs/desktop.md) and
+[desktop verification](docs/desktop-migration.md). The existing Docker Compose
+deployment and PostgreSQL data remain operational and unchanged.
 
 ## Collect and review
 

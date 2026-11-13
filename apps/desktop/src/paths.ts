@@ -5,6 +5,7 @@ export interface DesktopPaths {
   root: string;
   data: string;
   database: string;
+  legacyDatabase: string;
   logs: string;
   settings: string;
   web: string;
@@ -13,7 +14,6 @@ export interface DesktopPaths {
   crawlerEntry: string;
   crawlerRoot: string;
   playwrightBrowsers: string;
-  dataCli: string;
 }
 
 export function desktopPaths(): DesktopPaths {
@@ -24,15 +24,17 @@ export function desktopPaths(): DesktopPaths {
   return {
     root: userData,
     data: join(userData, "data"),
-    database: join(userData, "pglite"),
+    // A new, distinct SQLite file. Any previous pglite/ directory is never
+    // opened, migrated, overwritten, or deleted.
+    database: join(userData, "surface.sqlite3"),
+    legacyDatabase: join(userData, "pglite"),
     logs: join(userData, "logs"),
     settings: join(userData, "settings.json"),
     web: join(resources, "web"),
     backendEntry: join(resources, "backend", "index.mjs"),
-    backendMigrations: join(resources, "backend", "drizzle"),
+    backendMigrations: join(resources, "backend", "drizzle-sqlite"),
     crawlerEntry: join(resources, "crawler", "dist", "index.js"),
     crawlerRoot: join(resources, "crawler"),
     playwrightBrowsers: join(resources, "playwright"),
-    dataCli: join(resources, "backend", "data-cli.mjs"),
   };
 }

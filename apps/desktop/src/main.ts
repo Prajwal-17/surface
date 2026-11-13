@@ -1,14 +1,6 @@
-import {
-  app,
-  BrowserWindow,
-  dialog,
-  ipcMain,
-  session,
-  shell,
-  utilityProcess,
-} from "electron";
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from "electron";
 import { randomBytes } from "node:crypto";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createLogSink, type LogSink } from "./logger";
 import { desktopPaths, type DesktopPaths } from "./paths";
@@ -25,34 +17,28 @@ if (process.env.SURFACE_DESKTOP_USER_DATA) {
   app.setPath("userData", resolve(process.env.SURFACE_DESKTOP_USER_DATA));
 }
 
-const dataArgument = process.argv.indexOf("--surface-data");
-if (dataArgument >= 0) {
-  const dataArgs = process.argv.slice(dataArgument + 1);
-  void app.whenReady().then(() => runDataCommand(dataArgs));
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
 } else {
-  const gotLock = app.requestSingleInstanceLock();
-  if (!gotLock) {
-    app.quit();
-  } else {
-    app.on("second-instance", () => {
-      if (!mainWindow) return;
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    });
-    app.on("window-all-closed", () => app.quit());
-    app.on("before-quit", (event) => {
-      if (shutdownComplete) return;
-      event.preventDefault();
-      void shutdown(0);
-    });
-    process.on("uncaughtException", (error) => {
-      void fatal("Unexpected application error", error);
-    });
-    process.on("unhandledRejection", (error) => {
-      void fatal("Unexpected application error", error);
-    });
-    void app.whenReady().then(bootstrap);
-  }
+  app.on("second-instance", () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
+  app.on("window-all-closed", () => app.quit());
+  app.on("before-quit", (event) => {
+    if (shutdownComplete) return;
+    event.preventDefault();
+    void shutdown(0);
+  });
+  process.on("uncaughtException", (error) => {
+    void fatal("Unexpected application error", error);
+  });
+  process.on("unhandledRejection", (error) => {
+    void fatal("Unexpected application error", error);
+  });
+  void app.whenReady().then(bootstrap);
 }
 
 let mainWindow: BrowserWindow | null = null;
@@ -66,43 +52,6 @@ let shuttingDown = false;
 let shutdownComplete = false;
 let running = false;
 
-async function runDataCommand(args: string[]): Promise<void> {
-  if (!args.length) {
-    console.error(
-      "Usage: surface --surface-data export|import|verify [options]\n" +
-        "Import/verify default to the Surface user-data directory.",
-    );
-    app.exit(2);
-    return;
-  }
-  const normalized = [...args];
-  if (
-    (normalized[0] === "import" || normalized[0] === "verify") &&
-    !normalized.includes("--user-data")
-  ) {
-    normalized.push("--user-data", app.getPath("userData"));
-  }
-  const desktop = desktopPaths();
-  const entry = desktop.dataCli;
-  const child = utilityProcess.fork(entry, normalized, {
-    env: {
-      ...process.env,
-      MIGRATIONS_DIR: desktop.backendMigrations,
-      LOCATIONS_DATA_FILE: join(
-        desktop.backendMigrations,
-        "..",
-        "data",
-        "locations.json.gz",
-      ),
-    },
-    stdio: "pipe",
-    serviceName: "surface-data-command",
-  });
-  child.stdout?.on("data", (chunk) => process.stdout.write(chunk as Buffer));
-  child.stderr?.on("data", (chunk) => process.stderr.write(chunk as Buffer));
-  child.on("exit", (code) => app.exit(code ?? 1));
-}
-
 async function bootstrap(): Promise<void> {
   paths = desktopPaths();
   mkdirSync(paths.data, { recursive: true, mode: 0o700 });
@@ -113,6 +62,12 @@ async function bootstrap(): Promise<void> {
     `[${new Date().toISOString()}] Surface ${app.getVersion()} starting (electron ${process.versions.electron}, node ${process.versions.node}, packaged=${app.isPackaged})`,
   );
   startupLog.write(`userData=${paths.root}`);
+  startupLog.write(`sqlite=${paths.database}`);
+  if (existsSync(paths.legacyDatabase)) {
+    startupLog.write(
+      "legacy pglite/ directory found; it is not read, migrated, overwritten, or deleted",
+    );
+  }
 
   try {
     const settings = await SettingsStore.create(paths.settings);
@@ -163,10 +118,10 @@ async function bootstrap(): Promise<void> {
           NODE_ENV: "production",
           HOST: "127.0.0.1",
           PORT: String(backendPort),
-          PGLITE_DATA_DIR: paths.database,
+          SQLITE_DATABASE_FILE: paths.database,
+          SQLITE_MIGRATIONS_DIR: paths.backendMigrations,
           DATA_DIR: paths.data,
           WEB_DIST_DIR: paths.web,
-          MIGRATIONS_DIR: paths.backendMigrations,
           LOCATIONS_DATA_FILE: join(
             paths.backendMigrations,
             "..",
@@ -357,7 +312,7 @@ function registerIpc(settings: SettingsStore): void {
       packaged: app.isPackaged,
       dataDir: paths?.data ?? "",
       logsDir: paths?.logs ?? "",
-      database: "PGlite",
+      database: "SQLite",
     };
   });
   ipcMain.handle("desktop:open-data", async (event) => {

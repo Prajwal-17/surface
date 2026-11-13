@@ -25,6 +25,14 @@ db-studio-prod: db-up
 db-studio-dev: db-up
     APP_ENV=development bun run db:studio
 
+# Generate the from-scratch SQLite migration baseline for the desktop app.
+sqlite-generate:
+    bun run db:generate:sqlite
+
+# Verify the embedded SQLite backend in a new temporary profile.
+sqlite-verify:
+    bun run verify:sqlite
+
 # Build the Electron desktop bundle and assets.
 desktop-build:
     node apps/desktop/scripts/build.mjs

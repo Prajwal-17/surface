@@ -13,7 +13,10 @@
     "format:check": "prettier --check .",
     "check-types": "turbo run check-types",
     "db:generate": "bun --cwd apps/backend db:generate",
+    "db:generate:sqlite": "bun --cwd apps/backend db:generate:sqlite",
     "db:migrate": "bun --cwd apps/backend db:migrate",
+    "db:migrate:sqlite": "bun --cwd apps/backend db:migrate:sqlite",
+    "verify:sqlite": "bun --cwd apps/backend verify:sqlite",
     "db:studio": "bun --cwd apps/backend db:studio"
   },
   "devDependencies": {

@@ -8,7 +8,6 @@ const { join } = require("node:path");
  */
 module.exports = async function afterPack(context) {
   copyDependencies(context, "crawler");
-  copyDependencies(context, "backend");
 };
 
 function copyDependencies(context, name) {

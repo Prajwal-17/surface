@@ -3,18 +3,22 @@
 Surface can run as one personal Linux desktop app. Electron starts two local
 utility processes:
 
-- the Node backend, using embedded PGlite with Drizzle migrations, and
+- the Node backend, using a real SQLite database through Node's built-in
+  `node:sqlite` driver and a separate from-scratch Drizzle migration baseline, and
 - the Crawlee/Playwright crawler.
 
-The renderer is the existing Vite web build, served by Hono on a loopback port.
-Only SearXNG remains optional Docker infrastructure. OmniRoute remains external.
-Existing Docker Compose production services are unchanged and are not required
+The renderer is the existing Vite React app in `apps/web`, built separately and
+served by Hono on a loopback port. Only SearXNG remains optional Docker
+infrastructure. OmniRoute remains external. Existing Docker Compose production
+services and the deployed PostgreSQL database are unchanged and are not required
 by the desktop app.
 
 ## Requirements
 
 - Linux x64 for the packaged AppImage. The build host needs Node 24 and Bun for
   the repository build scripts.
+- Electron 45 bundles Node 24 with `node:sqlite`; there is no native SQLite
+  addon to rebuild or stage.
 - Optional: Docker for SearXNG. No PostgreSQL container is needed.
 - Optional: an OmniRoute endpoint and API key for AI summaries, assessments and
   company research.
@@ -28,13 +32,13 @@ node apps/desktop/scripts/build.mjs
 # or: bun --cwd apps/desktop package:dir
 ```
 
-`apps/desktop/scripts/build.mjs` builds the web app, bundles the backend and
-data CLI for Node, runs the crawler TypeScript build, installs crawler
-production dependencies, stages Playwright Chromium, and compiles the Electron
+`apps/desktop/scripts/build.mjs` builds the web app, bundles the backend for
+Node, runs the crawler TypeScript build, installs crawler production
+dependencies, stages Playwright Chromium, and compiles the Electron
 main/preload scripts. electron-builder packages:
 
 - `web/` built assets,
-- `backend/` bundle, migrations and PGlite assets,
+- `backend/` bundle, SQLite migrations and bundled locations data,
 - `crawler/` build and production dependencies,
 - `playwright/` Chromium and headless shell,
 - `app.asar` containing the Electron main/preload scripts.
@@ -69,16 +73,29 @@ the existing window instead of starting another backend.
 Electron's `app.getPath("userData")` is used. On Linux this is normally
 `~/.config/Surface/`:
 
-- `pglite/` — embedded database,
+- `surface.sqlite3` — SQLite database (WAL mode),
+- `surface.sqlite3-wal`, `surface.sqlite3-shm` — SQLite journal files while open,
 - `data/snapshots/` — raw evidence,
 - `data/company-logos/` — cached company symbols,
 - `data/.surface-auth-secret` — local session signing key,
-- `data/import-manifest.json` — written by a verified import,
 - `settings.json` — SearXNG/OmniRoute settings,
 - `logs/desktop.log`, `logs/backend.log`, `logs/crawler.log`.
 
 `SURFACE_DESKTOP_USER_DATA=/path` overrides the user-data directory for testing
 or an isolated profile. It is not needed for normal use.
+
+### Fresh start and old desktop profiles
+
+This build starts with a new and distinct `surface.sqlite3` file. It does not
+read, import, convert, overwrite, or delete an older desktop `pglite/` directory
+or any old desktop data. There is **no data export, import, or automatic
+migration** from PGlite, SQLite backups, or PostgreSQL.
+
+To use the app while keeping all previous files untouched, either use a new
+`SURFACE_DESKTOP_USER_DATA` directory, or move the old profile directory aside
+(for example `mv ~/.config/Surface ~/.config/Surface-pglite-backup`) and launch
+Surface. The app creates a fresh SQLite profile. The existing PostgreSQL
+deployment and its backups remain in place.
 
 ### Settings and credentials
 
@@ -93,10 +110,9 @@ available. The app reports `os-encrypted`, `basic-text`, `plaintext`, or
 with mode `0600`. Saving applies the values to the running backend immediately;
 restarting the app also reloads them.
 
-The key is never returned to the renderer after saving. Database settings
-(`analysis_settings`) are part of the database export. The service settings file
-is not copied by the data migration because OS keychain entries are
-machine-specific; re-enter the OmniRoute key after importing on a new machine.
+The key is never returned to the renderer after saving. Service settings are
+stored separately from `surface.sqlite3`; they are not part of any database
+transfer. Re-enter the OmniRoute key when setting up a new machine.
 
 ### SearXNG
 
@@ -126,86 +142,30 @@ running, the same search tool returns JSON results.
 
 Closing the window quits the app. The backend stops accepting requests, stops
 the executor after its current tick (bounded wait), removes its lease, closes
-PGlite cleanly, and the crawler is terminated. Monitoring therefore stops while
-Surface is closed; it resumes on the next launch. A tray icon, close-to-tray,
-and autostart are intentionally not included in this version.
+SQLite cleanly (checkpointing WAL), and the crawler is terminated. Monitoring
+therefore stops while Surface is closed; it resumes on the next launch. A tray
+icon, close-to-tray, and autostart are intentionally not included in this
+version.
 
-## Data migration
+## Storage implementation
 
-The desktop import format is Surface's own manifest + compressed JSONL export,
-not `pg_dump`. Arbitrary PostgreSQL dumps are not assumed to match PGlite or
-these migrations.
-
-### 1. Export from the existing database
-
-Run in the existing checkout while the source database is available. This is a
-read-only operation. `DATA_DIR` must contain the source snapshots and company
-logos.
-
-```sh
-cd apps/backend
-node --import tsx scripts/desktop-data.ts export \
-  --output /secure/surface-desktop-export \
-  --database-url "$PRODUCTION_DATABASE_URL" \
-  --data-dir /path/to/source/data
-```
-
-The command refuses an existing non-empty output directory, verifies every
-referenced active snapshot content hash and referenced company logo, copies the
-assets, and writes `manifest.json`. It never migrates or deletes the source.
-
-### 2. Import into a fresh desktop profile
-
-```sh
-./Surface-0.1.0-x86_64.AppImage --surface-data import \
-  --input /secure/surface-desktop-export
-```
-
-Or from the repository without Electron:
-
-```sh
-cd apps/backend
-node --import tsx scripts/desktop-data.ts import \
-  --input /secure/surface-desktop-export \
-  --user-data ~/.config/Surface
-```
-
-Import refuses an existing `pglite/` database and a non-empty `data/` directory.
-It stages the whole import in a sibling directory, applies all current Drizzle
-migrations, inserts in foreign-key order, resets sequences, and verifies:
-
-- every export file checksum,
-- every destination table and column type,
-- row counts and per-table content SHA-256,
-- a representative record hash per table,
-- `analysis_settings`,
-- snapshot links and content hashes,
-- company logo links,
-- the copied session signing key checksum.
-
-Only after all checks pass are `pglite/` and `data/` moved into the profile. A
-failed import leaves the original profile untouched and the staged attempt
-available for inspection.
-
-Verify the import immediately, before launching the app:
-
-```sh
-./Surface-0.1.0-x86_64.AppImage --surface-data verify \
-  --input /secure/surface-desktop-export
-```
-
-The check compares content hashes with the export. Once Surface has run,
-monitoring may add jobs, the executor lease changes, and settings can be edited,
-so a later comparison is expected to differ even though the migration was
-correct.
-
-### 3. Keep the rollback path
-
-Keep the original database, its filesystem assets, and a database dump until
-the desktop install has been used and checked. Import never deletes them. To
-roll back, stop Surface, move the desktop profile's `pglite/` and `data/`
-directories aside (do not delete them), then restore the original services and
-data from the existing deployment.
+- SQLite is opened with `journal_mode=WAL`, `foreign_keys=ON`,
+  `busy_timeout=5000`, and `synchronous=NORMAL`.
+- All writes run on one embedded connection. Transactions start with
+  `BEGIN IMMEDIATE`; SQLite statements are serialized so reads cannot observe a
+  half-finished transaction.
+- The desktop migration folder is `apps/backend/drizzle-sqlite/`. It is a fresh
+  baseline and does not reuse PostgreSQL's `apps/backend/drizzle/` history.
+- PostgreSQL remains the production web deployment's database. The existing
+  PostgreSQL migrations and deployment tooling are unchanged.
+- JSON values are stored as SQLite `text` with Drizzle JSON mapping; booleans
+  use SQLite integer `0/1`; timestamps remain ISO text so existing application
+  comparisons stay stable.
+- Foreign keys, unique indexes, partial indexes for active work and research
+  runs, and the executor lease are enforced in SQLite. FTS5 is not enabled:
+  current search is literal substring matching and changing that would change
+  result semantics; normal indexes cover the existing equality and ordering
+  paths.
 
 ## Packaging verification
 
@@ -218,8 +178,16 @@ bun --cwd apps/desktop check-types
 node apps/desktop/scripts/build.mjs
 ```
 
+The SQLite integration check uses a new temporary profile and never opens an
+existing desktop database:
+
+```sh
+bun run verify:sqlite
+```
+
 The smoke test used during implementation sets `SURFACE_DESKTOP_SMOKE_TEST=1`.
 The app starts both workers, checks `/api/health`, authenticated `/api/jobs`,
-`/api/research` and `/api/desktop/status`, saves a test key through the
-preload/IPC bridge, and exits. See `docs/desktop-migration.md` for the recorded
-results.
+`/api/research`, `/api/schema` and `/api/desktop/status`, saves a test key
+through the preload/IPC bridge, and exits. See
+[desktop verification](desktop-migration.md) for recorded results and artifact
+paths.
