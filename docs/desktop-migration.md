@@ -62,6 +62,10 @@ Results:
 - `bun --cwd apps/crawler test`: 7 pass, 0 fail.
 - The PostgreSQL backend test suite was not run in this environment because no
   PostgreSQL test server was configured; desktop CI uses SQLite only.
+- `node scripts/desktop-release.mjs verify-build`: passed, and its staged
+  Playwright Chromium launched.
+- `node scripts/desktop-release.mjs smoke`: passed with a fresh temporary
+  profile and a 32-table SQLite database.
 - `bun install` removed `@electric-sql/pglite` from the lockfile and dependency
   tree.
 
@@ -207,6 +211,7 @@ Evidence:
 - `data/desktop-verification/sqlite/appimage-no-bun.log`
 - `data/desktop-verification/sqlite/deb-smoke.log`
 - `data/desktop-verification/sqlite/checksums.txt`
+- `data/desktop-verification/sqlite/release-helper-smoke.log`
 
 ## Storage details verified
 
