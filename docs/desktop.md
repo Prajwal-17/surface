@@ -1,6 +1,7 @@
 # Surface desktop
 
-Surface can run as one personal Linux desktop app. Electron starts two local
+Surface runs as one personal **Ubuntu Linux** desktop app. macOS and Windows
+packaging are not supported. Electron starts two local
 utility processes:
 
 - the Node backend, using a real SQLite database through Node's built-in
@@ -15,8 +16,9 @@ by the desktop app.
 
 ## Requirements
 
-- Linux x64 for the packaged AppImage. The build host needs Node 24 and Bun for
-  the repository build scripts.
+- Ubuntu Linux x86_64 for the AppImage and `.deb`. The build host needs Node 24
+  and Bun for the repository build scripts. macOS, Windows and Linux ARM are
+  not supported.
 - Electron 45 bundles Node 24 with `node:sqlite`; there is no native SQLite
   addon to rebuild or stage.
 - Optional: Docker for SearXNG. No PostgreSQL container is needed.
@@ -27,9 +29,10 @@ by the desktop app.
 
 ```sh
 bun install
-node apps/desktop/scripts/build.mjs
-(bun --cwd apps/desktop package) # AppImage
-# or: bun --cwd apps/desktop package:dir
+bun --cwd apps/desktop package       # AppImage + .deb for Ubuntu
+bun --cwd apps/desktop package:appimage
+bun --cwd apps/desktop package:deb
+bun --cwd apps/desktop package:dir   # unpacked only
 ```
 
 `apps/desktop/scripts/build.mjs` builds the web app, bundles the backend for
@@ -41,11 +44,13 @@ main/preload scripts. electron-builder packages:
 - `backend/` bundle, SQLite migrations and bundled locations data,
 - `crawler/` build and production dependencies,
 - `playwright/` Chromium and headless shell,
-- `app.asar` containing the Electron main/preload scripts.
+- `app.asar` containing the Electron main/preload scripts,
+- `resources/icon.png` for the AppImage, `.deb` desktop entry and window icon.
 
 Artifacts:
 
 - `apps/desktop/release/Surface-0.1.0-x86_64.AppImage`
+- `apps/desktop/release/Surface-0.1.0-amd64.deb`
 - `apps/desktop/release/linux-unpacked/surface`
 
 The packaged application does not need Bun, a Vite dev server, PostgreSQL, or
@@ -67,6 +72,27 @@ xvfb-run -a ./Surface-0.1.0-x86_64.AppImage --no-sandbox
 The app binds backend, crawler and its internal egress proxy to `127.0.0.1`
 with OS-allocated ports. It uses a single-instance lock. A second launch focuses
 the existing window instead of starting another backend.
+
+### Custom Ubuntu title bar
+
+The native window frame and application menu are removed. Surface draws its own
+44px title bar:
+
+- the existing workspace header (and the onboarding header) is the draggable
+  region; links, buttons, inputs and page actions are explicit no-drag islands,
+- minimize, maximize/restore and close controls sit at the top right on every
+  route, including sign-in, session checks and onboarding,
+- the maximize/restore button reflects live window state from Electron and uses
+  accessible labels plus `aria-pressed`,
+- `F11` toggles fullscreen, `Alt+F9` minimizes, `Alt+F10` maximizes/restores,
+  and the caption buttons work with Tab, Enter and Space,
+- all IPC is validated against the main window, its main frame and the backend
+  origin. The renderer remains sandboxed with context isolation and no Node
+  integration.
+
+The `DEV` environment badge is rendered only when Vite's actual development flag
+is set (`import.meta.env.DEV`). Production builds, including the packaged
+AppImage and `.deb`, render no environment badge.
 
 ### Data locations
 
@@ -177,6 +203,11 @@ bun --cwd apps/web check-types
 bun --cwd apps/desktop check-types
 node apps/desktop/scripts/build.mjs
 ```
+
+Both the AppImage and Debian package are built from the same staged
+`linux-unpacked` tree. The `.deb` installs under `/opt/Surface`, with a
+`/usr/share/applications/surface.desktop` entry and a hicolor icon. It is
+unsigned; Ubuntu may ask for confirmation when installing a local `.deb`.
 
 The SQLite integration check uses a new temporary profile and never opens an
 existing desktop database:

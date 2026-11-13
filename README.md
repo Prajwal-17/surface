@@ -28,7 +28,8 @@ bun run dev
 ```
 
 `bun dev` opens http://localhost:17000 automatically. Development and production
-use port 17000 by default. A persistent DEV/PROD tag appears in the app corner.
+use port 17000 by default. Vite development shows a `DEV` badge; production
+builds show no environment badge.
 Vite proxies `/api` to the backend on port 4000
 during development. The Docker web server also proxies `/api` to the backend.
 Use `BACKEND_URL` for a different backend. PostgreSQL runs in the existing
@@ -61,17 +62,24 @@ executors for each database.
 
 ## Desktop app
 
-Surface can run as a single Electron app with a local SQLite database, a Node
-backend utility process, and a local Crawlee/Playwright crawler. The React
-renderer is the existing `apps/web` build. Only SearXNG remains optional Docker
-infrastructure; OmniRoute stays external. No PostgreSQL, backend, web or crawler
-container is required for the desktop app.
+Surface can run as a single Ubuntu Linux Electron app with a local SQLite
+database, a Node backend utility process, and a local Crawlee/Playwright crawler.
+The React renderer is the existing `apps/web` build. Only SearXNG remains
+optional Docker infrastructure; OmniRoute stays external. No PostgreSQL,
+backend, web or crawler container is required for the desktop app. macOS and
+Windows packaging are not supported.
 
 ```sh
 bun install
 bun --cwd apps/desktop package
 ./apps/desktop/release/Surface-0.1.0-x86_64.AppImage
+# or: sudo apt install ./apps/desktop/release/Surface-0.1.0-amd64.deb
 ```
+
+The app removes the native title bar and application menu in favor of a
+Surface-specific 44px draggable title bar with accessible minimize,
+maximize/restore and close controls. The `DEV` badge appears only in Vite
+development; packaged production builds show no environment badge.
 
 Start optional web search with
 `docker compose -f compose.searxng.yaml up -d`. Data, snapshots, settings and

@@ -621,14 +621,31 @@ async function mainCheck(): Promise<void> {
         .limit(1)
     )[0]!.id,
     profileRevision: 1,
-    formatVersion: 1,
+    formatVersion: 2,
     output: {
       score: 80,
-      verdict: "strong",
       summary: "Good fit",
-      strengths: ["TypeScript"],
+      skillsFit: [
+        {
+          text: "TypeScript experience matches the role.",
+          kind: "fact",
+          jobEvidence: null,
+          profileEvidence: null,
+        },
+      ],
+      growthPotential: [],
+      strengths: [
+        {
+          text: "Relevant desktop and backend work.",
+          kind: "interpretation",
+          jobEvidence: null,
+          profileEvidence: null,
+        },
+      ],
       concerns: [],
-    } as never,
+      unansweredQuestions: [],
+      projectEvidence: [],
+    },
     model: "verification",
     createdAt: now,
   });
