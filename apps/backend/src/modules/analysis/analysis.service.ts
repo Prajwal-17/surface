@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db, transaction } from "../../infrastructure/database/client";
 import { lockCoordination } from "../../infrastructure/database/locks";
-import { env } from "../../config/env";
+import { aiConfigured } from "../../config/runtime";
 import { jobs } from "../jobs/jobs.tables";
 import { findProfile } from "../profile/profile.repository";
 import { workItems, runs, runItems } from "../work/work.tables";
@@ -229,7 +229,7 @@ export async function enqueueAnalysis(onlyIds: string[]) {
 export async function executeAnalysis(
   item: WorkItem,
   analyzer = requestAssessment,
-  configured = Boolean(env.OMNIROUTE_API_KEY),
+  configured = aiConfigured(),
 ) {
   const profile = await findProfile(),
     job = item.jobId

@@ -238,7 +238,7 @@ Evidence:
 - No production PostgreSQL connection, container, database, dump, volume,
   snapshot or backup was touched. The deployed PostgreSQL path was validated by
   type-checking and its unchanged migrations only.
-- Live SearXNG and live OmniRoute services were not available, so external
+- Live SearXNG and live AI provider services were not available, so external
   search results and real model output were not exercised. Persistence and
   lifecycle paths were verified without claiming external service behavior.
 - No live external job-board fetch was run from the packaged application; queue

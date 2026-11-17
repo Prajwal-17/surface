@@ -297,6 +297,7 @@ export function DiscoveryScreen({
       )}
       {selectedId && layout.ready && (
         <JobDetailSheet
+          key={selectedId}
           split={layout.split}
           error={selected.error}
           onRetry={() => void selected.refetch()}

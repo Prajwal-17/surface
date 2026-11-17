@@ -16,7 +16,7 @@ import {
   type Job,
   type JobStatus,
 } from "@surface/contracts";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ReaderLoadingContent } from "@/components/feedback/loading-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ import {
   Banknote,
   CalendarDays,
   Globe2,
+  Square,
 } from "lucide-react";
 import { formatDate, formatCompensation } from "@/lib/utils";
 import { JobActions } from "./job-actions";
@@ -70,6 +71,8 @@ export function JobDetailSheet({
     versionId: null as string | null,
     text: "",
   });
+  const summaryAbort = useRef<AbortController | null>(null);
+  useEffect(() => () => summaryAbort.current?.abort(), []);
   const summary = useMutation({
     mutationFn: async ({
       id,
@@ -80,13 +83,20 @@ export function JobDetailSheet({
       versionId: string | null;
       regenerate: boolean;
     }) => {
+      summaryAbort.current?.abort();
+      const controller = new AbortController();
+      summaryAbort.current = controller;
       setDraft({ id, versionId, text: "" });
-      return streamSummary(id, regenerate, (text) =>
-        setDraft((current) =>
-          current.id === id && current.versionId === versionId
-            ? { id, versionId, text }
-            : current,
-        ),
+      return streamSummary(
+        id,
+        regenerate,
+        (text) =>
+          setDraft((current) =>
+            current.id === id && current.versionId === versionId
+              ? { id, versionId, text }
+              : current,
+          ),
+        controller.signal,
       );
     },
     onSuccess: (result, variables) => {
@@ -376,18 +386,30 @@ export function JobDetailSheet({
           </section>
         </TabsContent>
         <TabsContent value="summary" className="space-y-4 text-sm leading-6">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={summaryPending || !job.description.trim()}
-            onClick={() => summarise(Boolean(savedSummary))}
-          >
-            {summaryPending
-              ? "Summarising…"
-              : savedSummary
-                ? "Regenerate"
-                : "Summarise"}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={summaryPending || !job.description.trim()}
+              onClick={() => summarise(Boolean(savedSummary))}
+            >
+              {summaryPending
+                ? "Summarising…"
+                : savedSummary
+                  ? "Regenerate"
+                  : "Summarise"}
+            </Button>
+            {summaryPending && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => summaryAbort.current?.abort()}
+              >
+                <Square className="size-3" />
+                Stop
+              </Button>
+            )}
+          </div>
           <div
             aria-live="polite"
             aria-busy={summaryPending}
@@ -402,9 +424,31 @@ export function JobDetailSheet({
                 }
               />
             )}
-            {streamedText ? (
-              <StreamingText text={streamedText} streaming markdown />
-            ) : savedSummary ? (
+            {summaryPending && streamedText && (
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">
+                  Provisional draft · saved only after validation
+                </p>
+                <StreamingText text={streamedText} streaming markdown />
+              </div>
+            )}
+            {summaryPending && savedSummary && (
+              <Collapsible className="border-t pt-3">
+                <CollapsibleTrigger className="text-xs text-muted-foreground">
+                  Current saved summary · kept until replacement completes
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <StreamingText
+                    text={savedSummary.text}
+                    markdown={
+                      savedSummary.formatVersion >=
+                      DESCRIPTION_SUMMARY_FORMAT_VERSION
+                    }
+                  />
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+            {!summaryPending && savedSummary && (
               <StreamingText
                 text={savedSummary.text}
                 markdown={
@@ -412,14 +456,13 @@ export function JobDetailSheet({
                   DESCRIPTION_SUMMARY_FORMAT_VERSION
                 }
               />
-            ) : (
-              !summaryPending && (
-                <p className="text-muted-foreground">
-                  {job.description.trim()
-                    ? "Summarise the company, responsibilities, requirements and employment details."
-                    : "No description available to summarise."}
-                </p>
-              )
+            )}
+            {!summaryPending && !savedSummary && (
+              <p className="text-muted-foreground">
+                {job.description.trim()
+                  ? "Summarise the company, responsibilities, requirements and employment details."
+                  : "No description available to summarise."}
+              </p>
             )}
             {summaryStale && (
               <p className="text-muted-foreground">

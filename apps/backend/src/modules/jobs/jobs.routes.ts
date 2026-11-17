@@ -3,71 +3,128 @@ import { eq } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import { jobs } from "./jobs.tables";
 import { assessJobNow } from "../analysis/analysis.service";
-import { jobsListQuerySchema, updateJobStatusSchema } from "@surface/contracts";
+import {
+  descriptionSummarySchema,
+  jobsListQuerySchema,
+  updateJobStatusSchema,
+  type DescriptionSummary,
+} from "@surface/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { stream } from "hono/streaming";
+import {
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  type UIMessage,
+} from "ai";
 import { getJob, getJobs, updateJobStatus } from "./jobs.service";
 import { summariseJob } from "./summary";
 
+type SummaryStreamData =
+  | { status: "complete"; summary: DescriptionSummary }
+  | { status: "error"; error: string };
+
+type SummaryMessage = UIMessage<unknown, { summary: SummaryStreamData }>;
+
 export const jobsRoutes = new Hono();
+
+const summaryInput = z
+  .object({ regenerate: z.boolean().default(false) })
+  .strict();
 
 jobsRoutes.post(
   "/:id/summary",
-  zValidator(
-    "json",
-    z.object({ regenerate: z.boolean().default(false) }).strict(),
-  ),
-  async (context) => {
-    if (context.req.header("Accept") === "application/x-ndjson") {
-      context.header("Content-Type", "application/x-ndjson");
-      context.header("Cache-Control", "no-cache, no-transform");
-      context.header("X-Accel-Buffering", "no");
-      return stream(context, async (output) => {
-        let previousText = "";
-        // Flush headers and keep the connection alive while the provider prepares its first token.
-        await output.writeln("");
-        const heartbeat = setInterval(() => {
-          void output.writeln("").catch(() => {});
-        }, 5000);
-        output.onAbort(() => clearInterval(heartbeat));
-        try {
-          const summary = await summariseJob(
-            context.req.param("id"),
-            context.req.valid("json").regenerate,
-            undefined,
-            undefined,
-            (text) => {
-              const delta = text.slice(previousText.length);
-              previousText = text;
-              if (delta)
-                void output
-                  .writeln(JSON.stringify({ type: "text", text: delta }))
-                  .catch(() => {});
-            },
-          );
-          await output.writeln(JSON.stringify({ type: "complete", summary }));
-        } catch (error) {
-          await output.writeln(
-            JSON.stringify({
-              type: "error",
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Could not summarise this job.",
-            }),
-          );
-        } finally {
-          clearInterval(heartbeat);
-        }
-      });
-    }
-    return context.json(
+  zValidator("json", summaryInput),
+  async (context) =>
+    context.json(
       await summariseJob(
         context.req.param("id"),
         context.req.valid("json").regenerate,
       ),
-    );
+    ),
+);
+
+jobsRoutes.post(
+  "/:id/summary/stream",
+  zValidator("json", summaryInput),
+  async (context) => {
+    const id = context.req.param("id");
+    const regenerate = context.req.valid("json").regenerate;
+    const controller = new AbortController();
+    const uiStream = createUIMessageStream<SummaryMessage>({
+      async execute({ writer }) {
+        writer.write({ type: "start" });
+        let textStarted = false;
+        let sentLength = 0;
+        const endText = () => {
+          if (!textStarted) return;
+          writer.write({ type: "text-end", id: "summary-text" });
+          textStarted = false;
+        };
+        try {
+          const summary = await summariseJob(id, regenerate, {
+            signal: controller.signal,
+            onText: (text) => {
+              if (!textStarted) {
+                writer.write({ type: "text-start", id: "summary-text" });
+                textStarted = true;
+              }
+              const delta = text.slice(sentLength);
+              if (!delta) return;
+              sentLength = text.length;
+              writer.write({ type: "text-delta", id: "summary-text", delta });
+            },
+          });
+          endText();
+          writer.write({
+            type: "data-summary",
+            id: "summary",
+            data: {
+              status: "complete",
+              summary: descriptionSummarySchema.parse(summary),
+            },
+          });
+        } catch (error) {
+          endText();
+          writer.setOutcome({
+            status: controller.signal.aborted ? "aborted" : "failed",
+          });
+          writer.write({
+            type: "data-summary",
+            id: "summary",
+            data: {
+              status: "error",
+              error: controller.signal.aborted
+                ? "The summary was stopped."
+                : error instanceof Error
+                  ? error.message
+                  : "Could not summarise this job.",
+            },
+          });
+        }
+      },
+      onError: () =>
+        "The summary stream failed. Your previous summary has been retained.",
+    });
+    const reader = uiStream.getReader();
+    const stream = new ReadableStream({
+      async pull(enqueue) {
+        const chunk = await reader.read();
+        if (chunk.done) enqueue.close();
+        else enqueue.enqueue(chunk.value);
+      },
+      async cancel(reason) {
+        controller.abort(reason);
+        await reader.cancel(reason);
+      },
+    });
+    return createUIMessageStreamResponse({
+      stream,
+      keepAliveMs: 15_000,
+      headers: {
+        "Cache-Control": "no-cache, no-transform",
+        "X-Accel-Buffering": "no",
+      },
+    });
   },
 );
 

@@ -20,8 +20,12 @@ process.env.APP_ENV = "test";
 process.env.AUTH_EMAIL = "postgres-test@example.com";
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 process.env.DATA_DIR = directory;
-process.env.OMNIROUTE_API_KEY = "test-key";
-process.env.OMNIROUTE_BASE_URL = "http://model.test/v1";
+delete process.env.OMNIROUTE_API_KEY;
+delete process.env.OMNIROUTE_BASE_URL;
+process.env.OPENCODE_GO_API_KEY = "test-key";
+process.env.AI_PROVIDER = "opencode-go";
+process.env.AI_BASE_URL = "http://model.test/v1";
+process.env.AI_MODEL = "test";
 process.env.SEARXNG_BASE_URL = "http://search.test";
 process.env.CRAWLER_BASE_URL = "http://crawler.test";
 const { runMigrations } = await import("../../infrastructure/database/migrate");
@@ -30,9 +34,8 @@ const { closeDatabase, db, pg } =
 const service = await import("./research.service");
 const { companyDomain, normalizedName, inputUrl, citeMarkdown } =
   await import("./evidence");
-const { decodeResearchResponse } = await import("./model");
+const { generateObject } = await import("../../shared/ai/generation");
 const { canRequestModel, getSettings } = await import("../analysis/settings");
-const { requestModelJson } = await import("../../shared/model-client");
 const { companies } = await import("../workspace/workspace.tables");
 const { researchRuns, researchSources } = await import("./research.tables");
 const { app } = await import("../../app");
@@ -52,6 +55,58 @@ const json = (value: unknown) =>
   new Response(JSON.stringify(value), {
     headers: { "Content-Type": "application/json" },
   });
+const sse = (value: any) => {
+  const choice = value.choices[0];
+  const message = choice.message ?? {};
+  const events: any[] = [
+    {
+      id: "test",
+      model: value.model,
+      choices: [{ index: 0, delta: { role: "assistant" } }],
+    },
+  ];
+  if (message.reasoning_content)
+    events.push({
+      choices: [
+        { index: 0, delta: { reasoning_content: message.reasoning_content } },
+      ],
+    });
+  if (typeof message.content === "string" && message.content)
+    events.push({
+      choices: [{ index: 0, delta: { content: message.content } }],
+    });
+  for (const [index, call] of (message.tool_calls ?? []).entries())
+    events.push({
+      choices: [
+        {
+          index: 0,
+          delta: {
+            tool_calls: [
+              {
+                index,
+                id: call.id,
+                type: "function",
+                function: {
+                  name: call.function.name,
+                  arguments: call.function.arguments,
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+  events.push({
+    choices: [{ index: 0, delta: {}, finish_reason: choice.finish_reason }],
+  });
+  return new Response(
+    events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("") +
+      "data: [DONE]\n\n",
+    { headers: { "Content-Type": "text/event-stream" } },
+  );
+};
+const respond = (body: any, value: unknown) =>
+  body?.stream ? sse(value) : json(value);
 beforeAll(async () => {
   await runMigrations();
   globalThis.fetch = (async (
@@ -98,9 +153,11 @@ beforeAll(async () => {
       if (mode === "fail")
         return new Response("Provider failed", { status: 503 });
       if (body.response_format?.json_schema.name === "unlimited_test")
-        return json({
+        return respond(body, {
           model: "test",
-          choices: [{ message: { content: '{"ok":true}' } }],
+          choices: [
+            { message: { content: '{"ok":true}' }, finish_reason: "stop" },
+          ],
         });
       if (
         body.tools?.some((t: any) => t.function.name === "inspect_company_link")
@@ -108,7 +165,7 @@ beforeAll(async () => {
         const inspected = body.messages.findLast((m: any) => m.role === "tool");
         const company = JSON.parse(body.messages[1].content).company;
         const selection = inspected ? JSON.parse(inspected.content) : null;
-        return json({
+        return respond(body, {
           model: "test",
           choices: [
             {
@@ -150,7 +207,7 @@ beforeAll(async () => {
       }
       if (mode === "tool" && !toolSent) {
         toolSent = true;
-        return json({
+        return respond(body, {
           model: "test",
           choices: [
             {
@@ -176,7 +233,7 @@ beforeAll(async () => {
         /"id":"([\w-]+)","companyId"/.exec(
           JSON.stringify(body.messages).replaceAll('\\"', '"'),
         )?.[1] ?? (await db.select().from(researchSources)).at(-1)?.id;
-      return json({
+      return respond(body, {
         model: "test",
         choices: [
           {
@@ -430,13 +487,14 @@ describe("company research", () => {
       expect(await canRequestModel(true, true)).toBe(true);
       expect(
         (
-          await requestModelJson(
-            z.object({ ok: z.boolean() }),
-            "unlimited_test",
-            "Test",
-            {},
-            20,
-          )
+          await generateObject({
+            schema: z.object({ ok: z.boolean() }),
+            name: "unlimited_test",
+            instructions: "Test",
+            input: {},
+            maxOutputTokens: 20,
+            feature: "test",
+          })
         ).output.ok,
       ).toBe(true);
     }
@@ -462,45 +520,6 @@ describe("company research", () => {
       ).status,
     ).toBe(404);
   });
-});
-test("research SSE decoder assembles fragmented tool arguments", async () => {
-  const events = [
-    {
-      choices: [
-        {
-          delta: {
-            tool_calls: [
-              {
-                index: 0,
-                id: "c1",
-                type: "function",
-                function: { name: "search_web", arguments: '{"query":' },
-              },
-            ],
-          },
-        },
-      ],
-    },
-    {
-      choices: [
-        {
-          delta: {
-            tool_calls: [{ index: 0, function: { arguments: '"company"}' } }],
-          },
-          finish_reason: "tool_calls",
-        },
-      ],
-    },
-  ];
-  const response = new Response(
-    events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join("") +
-      "data: [DONE]\n\n",
-    { headers: { "Content-Type": "text/event-stream" } },
-  );
-  const result = await decodeResearchResponse(response, () => {});
-  expect(result.message.tool_calls?.[0]?.function.arguments).toBe(
-    '{"query":"company"}',
-  );
 });
 test("foreign citations and invented URLs cannot become saved report links", () => {
   expect(() => citeMarkdown("A fact [S:foreign]", [])).toThrow();

@@ -9,43 +9,67 @@ import {
 } from "node:fs";
 import { dirname } from "node:path";
 
+export const DEFAULT_AI_PROVIDER = "opencode-go";
+export const DEFAULT_AI_BASE_URL = "https://opencode.ai/inference/go/openai/v1";
+export const DEFAULT_AI_MODEL = "deepseek-v4.1-flash";
+
 export interface DesktopSettingsInput {
   searxngUrl: string;
-  omnirouteUrl: string;
-  omnirouteModel: string;
-  omnirouteApiKey?: string;
-  clearOmniRouteKey?: boolean;
+  aiProvider: string;
+  aiBaseUrl: string;
+  aiModel: string;
+  aiApiKey?: string;
+  clearAiApiKey?: boolean;
 }
 
 export interface DesktopSettingsSnapshot {
   searxngUrl: string;
-  omnirouteUrl: string;
-  omnirouteModel: string;
-  hasOmniRouteKey: boolean;
+  aiProvider: string;
+  aiBaseUrl: string;
+  aiModel: string;
+  hasAiApiKey: boolean;
+  legacyOmniRouteConfigured: boolean;
   secretStorage: SecretStorage;
 }
 
 export type SecretStorage =
   "os-encrypted" | "basic-text" | "plaintext" | "unavailable";
 
-interface StoredSettings {
+type StoredKey =
+  | { scheme: "safeStorage"; value: string }
+  | { scheme: "plaintext"; value: string };
+
+interface StoredSettingsV2 {
+  version: 2;
+  searxngUrl: string;
+  aiProvider: string;
+  aiBaseUrl: string;
+  aiModel: string;
+  apiKey?: StoredKey;
+  /** Old OmniRoute credentials are retained but never used for AI calls. */
+  legacyOmniRoute?: {
+    baseUrl: string;
+    model: string;
+    apiKey?: StoredKey;
+  };
+}
+
+interface StoredSettingsV1 {
   version: 1;
   searxngUrl: string;
   omnirouteUrl: string;
   omnirouteModel: string;
-  apiKey?:
-    | { scheme: "safeStorage"; value: string }
-    | { scheme: "plaintext"; value: string };
+  apiKey?: StoredKey;
 }
 
 export class SettingsStore {
-  private stored: StoredSettings;
+  private stored: StoredSettingsV2;
   private apiKey: string;
   private secretStorage: SecretStorage;
 
   private constructor(
     private readonly file: string,
-    stored: StoredSettings,
+    stored: StoredSettingsV2,
     apiKey: string,
     secretStorage: SecretStorage,
   ) {
@@ -56,7 +80,7 @@ export class SettingsStore {
 
   static async create(file: string): Promise<SettingsStore> {
     const stored = readStored(file);
-    const apiKey = await decryptKey(stored, file);
+    const apiKey = await decryptKey(stored.apiKey, file);
     const secretStorage = await storageBackend(stored);
     return new SettingsStore(file, stored, apiKey, secretStorage);
   }
@@ -64,35 +88,46 @@ export class SettingsStore {
   snapshot(): DesktopSettingsSnapshot {
     return {
       searxngUrl: this.stored.searxngUrl,
-      omnirouteUrl: this.stored.omnirouteUrl,
-      omnirouteModel: this.stored.omnirouteModel,
-      hasOmniRouteKey: Boolean(this.apiKey),
+      aiProvider: this.stored.aiProvider,
+      aiBaseUrl: this.stored.aiBaseUrl,
+      aiModel: this.stored.aiModel,
+      hasAiApiKey: Boolean(this.apiKey),
+      legacyOmniRouteConfigured: Boolean(this.stored.legacyOmniRoute?.apiKey),
       secretStorage: this.secretStorage,
     };
   }
 
-  runtime(): DesktopSettingsSnapshot & { omnirouteApiKey: string } {
+  runtime(): DesktopSettingsSnapshot & { aiApiKey: string } {
     return {
       ...this.snapshot(),
-      omnirouteApiKey: this.apiKey,
+      aiApiKey: this.apiKey,
     };
   }
 
   async save(input: DesktopSettingsInput): Promise<DesktopSettingsSnapshot> {
     validateUrl(input.searxngUrl, "SearXNG URL");
-    validateUrl(input.omnirouteUrl, "OmniRoute URL");
-    const model = input.omnirouteModel.trim();
-    if (!model) throw new Error("OmniRoute model is required.");
-    const nextKey = input.clearOmniRouteKey
+    validateUrl(input.aiBaseUrl, "AI base URL");
+    const provider = input.aiProvider.trim().toLowerCase();
+    if (!provider) throw new Error("AI provider is required.");
+    if (provider !== DEFAULT_AI_PROVIDER)
+      throw new Error(
+        `Unsupported AI provider "${input.aiProvider}". Use ${DEFAULT_AI_PROVIDER}.`,
+      );
+    const model = input.aiModel.trim();
+    if (!model) throw new Error("AI model is required.");
+    const nextKey = input.clearAiApiKey
       ? ""
-      : input.omnirouteApiKey?.trim() || this.apiKey;
-    const nextStored: StoredSettings = {
-      version: 1,
+      : input.aiApiKey?.trim() || this.apiKey;
+    const nextStored: StoredSettingsV2 = {
+      ...this.stored,
+      version: 2,
       searxngUrl: normalizeUrl(input.searxngUrl),
-      omnirouteUrl: normalizeUrl(input.omnirouteUrl),
-      omnirouteModel: model,
+      aiProvider: provider,
+      aiBaseUrl: normalizeUrl(input.aiBaseUrl),
+      aiModel: model,
       ...(nextKey ? { apiKey: await encryptKey(nextKey) } : {}),
     };
+    if (!nextKey) delete nextStored.apiKey;
     const nextStorage = await storageBackend(nextStored);
     writeStored(this.file, nextStored);
     this.stored = nextStored;
@@ -102,27 +137,53 @@ export class SettingsStore {
   }
 }
 
-function readStored(file: string): StoredSettings {
+function readStored(file: string): StoredSettingsV2 {
   if (!existsSync(file)) {
     return {
-      version: 1,
+      version: 2,
       searxngUrl: "http://127.0.0.1:8080",
-      omnirouteUrl: "http://127.0.0.1:20128/v1",
-      omnirouteModel: "auto",
+      aiProvider: DEFAULT_AI_PROVIDER,
+      aiBaseUrl: DEFAULT_AI_BASE_URL,
+      aiModel: DEFAULT_AI_MODEL,
     };
   }
   try {
-    const parsed = JSON.parse(readFileSync(file, "utf8")) as StoredSettings;
+    const parsed = JSON.parse(readFileSync(file, "utf8")) as
+      StoredSettingsV1 | StoredSettingsV2;
+    if (parsed.version === 1) {
+      validateUrl(parsed.searxngUrl, "SearXNG URL");
+      validateUrl(parsed.omnirouteUrl, "OmniRoute URL");
+      if (typeof parsed.omnirouteModel !== "string")
+        throw new Error("unsupported settings format");
+      backupVersionOne(file, parsed);
+      return {
+        version: 2,
+        searxngUrl: parsed.searxngUrl,
+        aiProvider: DEFAULT_AI_PROVIDER,
+        aiBaseUrl: DEFAULT_AI_BASE_URL,
+        aiModel: DEFAULT_AI_MODEL,
+        legacyOmniRoute: {
+          baseUrl: parsed.omnirouteUrl,
+          model: parsed.omnirouteModel,
+          ...(parsed.apiKey ? { apiKey: parsed.apiKey } : {}),
+        },
+      };
+    }
     if (
-      parsed.version !== 1 ||
+      parsed.version !== 2 ||
       typeof parsed.searxngUrl !== "string" ||
-      typeof parsed.omnirouteUrl !== "string" ||
-      typeof parsed.omnirouteModel !== "string"
+      typeof parsed.aiProvider !== "string" ||
+      typeof parsed.aiBaseUrl !== "string" ||
+      typeof parsed.aiModel !== "string"
     ) {
       throw new Error("unsupported settings format");
     }
     validateUrl(parsed.searxngUrl, "SearXNG URL");
-    validateUrl(parsed.omnirouteUrl, "OmniRoute URL");
+    validateUrl(parsed.aiBaseUrl, "AI base URL");
+    if (parsed.aiProvider !== DEFAULT_AI_PROVIDER)
+      throw new Error(
+        `Unsupported AI provider "${parsed.aiProvider}". Use ${DEFAULT_AI_PROVIDER}.`,
+      );
     return parsed;
   } catch (error) {
     throw new Error(
@@ -132,7 +193,25 @@ function readStored(file: string): StoredSettings {
   }
 }
 
-function writeStored(file: string, settings: StoredSettings): void {
+function backupVersionOne(file: string, parsed: StoredSettingsV1): void {
+  const backup = `${file}.v1.backup.json`;
+  if (existsSync(backup)) return;
+  try {
+    writeFileSync(backup, JSON.stringify(parsed, null, 2), { mode: 0o600 });
+    try {
+      chmodSync(backup, 0o600);
+    } catch {
+      // Windows and some filesystems do not implement POSIX modes.
+    }
+  } catch (error) {
+    throw new Error(
+      `Cannot back up version-1 desktop settings before migration: ${error instanceof Error ? error.message : "write failed"}`,
+      { cause: error },
+    );
+  }
+}
+
+function writeStored(file: string, settings: StoredSettingsV2): void {
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
   const temporary = `${file}.${process.pid}.tmp`;
   writeFileSync(temporary, JSON.stringify(settings, null, 2), {
@@ -146,7 +225,7 @@ function writeStored(file: string, settings: StoredSettings): void {
   }
 }
 
-async function encryptKey(value: string): Promise<StoredSettings["apiKey"]> {
+async function encryptKey(value: string): Promise<StoredKey> {
   if (await safeStorage.isAsyncEncryptionAvailable()) {
     return {
       scheme: "safeStorage",
@@ -157,35 +236,38 @@ async function encryptKey(value: string): Promise<StoredSettings["apiKey"]> {
 }
 
 async function decryptKey(
-  stored: StoredSettings,
+  stored: StoredKey | undefined,
   file: string,
 ): Promise<string> {
-  if (!stored.apiKey) return "";
-  if (stored.apiKey.scheme === "plaintext") return stored.apiKey.value;
+  if (!stored) return "";
+  if (stored.scheme === "plaintext") return stored.value;
   if (!(await safeStorage.isAsyncEncryptionAvailable())) {
     throw new Error(
-      `The OmniRoute API key in ${file} is encrypted with the OS keychain, but secure storage is unavailable now. Unlock your keyring and restart Surface.`,
+      `The AI API key in ${file} is encrypted with the OS keychain, but secure storage is unavailable now. Unlock your keyring and restart Surface.`,
     );
   }
   try {
     const decrypted = await safeStorage.decryptStringAsync(
-      Buffer.from(stored.apiKey.value, "base64"),
+      Buffer.from(stored.value, "base64"),
     );
     return decrypted.result;
   } catch {
     throw new Error(
-      `Cannot decrypt the OmniRoute API key in ${file}. The OS keychain may have changed; save the key again in Settings.`,
+      `Cannot decrypt the AI API key in ${file}. The OS keychain may have changed; save the key again in Settings.`,
     );
   }
 }
 
-async function storageBackend(stored: StoredSettings): Promise<SecretStorage> {
-  if (!stored.apiKey) {
+async function storageBackend(
+  stored: StoredSettingsV2,
+): Promise<SecretStorage> {
+  const key = stored.apiKey ?? stored.legacyOmniRoute?.apiKey;
+  if (!key) {
     return (await safeStorage.isAsyncEncryptionAvailable())
       ? selectedBackend()
       : "unavailable";
   }
-  if (stored.apiKey.scheme === "plaintext") return "plaintext";
+  if (key.scheme === "plaintext") return "plaintext";
   return selectedBackend();
 }
 

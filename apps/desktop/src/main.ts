@@ -12,6 +12,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { desktopIdentity } from "./channel";
+import { applyDevelopmentSeed } from "./dev-seed";
 import { createLogSink, type LogSink } from "./logger";
 import { desktopPaths, type DesktopPaths } from "./paths";
 import { getFreePort } from "./ports";
@@ -83,12 +84,24 @@ async function bootstrap(): Promise<void> {
       "legacy pglite/ directory found; it is not read, migrated, overwritten, or deleted",
     );
   }
+  if (identity.channel === "development") {
+    const seeded = applyDevelopmentSeed({
+      seedDirectory: paths.devSeed,
+      database: paths.database,
+      data: paths.data,
+    });
+    startupLog.write(
+      seeded.applied
+        ? "development seed applied to a new profile"
+        : `development seed skipped: ${seeded.reason}`,
+    );
+  }
 
   try {
     const settings = await SettingsStore.create(paths.settings);
     const selected = settings.runtime();
     startupLog.write(
-      `settings loaded secretStorage=${selected.secretStorage} omnirouteConfigured=${Boolean(selected.omnirouteApiKey)}`,
+      `settings loaded secretStorage=${selected.secretStorage} aiConfigured=${Boolean(selected.aiApiKey)}`,
     );
 
     const crawlerPort =
@@ -145,9 +158,10 @@ async function bootstrap(): Promise<void> {
           ),
           CRAWLER_BASE_URL: crawlerUrl,
           SEARXNG_BASE_URL: selected.searxngUrl,
-          OMNIROUTE_BASE_URL: selected.omnirouteUrl,
-          OMNIROUTE_API_KEY: selected.omnirouteApiKey,
-          OMNIROUTE_MODEL: selected.omnirouteModel,
+          AI_PROVIDER: selected.aiProvider,
+          AI_BASE_URL: selected.aiBaseUrl,
+          AI_MODEL: selected.aiModel,
+          OPENCODE_GO_API_KEY: selected.aiApiKey,
           SURFACE_DESKTOP_TOKEN: desktopToken,
           SURFACE_SECRET_STORAGE: selected.secretStorage,
           PLAYWRIGHT_BROWSERS_PATH: paths.playwrightBrowsers,
@@ -306,9 +320,10 @@ function createWindow(): void {
               const before = await window.surfaceDesktop.getSettings();
               const saved = await window.surfaceDesktop.saveSettings({
                 searxngUrl: before.searxngUrl,
-                omnirouteUrl: before.omnirouteUrl,
-                omnirouteModel: before.omnirouteModel,
-                omnirouteApiKey: "smoke-test-key",
+                aiProvider: before.aiProvider,
+                aiBaseUrl: before.aiBaseUrl,
+                aiModel: before.aiModel,
+                aiApiKey: "smoke-test-key",
               });
               const after = await window.surfaceDesktop.getSettings();
               const windowBefore = await window.surfaceDesktop.getWindowState();
@@ -463,7 +478,7 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
 }
 
 async function applyRuntimeSettings(
-  settings: DesktopSettingsSnapshot & { omnirouteApiKey: string },
+  settings: DesktopSettingsSnapshot & { aiApiKey: string },
 ): Promise<{ ok: boolean; error: string | null }> {
   try {
     const response = await fetch(`${backendUrl}/api/desktop/config`, {
@@ -474,9 +489,10 @@ async function applyRuntimeSettings(
       },
       body: JSON.stringify({
         searxngUrl: settings.searxngUrl,
-        omnirouteUrl: settings.omnirouteUrl,
-        omnirouteApiKey: settings.omnirouteApiKey,
-        omnirouteModel: settings.omnirouteModel,
+        aiProvider: settings.aiProvider,
+        aiBaseUrl: settings.aiBaseUrl,
+        aiApiKey: settings.aiApiKey,
+        aiModel: settings.aiModel,
       }),
       signal: AbortSignal.timeout(5000),
     });

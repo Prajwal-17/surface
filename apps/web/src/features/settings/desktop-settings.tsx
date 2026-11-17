@@ -23,9 +23,17 @@ interface Diagnostics {
     error: string | null;
     results?: number;
   };
-  omniroute: { ok: boolean; status: number | null; error: string | null };
+  ai: {
+    reachable: { ok: boolean; status: number | null; error: string | null };
+    modelAccess: {
+      ok: boolean;
+      status: number | null;
+      error: string | null;
+    } | null;
+  };
   searxngConfigured: boolean;
-  omnirouteConfigured: boolean;
+  aiConfigured: boolean;
+  aiKeyPresent: boolean;
 }
 
 type DesktopSettingsSnapshot = Awaited<
@@ -38,8 +46,9 @@ export function DesktopSettings() {
     null,
   );
   const [searxngUrl, setSearxngUrl] = useState("");
-  const [omnirouteUrl, setOmnirouteUrl] = useState("");
-  const [omnirouteModel, setOmnirouteModel] = useState("auto");
+  const [aiProvider, setAiProvider] = useState("opencode-go");
+  const [aiBaseUrl, setAiBaseUrl] = useState("");
+  const [aiModel, setAiModel] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [clearKey, setClearKey] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -62,11 +71,12 @@ export function DesktopSettings() {
       .then((value) => {
         setSettings(value);
         setSearxngUrl(value.searxngUrl);
-        setOmnirouteUrl(value.omnirouteUrl);
-        setOmnirouteModel(value.omnirouteModel);
+        setAiProvider(value.aiProvider);
+        setAiBaseUrl(value.aiBaseUrl);
+        setAiModel(value.aiModel);
         if (value.secretStorage === "plaintext") {
           toast.warning(
-            "OS encryption is unavailable. The OmniRoute key is stored with file permissions only.",
+            "OS encryption is unavailable. The AI key is stored with file permissions only.",
           );
         }
       })
@@ -85,10 +95,10 @@ export function DesktopSettings() {
           <ShieldCheck className="size-5 text-brand" /> Desktop services
         </h2>
         <p className="text-sm leading-6 text-muted-foreground">
-          SearXNG and OmniRoute URLs come from the backend environment in this
-          browser build. In the Surface desktop app they are saved under your
-          user data directory, with the OmniRoute key protected by the OS
-          keychain when available.
+          SearXNG and AI URLs come from the backend environment in this browser
+          build. In the Surface desktop app they are saved under your user data
+          directory, with the OpenCode Go key protected by the OS keychain when
+          available.
         </p>
         <ServiceDiagnostics
           diagnostics={diagnostics.data}
@@ -106,10 +116,11 @@ export function DesktopSettings() {
     try {
       const result = await desktop.saveSettings({
         searxngUrl,
-        omnirouteUrl,
-        omnirouteModel,
-        ...(apiKey.trim() ? { omnirouteApiKey: apiKey.trim() } : {}),
-        clearOmniRouteKey: clearKey,
+        aiProvider,
+        aiBaseUrl,
+        aiModel,
+        ...(apiKey.trim() ? { aiApiKey: apiKey.trim() } : {}),
+        clearAiApiKey: clearKey,
       });
       setSettings(result.settings);
       setApiKey("");
@@ -138,8 +149,15 @@ export function DesktopSettings() {
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           SearXNG is optional: without it, jobs, monitoring, snapshots and
           company research from saved sources still work, while web search
-          reports a clear error. OmniRoute stays external to the desktop app.
+          reports a clear error. AI generation uses your OpenCode Go
+          subscription directly; no local model gateway is required.
         </p>
+        {settings?.legacyOmniRouteConfigured ? (
+          <p className="mt-2 rounded-md border border-warning/40 bg-warning/5 p-3 text-xs leading-5 text-muted-foreground">
+            An older OmniRoute key is retained only as legacy data. It is never
+            sent to OpenCode. Enter a separate OpenCode Go key below.
+          </p>
+        ) : null}
       </div>
 
       {loadError ? (
@@ -166,34 +184,48 @@ export function DesktopSettings() {
               </span>
             </label>
             <label className="space-y-1.5 text-sm">
-              <span className="font-medium">OmniRoute model</span>
+              <span className="font-medium">AI provider</span>
               <Input
                 required
-                value={omnirouteModel}
-                onChange={(event) => setOmnirouteModel(event.target.value)}
+                value={aiProvider}
+                onChange={(event) => setAiProvider(event.target.value)}
               />
               <span className="block text-xs text-muted-foreground">
-                The model name exposed by your OmniRoute endpoint.
+                Supported: opencode-go
+              </span>
+            </label>
+            <label className="space-y-1.5 text-sm">
+              <span className="font-medium">AI model</span>
+              <Input
+                required
+                value={aiModel}
+                onChange={(event) => setAiModel(event.target.value)}
+              />
+              <span className="block text-xs text-muted-foreground">
+                Example: deepseek-v4.1-flash
               </span>
             </label>
             <label className="space-y-1.5 text-sm sm:col-span-2">
-              <span className="font-medium">OmniRoute base URL</span>
+              <span className="font-medium">AI base URL</span>
               <Input
                 type="url"
                 required
-                value={omnirouteUrl}
-                onChange={(event) => setOmnirouteUrl(event.target.value)}
+                value={aiBaseUrl}
+                onChange={(event) => setAiBaseUrl(event.target.value)}
               />
+              <span className="block text-xs text-muted-foreground">
+                Example: https://opencode.ai/inference/go/openai/v1
+              </span>
             </label>
             <label className="space-y-1.5 text-sm sm:col-span-2">
-              <span className="font-medium">OmniRoute API key</span>
+              <span className="font-medium">OpenCode Go API key</span>
               <Input
                 type="password"
                 autoComplete="off"
                 placeholder={
-                  settings.hasOmniRouteKey
+                  settings.hasAiApiKey
                     ? "A key is saved. Leave blank to keep it."
-                    : "Enter the key for your OmniRoute endpoint"
+                    : "Enter your OpenCode Go API key"
                 }
                 value={apiKey}
                 onChange={(event) => setApiKey(event.target.value)}
@@ -213,7 +245,7 @@ export function DesktopSettings() {
               )}
               {secretStorageLabel(settings.secretStorage)}
             </span>
-            {settings.hasOmniRouteKey ? (
+            {settings.hasAiApiKey ? (
               <label className="inline-flex items-center gap-1.5">
                 <input
                   type="checkbox"
@@ -319,11 +351,24 @@ function ServiceDiagnostics({
       state: diagnostics.searxng,
     },
     {
-      label: "OmniRoute",
-      detail: diagnostics.omnirouteConfigured
-        ? "API key configured"
-        : "API key not configured",
-      state: diagnostics.omniroute,
+      label: "OpenCode Go",
+      detail: !diagnostics.aiKeyPresent
+        ? "API key not configured"
+        : diagnostics.ai.modelAccess?.ok
+          ? "API key authenticated and model access confirmed"
+          : `API key present; model access failed${
+              diagnostics.ai.modelAccess?.error
+                ? ` (${diagnostics.ai.modelAccess.error})`
+                : ""
+            }`,
+      state: diagnostics.ai.modelAccess ?? diagnostics.ai.reachable,
+    },
+    {
+      label: "AI provider endpoint",
+      detail: diagnostics.ai.reachable.ok
+        ? "Models endpoint reachable"
+        : "Provider endpoint unreachable",
+      state: diagnostics.ai.reachable,
     },
   ];
   return (
@@ -361,7 +406,7 @@ function ServiceDiagnostics({
 function secretStorageLabel(value: DesktopSettingsSnapshot["secretStorage"]) {
   switch (value) {
     case "os-encrypted":
-      return "OmniRoute key encrypted with the OS keychain.";
+      return "AI key encrypted with the OS keychain.";
     case "basic-text":
       return "OS keyring is using its basic-text backend; the key is obscured but not strongly protected.";
     case "plaintext":

@@ -5,8 +5,8 @@ import {
   DESCRIPTION_SUMMARY_FORMAT_VERSION,
 } from "@surface/contracts";
 import { HttpError } from "../../shared/errors/http-error";
-import { partialSummaryText } from "../../shared/model-stream";
-import { requestModelJson } from "../../shared/model-client";
+import { getAiSettings } from "../../config/runtime";
+import { generateObject, streamObject } from "../../shared/ai/generation";
 import { getSettings, canRequestModel } from "../analysis/settings";
 import { jobs } from "./jobs.tables";
 
@@ -54,12 +54,16 @@ WRITING AND MARKDOWN
 OUTPUT CONTRACT
 Return only the requested JSON object with a text field. Its value must contain the Markdown briefing, with newlines correctly encoded as a JSON string. Do not wrap the JSON or Markdown in code fences.`;
 
+export interface SummaryHooks {
+  signal?: AbortSignal;
+  onText?: (text: string) => void | Promise<void>;
+}
+
 export async function summariseJob(
   id: string,
   regenerate = false,
-  model = requestModelJson,
+  hooks: SummaryHooks = {},
   configured?: boolean,
-  onText?: (text: string) => void,
 ) {
   const job = (
     await db
@@ -93,26 +97,53 @@ export async function summariseJob(
       "Summary unavailable. Check AI configuration in Settings or wait for current AI requests to finish.",
     );
   pending.add(id);
+  const aiSettings = getAiSettings();
+  const input = {
+    title: job.title,
+    company: job.company,
+    description: job.description,
+    location: job.location,
+    workMode: job.workMode,
+    employmentType: job.employmentType,
+    compensation: job.compensation,
+    applyUrl: job.applyUrl,
+  };
   try {
-    const response = await model(
-      outputSchema,
-      "surface_job_summary",
-      SUMMARY_SYSTEM_PROMPT,
-      {
-        title: job.title,
-        company: job.company,
-        description: job.description,
-        location: job.location,
-        workMode: job.workMode,
-        employmentType: job.employmentType,
-        compensation: job.compensation,
-        applyUrl: job.applyUrl,
-      },
-      6000,
-      onText ? (json) => onText(partialSummaryText(json)) : undefined,
-    );
+    let result;
+    if (hooks.onText) {
+      let previous = "";
+      result = await streamObject({
+        schema: outputSchema,
+        name: "surface_job_summary",
+        instructions: SUMMARY_SYSTEM_PROMPT,
+        input,
+        maxOutputTokens: 6000,
+        timeoutMs: 120_000,
+        feature: "job-summary",
+        signal: hooks.signal,
+        settings: aiSettings,
+        onPartial: async (partial) => {
+          const text = partial.text;
+          if (typeof text !== "string" || text === previous) return;
+          previous = text;
+          await hooks.onText?.(text);
+        },
+      });
+    } else {
+      result = await generateObject({
+        schema: outputSchema,
+        name: "surface_job_summary",
+        instructions: SUMMARY_SYSTEM_PROMPT,
+        input,
+        maxOutputTokens: 6000,
+        timeoutMs: 120_000,
+        feature: "job-summary",
+        signal: hooks.signal,
+        settings: aiSettings,
+      });
+    }
     const summary = descriptionSummarySchema.parse({
-      ...outputSchema.parse(response.output),
+      ...outputSchema.parse(result.output),
       jobVersionId: job.currentVersionId,
       generatedAt: new Date().toISOString(),
       formatVersion: DESCRIPTION_SUMMARY_FORMAT_VERSION,

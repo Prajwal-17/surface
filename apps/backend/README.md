@@ -65,11 +65,15 @@ Routes:
 - `PUT /api/profile`
 - `GET /api/health`
 
-Job-fit analysis uses an OpenAI-compatible OmniRoute endpoint. Configure:
+Job-fit analysis uses the Vercel AI SDK with the OpenCode Go provider. Configure:
 
-- `OMNIROUTE_BASE_URL` — defaults to `http://127.0.0.1:20128/v1`
-- `OMNIROUTE_API_KEY` — local endpoint key created by OmniRoute
-- `OMNIROUTE_MODEL` — defaults to OmniRoute's `auto` route
+- `AI_PROVIDER` — only `opencode-go` is supported
+- `AI_BASE_URL` — defaults to `https://opencode.ai/inference/go/openai/v1`
+- `AI_MODEL` — defaults to `deepseek-v4.1-flash`
+- `OPENCODE_GO_API_KEY` — your OpenCode Go key
+
+The old `OMNIROUTE_*` variables are ignored for inference. Surface warns once at
+startup if they are set; it never sends the old key to OpenCode.
 
 ## API schemas
 

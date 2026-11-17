@@ -10,7 +10,8 @@ utility processes:
 
 The renderer is the existing Vite React app in `apps/web`, built separately and
 served by Hono on a loopback port. Only SearXNG remains optional Docker
-infrastructure. OmniRoute remains external. Existing Docker Compose production
+infrastructure. OpenCode Go is a hosted API reached directly by the backend.
+Existing Docker Compose production
 services and the deployed PostgreSQL database are unchanged and are not required
 by the desktop app.
 
@@ -22,7 +23,7 @@ by the desktop app.
 - Electron 45 bundles Node 24 with `node:sqlite`; there is no native SQLite
   addon to rebuild or stage.
 - Optional: Docker for SearXNG. No PostgreSQL container is needed.
-- Optional: an OmniRoute endpoint and API key for AI summaries, assessments and
+- Optional: an OpenCode Go API key for AI summaries, assessments and
   company research.
 
 ## Build and package
@@ -104,7 +105,8 @@ Electron's `app.getPath("userData")` is used. On Linux this is normally
 - `data/snapshots/` — raw evidence,
 - `data/company-logos/` — cached company symbols,
 - `data/.surface-auth-secret` — local session signing key,
-- `settings.json` — SearXNG/OmniRoute settings,
+- `settings.json` — version-2 SearXNG/OpenCode Go settings (with a
+  `settings.json.v1.backup.json` copy when upgrading version 1),
 - `logs/desktop.log`, `logs/backend.log`, `logs/crawler.log`.
 
 `SURFACE_DESKTOP_USER_DATA=/path` overrides the user-data directory for testing
@@ -128,7 +130,7 @@ deployment and its backups remain in place.
 Settings → AI settings → Research and AI services lets you set:
 
 - SearXNG URL,
-- OmniRoute base URL, model and API key.
+- AI provider (`opencode-go`), base URL, model and OpenCode Go API key.
 
 The API key is encrypted with Electron `safeStorage` when an OS keychain is
 available. The app reports `os-encrypted`, `basic-text`, `plaintext`, or
@@ -138,7 +140,13 @@ restarting the app also reloads them.
 
 The key is never returned to the renderer after saving. Service settings are
 stored separately from `surface.sqlite3`; they are not part of any database
-transfer. Re-enter the OmniRoute key when setting up a new machine.
+transfer. Re-enter the OpenCode Go key when setting up a new machine.
+
+Version-1 desktop settings stored an OmniRoute URL, model and key. On first load
+Surface backs up that file, moves the old credentials into a legacy section that
+is never used for AI calls, and starts with the OpenCode Go defaults and no key.
+Enter a separate OpenCode Go key in Settings. The old encrypted value remains in
+`settings.json` only as legacy data.
 
 ### SearXNG
 
