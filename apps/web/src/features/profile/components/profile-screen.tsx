@@ -274,6 +274,7 @@ function ProfileEditor({
               <ArrowRight className="size-3.5" />
             </Button>
           </div>
+          <div className="desktop-caption-spacer" aria-hidden="true" />
         </header>
       )}
       <div className={onboarding ? "onboarding-layout" : "profile-layout"}>

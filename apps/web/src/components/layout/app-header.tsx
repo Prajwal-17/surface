@@ -254,6 +254,7 @@ export function AppHeader() {
           id="page-header-actions"
           className="ml-auto flex min-w-0 items-center gap-1"
         />
+        <div className="desktop-caption-spacer" aria-hidden="true" />
       </header>
     </>
   );
