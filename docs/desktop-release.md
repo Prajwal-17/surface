@@ -319,8 +319,10 @@ application secrets. Do not run production releases from pull request code.
   one on each run so the shared account storage allowance holds one current
   build. CI still uploads build metadata only.
 - The hosted **Desktop Linux CI** and **Desktop Development Build** workflows
-  ran successfully for the desktop migration. The hosted development artifact
-  upload is validated on the next run after this workflow change.
+  ran successfully for the desktop migration. Run `44098624087` uploaded the
+  AppImage, `.deb`, `BUILD-INFO.json`, and `SHA256SUMS` as separate unarchived
+  artifacts with 30-day retention. The repository artifact retention maximum is
+  set to 30 days for this storage allowance.
 
 If a release fails before publishing, fix the cause and rerun the same tag or
 manual publish. If it fails after creating a draft, the next run updates that
