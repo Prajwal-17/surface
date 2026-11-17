@@ -195,11 +195,16 @@ reviewed before relying on this workflow.
 `.github/workflows/desktop-dev-build.yml` builds only the development channel
 for Ubuntu x64. It runs the same source checks, Playwright dependency setup,
 packaging, staged-Chromium verification, and fresh-profile AppImage smoke test
-as CI. It can be started in two ways:
+as CI. It can be started in three ways:
 
-- manually with `workflow_dispatch` and a branch, commit, or tag;
+- with the **Run workflow** button on the **Desktop Development Build**
+  Actions page, picking a branch, commit, or tag;
+- automatically on every branch push;
 - by adding the `desktop-dev-build` label to a pull request from this
   repository.
+
+The **Run workflow** button is available once the workflow exists on the
+default branch. Push builds use the pushed commit and are serialized per ref.
 
 It uploads each file as a separate, unarchived artifact with 30-day retention:
 
