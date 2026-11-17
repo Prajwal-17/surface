@@ -83,7 +83,7 @@ async function bootstrap(): Promise<void> {
     const settings = await SettingsStore.create(paths.settings);
     const selected = settings.runtime();
     startupLog.write(
-      `settings loaded secretStorage=${selected.secretStorage} omnirouteConfigured=${Boolean(selected.omnirouteApiKey)}`,
+      `settings loaded secretStorage=${selected.secretStorage} aiConfigured=${Boolean(selected.aiApiKey)}`,
     );
 
     const crawlerPort =
@@ -140,9 +140,10 @@ async function bootstrap(): Promise<void> {
           ),
           CRAWLER_BASE_URL: crawlerUrl,
           SEARXNG_BASE_URL: selected.searxngUrl,
-          OMNIROUTE_BASE_URL: selected.omnirouteUrl,
-          OMNIROUTE_API_KEY: selected.omnirouteApiKey,
-          OMNIROUTE_MODEL: selected.omnirouteModel,
+          AI_PROVIDER: selected.aiProvider,
+          AI_BASE_URL: selected.aiBaseUrl,
+          AI_MODEL: selected.aiModel,
+          OPENCODE_GO_API_KEY: selected.aiApiKey,
           SURFACE_DESKTOP_TOKEN: desktopToken,
           SURFACE_SECRET_STORAGE: selected.secretStorage,
           PLAYWRIGHT_BROWSERS_PATH: paths.playwrightBrowsers,
@@ -294,9 +295,10 @@ function createWindow(): void {
               const before = await window.surfaceDesktop.getSettings();
               const saved = await window.surfaceDesktop.saveSettings({
                 searxngUrl: before.searxngUrl,
-                omnirouteUrl: before.omnirouteUrl,
-                omnirouteModel: before.omnirouteModel,
-                omnirouteApiKey: "smoke-test-key",
+                aiProvider: before.aiProvider,
+                aiBaseUrl: before.aiBaseUrl,
+                aiModel: before.aiModel,
+                aiApiKey: "smoke-test-key",
               });
               const after = await window.surfaceDesktop.getSettings();
               await waitFor(".desktop-window-controls");
@@ -451,7 +453,7 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
 }
 
 async function applyRuntimeSettings(
-  settings: DesktopSettingsSnapshot & { omnirouteApiKey: string },
+  settings: DesktopSettingsSnapshot & { aiApiKey: string },
 ): Promise<{ ok: boolean; error: string | null }> {
   try {
     const response = await fetch(`${backendUrl}/api/desktop/config`, {
@@ -462,9 +464,10 @@ async function applyRuntimeSettings(
       },
       body: JSON.stringify({
         searxngUrl: settings.searxngUrl,
-        omnirouteUrl: settings.omnirouteUrl,
-        omnirouteApiKey: settings.omnirouteApiKey,
-        omnirouteModel: settings.omnirouteModel,
+        aiProvider: settings.aiProvider,
+        aiBaseUrl: settings.aiBaseUrl,
+        aiApiKey: settings.aiApiKey,
+        aiModel: settings.aiModel,
       }),
       signal: AbortSignal.timeout(5000),
     });

@@ -3,18 +3,21 @@ export {};
 
 interface DesktopSettingsSnapshot {
   searxngUrl: string;
-  omnirouteUrl: string;
-  omnirouteModel: string;
-  hasOmniRouteKey: boolean;
+  aiProvider: string;
+  aiBaseUrl: string;
+  aiModel: string;
+  hasAiApiKey: boolean;
+  legacyOmniRouteConfigured: boolean;
   secretStorage: "os-encrypted" | "basic-text" | "plaintext" | "unavailable";
 }
 
 interface DesktopSettingsInput {
   searxngUrl: string;
-  omnirouteUrl: string;
-  omnirouteModel: string;
-  omnirouteApiKey?: string;
-  clearOmniRouteKey?: boolean;
+  aiProvider: string;
+  aiBaseUrl: string;
+  aiModel: string;
+  aiApiKey?: string;
+  clearAiApiKey?: boolean;
 }
 
 interface SurfaceWindowState {
