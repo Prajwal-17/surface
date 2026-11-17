@@ -1,6 +1,6 @@
 # Vercel AI SDK migration implementation plan
 
-Status: ready for a separate implementation thread. This PR contains planning documents only. Start with [the inspected code inventory](ai-sdk-inventory.md). Baseline: `7186b1e`, 2026-11-17.
+Status: implementation is in progress on `migrate-ai-sdk`; see [the migration status](ai-sdk-migration-status.md). Start with [the inspected code inventory](ai-sdk-inventory.md). Baseline: `7186b1e`, 2026-11-17.
 
 ## 1. Objective and completion criteria
 
