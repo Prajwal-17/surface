@@ -46,7 +46,7 @@ Installed versions: `ai` 7.0.173, `@ai-sdk/openai-compatible` 3.0.92.
 | `bun run check-types`                                                               | passed                                  |
 | `bun --cwd apps/web test`                                                           | 39 passed                               |
 | `bun --cwd apps/crawler test`                                                       | 7 passed                                |
-| `APP_ENV=test NODE_ENV=test bun --cwd apps/backend test` with disposable PostgreSQL | 58 passed                               |
+| `APP_ENV=test NODE_ENV=test bun --cwd apps/backend test` with disposable PostgreSQL | 59 passed                               |
 | `bun run verify:sqlite`                                                             | passed                                  |
 | `bun run build`                                                                     | passed                                  |
 | `bun --cwd apps/desktop package:dir`                                                | passed                                  |

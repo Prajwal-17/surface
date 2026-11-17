@@ -102,6 +102,18 @@ globalThis.fetch = (async (
 const mockFetch = globalThis.fetch;
 
 describe("AI capacity", () => {
+  test("rejects unsupported providers and invalid URLs", () => {
+    expect(() => updateRuntimeSettings({ provider: "other" })).toThrow(
+      "Unsupported AI provider",
+    );
+    expect(() =>
+      updateRuntimeSettings({ baseUrl: "ftp://example.com" }),
+    ).toThrow("must use http or https");
+    expect(() => updateRuntimeSettings({ model: "  " })).toThrow(
+      "AI model is required",
+    );
+  });
+
   test("admits two requests and fails fast for a third", () => {
     const first = acquireModelSlot();
     const second = acquireModelSlot();

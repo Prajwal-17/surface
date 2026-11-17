@@ -180,6 +180,10 @@ function readStored(file: string): StoredSettingsV2 {
     }
     validateUrl(parsed.searxngUrl, "SearXNG URL");
     validateUrl(parsed.aiBaseUrl, "AI base URL");
+    if (parsed.aiProvider !== DEFAULT_AI_PROVIDER)
+      throw new Error(
+        `Unsupported AI provider "${parsed.aiProvider}". Use ${DEFAULT_AI_PROVIDER}.`,
+      );
     return parsed;
   } catch (error) {
     throw new Error(

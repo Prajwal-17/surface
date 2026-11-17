@@ -1,6 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import { SUPPORTED_AI_PROVIDERS } from "../shared/ai/constants";
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 const workspaceDirectory = resolve(currentDirectory, "../../../..");
@@ -51,7 +52,7 @@ const envSchema = z.object({
   /** Set by the Electron launcher; protects local APIs for the desktop session. */
   SURFACE_DESKTOP_TOKEN: z.string().min(32).optional(),
   SOURCE_TIMEOUT_MS: z.coerce.number().int().min(1_000).default(12_000),
-  AI_PROVIDER: z.string().trim().min(1).default("opencode-go"),
+  AI_PROVIDER: z.enum(SUPPORTED_AI_PROVIDERS).default("opencode-go"),
   AI_BASE_URL: z
     .string()
     .url()
