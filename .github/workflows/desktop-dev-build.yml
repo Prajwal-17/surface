@@ -1,0 +1,164 @@
+name: Desktop Development Build
+
+run-name: Surface development build (${{ inputs.ref || github.event.pull_request.head.ref || github.ref_name }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, commit, or tag to build"
+        required: true
+        default: master
+        type: string
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-dev-${{ inputs.ref || github.event.pull_request.head.sha || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "24.20.0"
+  BUN_VERSION: "1.4.1"
+
+jobs:
+  build:
+    name: Build development Linux x64
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.label.name == 'desktop-dev-build' &&
+      github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out requested ref
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install JavaScript dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Electron and Playwright system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            libsecret-1-0 libnotify4 xvfb
+          ./apps/crawler/node_modules/.bin/playwright install-deps chromium
+
+      - name: Verify native Linux x64 runner
+        run: |
+          node -e 'if (process.platform !== "linux" || process.arch !== "x64") throw new Error("Expected linux/x64, got " + process.platform + "/" + process.arch)'
+
+      - name: Run source checks
+        run: |
+          bun run format:check
+          bun run lint
+          bun run check-types
+          bun --cwd apps/web test
+          bun --cwd apps/crawler test
+          bun run verify:sqlite
+
+      - name: Build development AppImage and Debian package
+        env:
+          SURFACE_SOURCE_COMMIT: ${{ steps.checkout.outputs.commit }}
+          SURFACE_SOURCE_REF: ${{ inputs.ref || github.event.pull_request.head.ref }}
+        run: node scripts/desktop-release.mjs package --channel development
+
+      - name: Verify staged Playwright Chromium
+        run: node scripts/desktop-release.mjs verify-build
+
+      - name: Smoke-test packaged development AppImage
+        run: node scripts/desktop-release.mjs smoke --channel development
+
+      - name: Show artifact checksums
+        run: cat apps/desktop/release/dev/SHA256SUMS
+
+      # Developer installers are too large for the private repository's Actions
+      # storage quota (the AppImage and Debian package together exceed it).
+      # Publish them as prerelease assets, which are not subject to that quota.
+      - name: Publish development release assets
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: desktop-dev-${{ github.run_number }}
+          COMMIT: ${{ steps.checkout.outputs.commit }}
+          SOURCE_REF: ${{ inputs.ref || github.event.pull_request.head.ref || github.ref_name }}
+        run: |
+          set -euo pipefail
+          notes="$(mktemp)"
+          {
+            echo "Automated development build from \`$SOURCE_REF\`."
+            echo
+            echo "- Commit: \`$COMMIT\`"
+            echo "- Channel: development (\`Surface Dev\`)"
+            echo
+            echo '```'
+            cat apps/desktop/release/dev/SHA256SUMS
+            echo '```'
+          } > "$notes"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --prerelease \
+              --title "Surface Dev build ${{ github.run_number }}" \
+              --notes-file "$notes"
+          else
+            gh release create "$TAG" --prerelease --target "$COMMIT" \
+              --title "Surface Dev build ${{ github.run_number }}" \
+              --notes-file "$notes"
+          fi
+          gh release upload "$TAG" \
+            apps/desktop/release/dev/Surface-Dev-*.AppImage \
+            apps/desktop/release/dev/Surface-Dev-*.deb \
+            apps/desktop/release/dev/BUILD-INFO.json \
+            apps/desktop/release/dev/SHA256SUMS \
+            --clobber
+          echo "url=https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Upload development build metadata
+        id: artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: surface-desktop-dev-linux-x64-metadata
+          path: |
+            apps/desktop/release/dev/BUILD-INFO.json
+            apps/desktop/release/dev/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Summarize development build
+        env:
+          RELEASE_URL: ${{ steps.publish.outputs.url }}
+          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+        run: |
+          {
+            echo "### Surface development build"
+            echo
+            cat apps/desktop/release/dev/SHA256SUMS
+            echo
+            echo "[Download the development AppImage and Debian package]($RELEASE_URL)"
+            echo
+            echo "The large installers are prerelease assets because they exceed the private repository's Actions artifact storage quota. The [build metadata artifact]($ARTIFACT_URL) contains \`BUILD-INFO.json\` and \`SHA256SUMS\`."
+            echo
+            echo "Install the \`.deb\` with \`sudo apt install ./Surface-Dev-*.deb\`."
+            echo "Run the AppImage directly, or with \`APPIMAGE_EXTRACT_AND_RUN=1\` when FUSE is unavailable."
+            echo
+            echo "To build a development installer from a pull request, add the \`desktop-dev-build\` label."
+          } >> "$GITHUB_STEP_SUMMARY"

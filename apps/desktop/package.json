@@ -11,7 +11,9 @@
   "main": "dist/main.cjs",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "build:dev": "SURFACE_DESKTOP_CHANNEL=development node scripts/build.mjs",
     "package": "node scripts/build.mjs && electron-builder --linux AppImage deb",
+    "package:dev": "SURFACE_DESKTOP_CHANNEL=development node scripts/build.mjs && SURFACE_DESKTOP_CHANNEL=development electron-builder --linux AppImage deb --config electron-builder.dev.yml",
     "package:appimage": "node scripts/build.mjs && electron-builder --linux AppImage",
     "package:deb": "node scripts/build.mjs && electron-builder --linux deb",
     "package:ubuntu": "node scripts/build.mjs && electron-builder --linux AppImage deb",
@@ -26,68 +28,6 @@
     "electron-builder": "latest",
     "esbuild": "latest",
     "typescript": "npm:typescript@6.0.2"
-  },
-  "build": {
-    "appId": "dev.surface.desktop",
-    "productName": "Surface",
-    "artifactName": "Surface-${version}-${arch}.${ext}",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "build/web",
-        "to": "web"
-      },
-      {
-        "from": "build/backend",
-        "to": "backend"
-      },
-      {
-        "from": "build/crawler",
-        "to": "crawler"
-      },
-      {
-        "from": "build/playwright",
-        "to": "playwright"
-      },
-      {
-        "from": "resources/icon.png",
-        "to": "icon.png"
-      }
-    ],
-    "asar": true,
-    "npmRebuild": false,
-    "afterPack": "scripts/after-pack.cjs",
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "category": "Utility",
-      "executableName": "surface",
-      "icon": "resources/icon.png",
-      "synopsis": "Local-first job-review workspace",
-      "description": "Surface finds, explains and tracks jobs that fit your profile. The desktop app keeps its SQLite database, snapshots and evidence on your machine.",
-      "desktop": {
-        "entry": {
-          "StartupWMClass": "surface"
-        }
-      },
-      "maintainer": "Surface <desktop@surface.local>",
-      "syncDesktopName": true
-    },
-    "deb": {
-      "packageName": "surface",
-      "compression": "xz"
-    },
-    "extraMetadata": {
-      "desktopName": "surface.desktop"
-    }
   },
   "homepage": "https://github.com/Prajwal-17/surface"
 }

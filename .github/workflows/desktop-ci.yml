@@ -154,14 +154,16 @@ jobs:
       - name: Show artifact checksums
         run: cat apps/desktop/release/SHA256SUMS
 
-      - name: Upload Linux artifacts
+      # The AppImage and Debian package together exceed the private
+      # repository's Actions artifact storage quota. CI validates the
+      # installers; downloadable development installers are published as
+      # prerelease assets by the Desktop Development Build workflow.
+      - name: Upload build metadata
         id: artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: surface-desktop-ci-linux-x64
+          name: surface-desktop-ci-linux-x64-metadata
           path: |
-            apps/desktop/release/Surface-*.AppImage
-            apps/desktop/release/Surface-*.deb
             apps/desktop/release/BUILD-INFO.json
             apps/desktop/release/SHA256SUMS
           if-no-files-found: error
@@ -178,7 +180,9 @@ jobs:
             echo
             cat apps/desktop/release/SHA256SUMS
             echo
-            echo "[Download the CI artifact]($ARTIFACT_URL)"
+            echo "[Download the build metadata artifact]($ARTIFACT_URL)"
             echo
             echo "Artifact digest: \`$ARTIFACT_DIGEST\`"
+            echo
+            echo "The installers were built and smoke-tested but are not uploaded here because they exceed the private repository's Actions artifact storage quota."
           } >> "$GITHUB_STEP_SUMMARY"

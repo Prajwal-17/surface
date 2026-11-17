@@ -19,7 +19,14 @@ const backendDir = join(root, "apps/backend");
 const crawlerDir = join(root, "apps/crawler");
 const webDir = join(root, "apps/web");
 
-console.info("Surface desktop build");
+const channel = process.env.SURFACE_DESKTOP_CHANNEL ?? "production";
+if (channel !== "development" && channel !== "production") {
+  throw new Error(
+    `SURFACE_DESKTOP_CHANNEL must be "development" or "production", got "${channel}".`,
+  );
+}
+
+console.info(`Surface desktop build (${channel} channel)`);
 rmSync(buildDir, { recursive: true, force: true });
 mkdirSync(buildDir, { recursive: true });
 
@@ -136,6 +143,9 @@ async function bundle(entry, outfile, external = [], format = "cjs") {
     logLevel: "info",
     absWorkingDir: root,
     external,
+    define: {
+      SURFACE_DESKTOP_CHANNEL_BUILD: JSON.stringify(channel),
+    },
     ...(format === "esm"
       ? {
           banner: {

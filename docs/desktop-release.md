@@ -20,10 +20,23 @@ not describe the web/PostgreSQL deployment.
   build or its smoke test.
 
 The desktop implementation owns `apps/desktop/package.json`,
-`apps/desktop/scripts/build.mjs`, and electron-builder configuration. This
-automation expects that packaging to remain reproducible on Linux x64. If the
-output directory, artifact names, or production command changes, update
+`apps/desktop/scripts/build.mjs`, and the electron-builder configuration in
+`apps/desktop/electron-builder.yml` and `apps/desktop/electron-builder.dev.yml`.
+This automation expects that packaging to remain reproducible on Linux x64. If
+the output directory, artifact names, or production command changes, update
 `scripts/desktop-release.mjs` and these workflows in the same change.
+
+Two channels are built from the same source:
+
+| Channel     | Application | Output directory           | Installer identity        |
+| ----------- | ----------- | -------------------------- | ------------------------- |
+| production  | Surface     | `apps/desktop/release`     | `dev.surface.desktop`     |
+| development | Surface Dev | `apps/desktop/release/dev` | `dev.surface.desktop.dev` |
+
+Development builds use a distinct application name, so Electron stores their
+data in a separate `userData` directory. Both channels can be installed and run
+side by side. A packaged binary cannot switch channels at runtime; the channel
+is compiled into the main process by `apps/desktop/scripts/build.mjs`.
 
 ## Local production build
 
@@ -62,6 +75,23 @@ writes `apps/desktop/release/BUILD-INFO.json`, and then writes
 a GitHub release. The AppImage is required; a `.deb` is included
 automatically when the current electron-builder configuration emits one.
 
+Build and package the development application:
+
+```sh
+node scripts/desktop-release.mjs package --channel development
+```
+
+Development artifacts are written to `apps/desktop/release/dev` and carry the
+`Surface-Dev-` prefix. The manual **Desktop Development Build** workflow builds
+this channel and publishes the AppImage, Debian package, manifest, and checksums
+as assets on a `desktop-dev-<run number>` prerelease. It also keeps
+`BUILD-INFO.json` and `SHA256SUMS` in a small Actions artifact.
+
+The installers are published as release assets instead of Actions artifacts
+because the AppImage and `.deb` together exceed the private repository's
+Actions storage quota. Release assets have a separate per-file limit and are
+not subject to that quota.
+
 You can inspect and verify the helper independently:
 
 ```sh
@@ -70,6 +100,7 @@ node scripts/desktop-release.mjs manifest
 node scripts/desktop-release.mjs checksums
 node scripts/desktop-release.mjs verify-build
 node scripts/desktop-release.mjs smoke
+node scripts/desktop-release.mjs smoke --channel development
 ```
 
 - `verify-build` launches the Playwright Chromium staged in
@@ -97,16 +128,19 @@ the version and generates checksums.
 
 ## Artifacts
 
-| File                                | Purpose                                                             |
-| ----------------------------------- | ------------------------------------------------------------------- |
-| `Surface-<version>-x86_64.AppImage` | Portable Ubuntu x86_64 desktop application. Required.               |
-| `Surface-<version>-amd64.deb`       | Debian package produced by the Linux packaging target.              |
-| `BUILD-INFO.json`                   | Version, source commit/ref, build environment, and artifact hashes. |
-| `SHA256SUMS`                        | Standard `sha256sum` file for every published desktop artifact.     |
+| File                                    | Purpose                                                             |
+| --------------------------------------- | ------------------------------------------------------------------- |
+| `Surface-<version>-x86_64.AppImage`     | Portable Ubuntu x86_64 production application. Required.            |
+| `Surface-<version>-amd64.deb`           | Production Debian package produced by the Linux packaging target.   |
+| `Surface-Dev-<version>-x86_64.AppImage` | Portable development application, installable beside production.    |
+| `Surface-Dev-<version>-amd64.deb`       | Development Debian package (`surface-dev`).                         |
+| `BUILD-INFO.json`                       | Version, channel, source commit/ref, build environment, and hashes. |
+| `SHA256SUMS`                            | Standard `sha256sum` file for every channel artifact.               |
 
-No blockmaps, updater feeds, development-channel installers, macOS images,
-Windows installers, or Linux ARM packages are produced or published. The
-workflows upload `BUILD-INFO.json` and `SHA256SUMS` with the installer files.
+No blockmaps, updater feeds, macOS images, Windows installers, or Linux ARM
+packages are produced or published. Development installers are published as
+prerelease assets, and production installers are published on the versioned
+release; both carry `BUILD-INFO.json` and `SHA256SUMS`.
 
 Verify a downloaded release:
 
@@ -147,15 +181,73 @@ and crawler unit tests, and the fresh SQLite verification. The `package` job
 installs Electron/Chromium system dependencies and Playwright's Chromium
 dependencies, builds the production AppImage and Debian package, launches the
 staged Chromium, runs the packaged AppImage smoke test, and writes
-`BUILD-INFO.json` and `SHA256SUMS`. It uploads the Linux installers, manifest,
-and checksums as the `surface-desktop-ci-linux-x64` Actions artifact for 14
-days. That artifact is a CI download only; it is never published as a release.
+`BUILD-INFO.json` and `SHA256SUMS`. It uploads only the manifest and checksums
+as the `surface-desktop-ci-linux-x64-metadata` Actions artifact for 14 days.
+The installers stay in the workflow workspace because the AppImage and `.deb`
+together exceed the private repository's Actions storage quota. That metadata
+artifact is a CI record only; it is never published as a release. Use the
+development build workflow when you need a downloadable installer.
 
 The packaged smoke test verifies the Electron 45 runtime and the backend's
 built-in `node:sqlite` implementation in the actual AppImage. No native SQLite
 addon or Electron ABI rebuild is required. If a native addon is introduced
 later, electron-builder's `npmRebuild` behavior and the ABI check must be
 reviewed before relying on this workflow.
+
+## Manual development builds
+
+`.github/workflows/desktop-dev-build.yml` builds only the development channel
+for Ubuntu x64. It runs the same source checks, Playwright dependency setup,
+packaging, staged-Chromium verification, and fresh-profile AppImage smoke test
+as CI. It can be started in two ways:
+
+- manually with `workflow_dispatch` and a branch, commit, or tag;
+- by adding the `desktop-dev-build` label to a pull request from this
+  repository.
+
+It publishes:
+
+- `Surface-Dev-<version>-x86_64.AppImage`
+- `Surface-Dev-<version>-amd64.deb`
+- `BUILD-INFO.json`
+- `SHA256SUMS`
+
+to a `desktop-dev-<run number>` prerelease, and uploads the manifest and
+checksums as the `surface-desktop-dev-linux-x64-metadata` Actions artifact.
+Development builds never create a stable tag or publish a production release.
+Use them when you want a downloadable installer before a versioned release
+exists.
+
+## Changelog and release notes
+
+`CHANGELOG.md` at the repository root is the source of release notes. The
+release workflow extracts the matching `## desktop-v<version>` section with
+`scripts/release-notes.mjs` and attaches it to the draft release. A tag run
+fails before building if that section is missing or empty.
+
+To prepare an entry without editing the version by hand, run the manual **Desktop
+Changelog** workflow from the Actions tab:
+
+- `bump`: `patch`, `minor`, or `major` when no explicit version is supplied.
+- `version`: optional explicit version such as `0.2.0`.
+- `notes`: Markdown, optionally grouped with `### Added`, `### Changed`, and
+  `### Fixed`.
+
+The workflow runs `scripts/changelog.mjs` on the default branch, pushes a
+`chore/release-<version>` branch, and opens a pull request. Review it, merge it,
+then push the matching `desktop-v<version>` tag to start the release. The
+script does not push or create a pull request on its own.
+
+You can preview the extraction and the changelog edit locally:
+
+```sh
+node scripts/release-notes.mjs --check
+node scripts/release-notes.mjs 0.1.0
+node scripts/changelog.mjs --bump patch --notes-file notes.md --dry-run
+```
+
+`node scripts/release-notes.mjs --backfill` previews notes for existing
+`desktop-vX.Y.Z` GitHub releases; add `--apply` only after verifying the preview.
 
 ## Versioned production release
 
@@ -204,10 +296,12 @@ progress. If GitHub attestations are unavailable for this private repository,
 leave `DESKTOP_ATTESTATIONS` unset; `BUILD-INFO.json` and `SHA256SUMS` are still
 published on every release.
 
-GitHub generates release notes from commits and pull requests. The workflow
-does not create or delete git tags, does not modify the repository, and does
-not use application secrets. Do not run production releases from pull request
-code.
+Release notes come from the reviewed `CHANGELOG.md` entry, not from generated
+commit lists. The workflow verifies the entry before packaging, creates or
+updates a draft release with those notes, uploads the checksummed assets, and
+publishes the draft only after the upload succeeds. The workflow does not
+create or delete git tags, does not modify the repository, and does not use
+application secrets. Do not run production releases from pull request code.
 
 ## Remaining constraints
 
@@ -223,12 +317,15 @@ code.
   production volumes, or production data.
 - The desktop SQLite path is fresh-only. No export, import, backup restore, or
   PGlite/PostgreSQL migration runs in CI, packaging, or the smoke test.
-- The AppImage is large because it bundles Chromium for the crawler; Actions
-  artifacts are ZIP uploads and expire after 14 days.
-- This checkout has locally validated the helper commands, Playwright launch,
-  packaged AppImage smoke test, YAML parsing, and actionlint. The hosted GitHub
-  Actions workflows themselves have not been executed from this branch; the
-  parent integration run will be the first remote execution.
+- The AppImage is large because it bundles Chromium for the crawler. The
+  AppImage and `.deb` together exceed this private repository's 500 MiB Actions
+  artifact quota, so installers are published as prerelease or release assets
+  and only build metadata uses Actions artifacts.
+- The hosted **Desktop Linux CI** and **Desktop Development Build** workflows
+  ran successfully for commit `c88a0f3` on 17 Nov 2026. The development build
+  passed the source checks, Playwright verification, fresh-profile AppImage
+  smoke test, and published `desktop-dev-1` with the AppImage, `.deb`,
+  `BUILD-INFO.json`, and `SHA256SUMS`.
 
 If a release fails before publishing, fix the cause and rerun the same tag or
 manual publish. If it fails after creating a draft, the next run updates that
