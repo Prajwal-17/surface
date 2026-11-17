@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { env } from "../../config/env";
 import {
+  aiConfigured,
   getRuntimeSettings,
   updateRuntimeSettings,
 } from "../../config/runtime";
@@ -12,9 +13,10 @@ export const desktopRoutes = new Hono();
 const configSchema = z
   .object({
     searxngUrl: z.string().url().max(2048).optional(),
-    omnirouteUrl: z.string().url().max(2048).optional(),
-    omnirouteApiKey: z.string().max(4096).optional(),
-    omnirouteModel: z.string().trim().min(1).max(200).optional(),
+    aiProvider: z.string().trim().min(1).max(64).optional(),
+    aiBaseUrl: z.string().url().max(2048).optional(),
+    aiApiKey: z.string().max(4096).optional(),
+    aiModel: z.string().trim().min(1).max(200).optional(),
   })
   .strict();
 
@@ -47,14 +49,15 @@ desktopRoutes.put("/config", async (context) => {
   try {
     updateRuntimeSettings({
       searxngBaseUrl: parsed.data.searxngUrl,
-      omnirouteBaseUrl: parsed.data.omnirouteUrl,
-      omnirouteApiKey: parsed.data.omnirouteApiKey,
-      omnirouteModel: parsed.data.omnirouteModel,
+      provider: parsed.data.aiProvider,
+      baseUrl: parsed.data.aiBaseUrl,
+      apiKey: parsed.data.aiApiKey,
+      model: parsed.data.aiModel,
     });
   } catch (error) {
     return context.json(
       {
-        error: error instanceof Error ? error.message : "Invalid service URL.",
+        error: error instanceof Error ? error.message : "Invalid AI settings.",
       },
       400,
     );
@@ -64,17 +67,18 @@ desktopRoutes.put("/config", async (context) => {
 
 desktopRoutes.get("/diagnostics", async (context) => {
   const settings = getRuntimeSettings();
-  const [crawler, searxng, omniroute] = await Promise.all([
+  const [crawler, searxng, ai] = await Promise.all([
     probe(`${env.CRAWLER_BASE_URL.replace(/\/$/, "")}/health`),
     probeSearxng(settings.searxngBaseUrl),
-    probeOmniRoute(settings.omnirouteBaseUrl),
+    probeAi(settings.baseUrl, settings.apiKey),
   ]);
   return context.json({
     crawler,
     searxng,
-    omniroute,
+    ai,
     searxngConfigured: Boolean(settings.searxngBaseUrl),
-    omnirouteConfigured: Boolean(settings.omnirouteApiKey),
+    aiConfigured: aiConfigured(settings),
+    aiKeyPresent: Boolean(settings.apiKey),
   });
 });
 
@@ -86,17 +90,20 @@ function statusPayload() {
     databaseFile: env.SQLITE_DATABASE_FILE ?? null,
     dataDir: env.DATA_DIR,
     searxngUrl: settings.searxngBaseUrl,
-    omnirouteUrl: settings.omnirouteBaseUrl,
-    omnirouteModel: settings.omnirouteModel,
-    omnirouteConfigured: Boolean(settings.omnirouteApiKey),
+    aiProvider: settings.provider,
+    aiBaseUrl: settings.baseUrl,
+    aiModel: settings.model,
+    aiConfigured: aiConfigured(settings),
+    aiKeyPresent: Boolean(settings.apiKey),
     secretStorage: process.env.SURFACE_SECRET_STORAGE ?? "environment",
   };
 }
 
-async function probe(url: string) {
+async function probe(url: string, headers?: Record<string, string>) {
   try {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(3000),
+      headers,
     });
     return {
       ok: response.ok,
@@ -146,24 +153,17 @@ async function probeSearxng(baseUrl: string) {
   }
 }
 
-async function probeOmniRoute(baseUrl: string) {
-  try {
-    const response = await fetch(`${baseUrl.replace(/\/$/, "")}/models`, {
-      signal: AbortSignal.timeout(3000),
-      headers: {
-        Authorization: `Bearer ${getRuntimeSettings().omnirouteApiKey}`,
-      },
-    });
-    return {
-      ok: response.ok,
-      status: response.status,
-      error: response.ok ? null : `HTTP ${response.status}`,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      status: null,
-      error: error instanceof Error ? error.message : "Unavailable.",
-    };
-  }
+/**
+ * Reachability and authenticated model access only. This never starts a paid
+ * generation; the settings screen tells the difference explicitly.
+ */
+async function probeAi(baseUrl: string, apiKey: string) {
+  const url = `${baseUrl.replace(/\/$/, "")}/models`;
+  const reachable = await probe(url);
+  return {
+    reachable,
+    modelAccess: apiKey
+      ? await probe(url, { Authorization: `Bearer ${apiKey}` })
+      : null,
+  };
 }
