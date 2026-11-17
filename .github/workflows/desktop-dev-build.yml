@@ -1,6 +1,6 @@
 name: Desktop Development Build
 
-run-name: Surface development build (${{ inputs.ref }})
+run-name: Surface development build (${{ inputs.ref || github.event.pull_request.head.ref || github.ref_name }})
 
 on:
   workflow_dispatch:
@@ -10,12 +10,14 @@ on:
         required: true
         default: master
         type: string
+  pull_request:
+    types: [labeled]
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: desktop-dev-${{ inputs.ref }}
+  group: desktop-dev-${{ inputs.ref || github.event.pull_request.head.sha || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -25,6 +27,10 @@ env:
 jobs:
   build:
     name: Build development Linux x64
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.label.name == 'desktop-dev-build' &&
+      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -32,7 +38,7 @@ jobs:
         id: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.event.pull_request.head.sha }}
           persist-credentials: false
 
       - name: Set up Node
@@ -72,7 +78,7 @@ jobs:
       - name: Build development AppImage and Debian package
         env:
           SURFACE_SOURCE_COMMIT: ${{ steps.checkout.outputs.commit }}
-          SURFACE_SOURCE_REF: ${{ inputs.ref }}
+          SURFACE_SOURCE_REF: ${{ inputs.ref || github.event.pull_request.head.ref }}
         run: node scripts/desktop-release.mjs package --channel development
 
       - name: Verify staged Playwright Chromium
@@ -84,14 +90,53 @@ jobs:
       - name: Show artifact checksums
         run: cat apps/desktop/release/dev/SHA256SUMS
 
-      - name: Upload development installers
+      # Developer installers are too large for the private repository's Actions
+      # storage quota (the AppImage and Debian package together exceed it).
+      # Publish them as prerelease assets, which are not subject to that quota.
+      - name: Publish development release assets
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: desktop-dev-${{ github.run_number }}
+          COMMIT: ${{ steps.checkout.outputs.commit }}
+          SOURCE_REF: ${{ inputs.ref || github.event.pull_request.head.ref || github.ref_name }}
+        run: |
+          set -euo pipefail
+          notes="$(mktemp)"
+          {
+            echo "Automated development build from \`$SOURCE_REF\`."
+            echo
+            echo "- Commit: \`$COMMIT\`"
+            echo "- Channel: development (\`Surface Dev\`)"
+            echo
+            echo '```'
+            cat apps/desktop/release/dev/SHA256SUMS
+            echo '```'
+          } > "$notes"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --prerelease \
+              --title "Surface Dev build ${{ github.run_number }}" \
+              --notes-file "$notes"
+          else
+            gh release create "$TAG" --prerelease --target "$COMMIT" \
+              --title "Surface Dev build ${{ github.run_number }}" \
+              --notes-file "$notes"
+          fi
+          gh release upload "$TAG" \
+            apps/desktop/release/dev/Surface-Dev-*.AppImage \
+            apps/desktop/release/dev/Surface-Dev-*.deb \
+            apps/desktop/release/dev/BUILD-INFO.json \
+            apps/desktop/release/dev/SHA256SUMS \
+            --clobber
+          echo "url=https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Upload development build metadata
         id: artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: surface-desktop-dev-linux-x64
+          name: surface-desktop-dev-linux-x64-metadata
           path: |
-            apps/desktop/release/dev/Surface-Dev-*.AppImage
-            apps/desktop/release/dev/Surface-Dev-*.deb
             apps/desktop/release/dev/BUILD-INFO.json
             apps/desktop/release/dev/SHA256SUMS
           if-no-files-found: error
@@ -100,19 +145,20 @@ jobs:
 
       - name: Summarize development build
         env:
-          VERSION: ${{ steps.checkout.outputs.ref }}
+          RELEASE_URL: ${{ steps.publish.outputs.url }}
           ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
-          ARTIFACT_DIGEST: ${{ steps.artifact.outputs.artifact-digest }}
         run: |
           {
             echo "### Surface development build"
             echo
             cat apps/desktop/release/dev/SHA256SUMS
             echo
-            echo "[Download the development AppImage and Debian package]($ARTIFACT_URL)"
+            echo "[Download the development AppImage and Debian package]($RELEASE_URL)"
             echo
-            echo "Artifact digest: \`$ARTIFACT_DIGEST\`"
+            echo "The large installers are prerelease assets because they exceed the private repository's Actions artifact storage quota. The [build metadata artifact]($ARTIFACT_URL) contains \`BUILD-INFO.json\` and \`SHA256SUMS\`."
             echo
             echo "Install the \`.deb\` with \`sudo apt install ./Surface-Dev-*.deb\`."
             echo "Run the AppImage directly, or with \`APPIMAGE_EXTRACT_AND_RUN=1\` when FUSE is unavailable."
+            echo
+            echo "To build a development installer from a pull request, add the \`desktop-dev-build\` label."
           } >> "$GITHUB_STEP_SUMMARY"

@@ -81,11 +81,16 @@ Build and package the development application:
 node scripts/desktop-release.mjs package --channel development
 ```
 
-Development artifacts are written to `apps/desktop/release/dev`, carry the
-`Surface-Dev-` prefix, and are never uploaded to a GitHub release. The manual
-**Desktop Development Build** workflow builds this channel and keeps its
-AppImage, Debian package, manifest, and checksums as a downloadable Actions
-artifact for 30 days.
+Development artifacts are written to `apps/desktop/release/dev` and carry the
+`Surface-Dev-` prefix. The manual **Desktop Development Build** workflow builds
+this channel and publishes the AppImage, Debian package, manifest, and checksums
+as assets on a `desktop-dev-<run number>` prerelease. It also keeps
+`BUILD-INFO.json` and `SHA256SUMS` in a small Actions artifact.
+
+The installers are published as release assets instead of Actions artifacts
+because the AppImage and `.deb` together exceed the private repository's
+Actions storage quota. Release assets have a separate per-file limit and are
+not subject to that quota.
 
 You can inspect and verify the helper independently:
 
@@ -133,9 +138,9 @@ the version and generates checksums.
 | `SHA256SUMS`                            | Standard `sha256sum` file for every channel artifact.               |
 
 No blockmaps, updater feeds, macOS images, Windows installers, or Linux ARM
-packages are produced or published. The workflows upload `BUILD-INFO.json` and
-`SHA256SUMS` with the installer files. Development artifacts stay in Actions
-artifacts; only production artifacts reach a GitHub release.
+packages are produced or published. Development installers are published as
+prerelease assets, and production installers are published on the versioned
+release; both carry `BUILD-INFO.json` and `SHA256SUMS`.
 
 Verify a downloaded release:
 
@@ -176,9 +181,12 @@ and crawler unit tests, and the fresh SQLite verification. The `package` job
 installs Electron/Chromium system dependencies and Playwright's Chromium
 dependencies, builds the production AppImage and Debian package, launches the
 staged Chromium, runs the packaged AppImage smoke test, and writes
-`BUILD-INFO.json` and `SHA256SUMS`. It uploads the Linux installers, manifest,
-and checksums as the `surface-desktop-ci-linux-x64` Actions artifact for 14
-days. That artifact is a CI download only; it is never published as a release.
+`BUILD-INFO.json` and `SHA256SUMS`. It uploads only the manifest and checksums
+as the `surface-desktop-ci-linux-x64-metadata` Actions artifact for 14 days.
+The installers stay in the workflow workspace because the AppImage and `.deb`
+together exceed the private repository's Actions storage quota. That metadata
+artifact is a CI record only; it is never published as a release. Use the
+development build workflow when you need a downloadable installer.
 
 The packaged smoke test verifies the Electron 45 runtime and the backend's
 built-in `node:sqlite` implementation in the actual AppImage. No native SQLite
@@ -188,20 +196,27 @@ reviewed before relying on this workflow.
 
 ## Manual development builds
 
-`.github/workflows/desktop-dev-build.yml` is a manual (`workflow_dispatch`)
-job that accepts a branch, commit, or tag and builds only the development
-channel for Ubuntu x64. It runs the same source checks, Playwright dependency
-setup, packaging, staged-Chromium verification, and fresh-profile AppImage
-smoke test as CI. It then uploads:
+`.github/workflows/desktop-dev-build.yml` builds only the development channel
+for Ubuntu x64. It runs the same source checks, Playwright dependency setup,
+packaging, staged-Chromium verification, and fresh-profile AppImage smoke test
+as CI. It can be started in two ways:
+
+- manually with `workflow_dispatch` and a branch, commit, or tag;
+- by adding the `desktop-dev-build` label to a pull request from this
+  repository.
+
+It publishes:
 
 - `Surface-Dev-<version>-x86_64.AppImage`
 - `Surface-Dev-<version>-amd64.deb`
 - `BUILD-INFO.json`
 - `SHA256SUMS`
 
-as the `surface-desktop-dev-linux-x64` artifact for 30 days. Manual development
-builds have read-only permissions and never create a tag or release. Use them
-when you want a downloadable installer before a versioned release exists.
+to a `desktop-dev-<run number>` prerelease, and uploads the manifest and
+checksums as the `surface-desktop-dev-linux-x64-metadata` Actions artifact.
+Development builds never create a stable tag or publish a production release.
+Use them when you want a downloadable installer before a versioned release
+exists.
 
 ## Changelog and release notes
 
