@@ -1,0 +1,66 @@
+# AI migration inventory
+
+Planning baseline: `7186b1e`, inspected 2026-11-17. This is a source audit, not a claim that every suspected failure has been reproduced. No application code or dependencies were changed for this audit.
+
+## Workspace and runtime
+
+- Bun 1.4.1 workspaces and Turbo; root `bun.lock` is authoritative.
+- Backend: Hono, TypeScript ESM, Node >=24, Zod, Drizzle; PostgreSQL for server deployments and SQLite for desktop.
+- Web: React 19, Vite, TanStack Query; shared by browser and Electron.
+- Desktop: Electron starts the backend and crawler, passes settings through environment variables and a protected runtime API, and stores secrets using Electron safeStorage with existing fallback behavior.
+- No `ai` or `@ai-sdk/*` dependency exists in the inspected package manifests. This is a custom-stack migration, not an existing SDK major-version upgrade.
+
+## Feature and file map
+
+Paths below are repository-relative. Follow each row through its callers and tests during implementation.
+
+| Area | Current implementation | Migration responsibility |
+| --- | --- | --- |
+| Shared model requests | `apps/backend/src/shared/model-client.ts` | Raw Chat Completions fetch, JSON Schema construction, schema parsing, 120s timeout, 2 MB response bound, process-local two-request limit. Replace provider transport and generation with SDK calls; retain application capacity policy. |
+| Shared model stream | `apps/backend/src/shared/model-stream.ts` | Manual provider SSE decoder, finish-reason checks, regex extraction of the partial JSON `text` field. Remove after consumers migrate. |
+| AI configuration | `apps/backend/src/config/env.ts`, `config/runtime.ts` | OmniRoute URL, key, model; mutable runtime configuration. Replace with explicit OpenCode Go configuration and a versioned settings transition. |
+| Analysis gating | `apps/backend/src/modules/analysis/settings.ts`, `analysis.service.ts` | Enable/pause/configured state, queueing, manual and automatic assessment; `executeAnalysis` defaults configured state from static environment while settings use mutable runtime state. Make configuration checks consistent. |
+| Job assessment | `apps/backend/src/modules/analysis/model.ts`, `eligibility.ts`, `analysis.service.ts` | Structured output plus exact evidence verification, deterministic eligibility, job/profile revision and format identity, stale-result rejection. Preserve these validations. |
+| Work execution | `apps/backend/src/modules/work/executor.ts`, `work.service.ts`, `work.tables.ts` | Work leases, retry/lifecycle and automatic analysis scheduling. Integrate shared AI admission and cancellation without duplicating retries. |
+| Resume extraction | `apps/backend/src/modules/profile/resume.ts`, `profile.routes.ts`, `resume.test.ts` | PDF/text extraction, model-assisted structured extraction, exact excerpt checks and deterministic catalog/location/link normalization, review before profile save. Migrate generation only; preserve review boundary. |
+| Job summary | `apps/backend/src/modules/jobs/summary.ts`, `jobs.routes.ts` | Structured `{text}` generation, custom NDJSON deltas and complete/error records, heartbeat, cached format/job version, duplicate generation guard, conditional persistence. Replace stream transport and preserve completion metadata. |
+| Summary UI | `apps/web/src/features/jobs/summary-stream.ts`, `components/job-detail-sheet.tsx` | Manual NDJSON reader inside Query mutation, accumulated draft text and saved result state. Move to SDK React streaming state and validated completion metadata. |
+| Company matching | `apps/backend/src/modules/research/research.service.ts` (`resolveCompany`) | Search plus structured candidates, domain allowlist, disambiguation and confirm flow. Migrate structured generation without losing identity validation. |
+| Research model transport | `apps/backend/src/modules/research/model.ts` | Second raw Chat Completions fetch, custom message/tool definitions and fragmented SSE tool-call assembly, 180s call timeout. Replace with SDK types and agent orchestration. |
+| Research lifecycle | `apps/backend/src/modules/research/research.service.ts` | Report, question, summary and links runs; tools loop, draft writes, progress, source persistence, citations and one repair attempt, previous-report retention, cancel and restart recovery. Preserve domain lifecycle; replace hand-written model/tool loop. |
+| Research tools | `apps/backend/src/modules/research/tools.ts` | Zod search/crawl inputs, raw OpenAI tool definitions, SearXNG and crawler calls, cancellation to crawler. Use SDK `tool()` around existing executors. |
+| Link verification | `apps/backend/src/modules/research/verified-links.ts` | Separate 12-round loop with inspect/publish tools, 16 inspection bound, 500 candidates, successful-page and category validation. Migrate to a separate bounded SDK agent. |
+| Evidence and citations | `apps/backend/src/modules/research/evidence.ts`, `verified-links.ts` | Source ownership, citation validation, supplied URLs, inspected-only publication. Keep as application validation after SDK output. |
+| Research persistence | `apps/backend/src/modules/research/research.tables.ts`, `packages/contracts/src/research-contracts.ts` | Runs, reports, messages, sources, link reviews, monotonically identified progress/text/done events; completed/partial/failed/cancelled/interrupted states. Retain existing data and API semantics. |
+| Research event API | `apps/backend/src/modules/research/research.routes.ts` | Background POST returns 202; separate persisted SSE subscription with Last-Event-ID/after replay and heartbeat. Preserve run independence from a browser subscriber. |
+| Research UI | `apps/web/src/features/research/company-research.tsx`, `clarification-answer.tsx`, `report-content.tsx`, `research-markdown.tsx`, `company-links.tsx`, `components/ai/*` | EventSource snapshots, report versions, Q&A with web toggle, drafts/progress, stop, citations and source reader. Extract resilient typed event state; keep domain event transport. |
+| Company surfaces | `apps/web/src/features/companies/components/company-summary.tsx`, `company-reader.tsx`, `companies-screen.tsx`, `company-searches.tsx`, `app/routes/company-research-route.tsx` | Starts summaries/research/link refreshes and shows saved/current states. Exercise all entry points and invalidate relevant Query caches. |
+| Profile/analysis UI | `apps/web/src/features/profile/components/resume-import.tsx`, `analysis-settings.tsx`, `features/jobs/components/job-assessment.tsx` | Extraction review, manual assessment and paused/configured state. Update actionable errors without redesigning the screens. |
+| Desktop persistence/bridge | `apps/desktop/src/settings.ts`, `main.ts`, `preload.ts`, `apps/web/src/types/desktop.d.ts` | Version-1 OmniRoute settings, encrypted key, snapshot booleans, startup environment, runtime updates and smoke checks. Coordinate schema, bridge and stored settings migration. |
+| Settings and diagnostics | `apps/backend/src/modules/desktop/routes.ts`, `apps/web/src/features/settings/desktop-settings.tsx` | OmniRoute forms, runtime updates, GET /models probe and key-presence status. Provider-aware diagnostics must distinguish presence, auth, model availability and generation support. |
+| Deployment/docs | `compose.yaml`, `.env.example`, `apps/backend/.env.example`, `.env.development.example`, `README.md`, `apps/backend/README.md`, `docs/desktop*.md` | Remove local OmniRoute prerequisites and Docker host assumptions where AI-specific; document Go credentials and migration. Keep SearXNG/crawler setup. Inspect examples even where no old names occur. |
+| Packaging/CI | `apps/backend/scripts/build.mjs`, `apps/desktop/scripts/build.mjs`, `.github/workflows/desktop-ci.yml`, `desktop-release.yml` | Check ESM SDK bundling and shipped backend; normal validation must not require a paid key. |
+
+## Observed weaknesses to address
+
+1. Provider protocol and tool decoding are duplicated between the shared and research clients. Both own parsing, size limits and completion checks.
+2. Summary browser requests have no AbortSignal; the route's disconnect handler clears its heartbeat but does not cancel model generation. Stream writes in callbacks are fire-and-forget and suppress failures.
+3. Summary text is recovered from partial JSON with a regex and assumes delta extraction by string length; this couples UI progress to output encoding.
+4. Several long-lived research and tool operations share a process-local limiter, but research admission checks capacity before background execution obtains a slot. Plan explicit capacity behavior for races and nested link verification.
+5. Research persists full draft snapshots as progress arrives. SDK integration needs bounded/coalesced writes and an ordered terminal flush to avoid token-by-token database pressure and terminal-event races.
+6. Provider-specific names leak through settings, runtime APIs, desktop storage, diagnostics, UI, documentation and deployment. Swapping only the model client would leave the application inconsistent.
+7. Existing research tests include a custom SSE decoder test and mock raw provider responses. Replace obsolete decoder coverage with SDK-level integration cases while keeping domain invariants.
+
+## Existing verification assets
+
+- `apps/backend/src/modules/research/research.test.ts`: persisted reports, matching, verified links, saved-evidence Q&A, web tools, summaries, citation rejection, duplicate/cancel, restart, event replay/ownership, PostgreSQL behavior and >20 requests without an application quota.
+- `apps/backend/src/modules/profile/resume.test.ts`: resume link normalization and invented-link rejection.
+- `apps/backend/src/modules/company-discovery/company-discovery.test.ts`: deterministic discovery/evidence regression coverage.
+- `apps/backend/scripts/test-postgres.ts`: isolated disposable PostgreSQL database and separate suite processes; requires a suitable test DB account.
+- `apps/backend/scripts/verify-sqlite.ts`: SQLite migration/storage/reopen and application integration checks; extend for AI state/settings where relevant.
+- `apps/web/tests/*`: existing UI preferences, filtering and keyboard tests; streaming hook/component coverage needs adding.
+- `.github/workflows/desktop-ci.yml`: frozen install, format, lint, types, web/crawler tests, SQLite verification, packaged Ubuntu desktop checks. PostgreSQL AI suites need an explicit CI job/service if absent.
+
+## Audit limitations
+
+No paid model request or full application test was run in this planning change. Failure cases above are source observations to verify with targeted regression tests. No provider key is needed to review the plan. OpenCode live model metadata is documented in the companion implementation plan; recheck it when execution starts.
