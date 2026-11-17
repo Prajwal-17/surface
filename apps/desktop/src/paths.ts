@@ -11,6 +11,7 @@ export interface DesktopPaths {
   web: string;
   backendEntry: string;
   backendMigrations: string;
+  devSeed: string;
   crawlerEntry: string;
   crawlerRoot: string;
   playwrightBrowsers: string;
@@ -33,6 +34,7 @@ export function desktopPaths(): DesktopPaths {
     web: join(resources, "web"),
     backendEntry: join(resources, "backend", "index.mjs"),
     backendMigrations: join(resources, "backend", "drizzle-sqlite"),
+    devSeed: join(resources, "backend", "dev-seed"),
     crawlerEntry: join(resources, "crawler", "dist", "index.js"),
     crawlerRoot: join(resources, "crawler"),
     playwrightBrowsers: join(resources, "playwright"),

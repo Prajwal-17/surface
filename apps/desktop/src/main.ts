@@ -12,6 +12,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { desktopIdentity } from "./channel";
+import { applyDevelopmentSeed } from "./dev-seed";
 import { createLogSink, type LogSink } from "./logger";
 import { desktopPaths, type DesktopPaths } from "./paths";
 import { getFreePort } from "./ports";
@@ -81,6 +82,18 @@ async function bootstrap(): Promise<void> {
   if (existsSync(paths.legacyDatabase)) {
     startupLog.write(
       "legacy pglite/ directory found; it is not read, migrated, overwritten, or deleted",
+    );
+  }
+  if (identity.channel === "development") {
+    const seeded = applyDevelopmentSeed({
+      seedDirectory: paths.devSeed,
+      database: paths.database,
+      data: paths.data,
+    });
+    startupLog.write(
+      seeded.applied
+        ? "development seed applied to a new profile"
+        : `development seed skipped: ${seeded.reason}`,
     );
   }
 
