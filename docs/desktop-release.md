@@ -20,10 +20,23 @@ not describe the web/PostgreSQL deployment.
   build or its smoke test.
 
 The desktop implementation owns `apps/desktop/package.json`,
-`apps/desktop/scripts/build.mjs`, and electron-builder configuration. This
-automation expects that packaging to remain reproducible on Linux x64. If the
-output directory, artifact names, or production command changes, update
+`apps/desktop/scripts/build.mjs`, and the electron-builder configuration in
+`apps/desktop/electron-builder.yml` and `apps/desktop/electron-builder.dev.yml`.
+This automation expects that packaging to remain reproducible on Linux x64. If
+the output directory, artifact names, or production command changes, update
 `scripts/desktop-release.mjs` and these workflows in the same change.
+
+Two channels are built from the same source:
+
+| Channel     | Application | Output directory           | Installer identity        |
+| ----------- | ----------- | -------------------------- | ------------------------- |
+| production  | Surface     | `apps/desktop/release`     | `dev.surface.desktop`     |
+| development | Surface Dev | `apps/desktop/release/dev` | `dev.surface.desktop.dev` |
+
+Development builds use a distinct application name, so Electron stores their
+data in a separate `userData` directory. Both channels can be installed and run
+side by side. A packaged binary cannot switch channels at runtime; the channel
+is compiled into the main process by `apps/desktop/scripts/build.mjs`.
 
 ## Local production build
 
@@ -62,6 +75,18 @@ writes `apps/desktop/release/BUILD-INFO.json`, and then writes
 a GitHub release. The AppImage is required; a `.deb` is included
 automatically when the current electron-builder configuration emits one.
 
+Build and package the development application:
+
+```sh
+node scripts/desktop-release.mjs package --channel development
+```
+
+Development artifacts are written to `apps/desktop/release/dev`, carry the
+`Surface-Dev-` prefix, and are never uploaded to a GitHub release. The manual
+**Desktop Development Build** workflow builds this channel and keeps its
+AppImage, Debian package, manifest, and checksums as a downloadable Actions
+artifact for 30 days.
+
 You can inspect and verify the helper independently:
 
 ```sh
@@ -70,6 +95,7 @@ node scripts/desktop-release.mjs manifest
 node scripts/desktop-release.mjs checksums
 node scripts/desktop-release.mjs verify-build
 node scripts/desktop-release.mjs smoke
+node scripts/desktop-release.mjs smoke --channel development
 ```
 
 - `verify-build` launches the Playwright Chromium staged in
@@ -97,16 +123,19 @@ the version and generates checksums.
 
 ## Artifacts
 
-| File                                | Purpose                                                             |
-| ----------------------------------- | ------------------------------------------------------------------- |
-| `Surface-<version>-x86_64.AppImage` | Portable Ubuntu x86_64 desktop application. Required.               |
-| `Surface-<version>-amd64.deb`       | Debian package produced by the Linux packaging target.              |
-| `BUILD-INFO.json`                   | Version, source commit/ref, build environment, and artifact hashes. |
-| `SHA256SUMS`                        | Standard `sha256sum` file for every published desktop artifact.     |
+| File                                    | Purpose                                                             |
+| --------------------------------------- | ------------------------------------------------------------------- |
+| `Surface-<version>-x86_64.AppImage`     | Portable Ubuntu x86_64 production application. Required.            |
+| `Surface-<version>-amd64.deb`           | Production Debian package produced by the Linux packaging target.   |
+| `Surface-Dev-<version>-x86_64.AppImage` | Portable development application, installable beside production.    |
+| `Surface-Dev-<version>-amd64.deb`       | Development Debian package (`surface-dev`).                         |
+| `BUILD-INFO.json`                       | Version, channel, source commit/ref, build environment, and hashes. |
+| `SHA256SUMS`                            | Standard `sha256sum` file for every channel artifact.               |
 
-No blockmaps, updater feeds, development-channel installers, macOS images,
-Windows installers, or Linux ARM packages are produced or published. The
-workflows upload `BUILD-INFO.json` and `SHA256SUMS` with the installer files.
+No blockmaps, updater feeds, macOS images, Windows installers, or Linux ARM
+packages are produced or published. The workflows upload `BUILD-INFO.json` and
+`SHA256SUMS` with the installer files. Development artifacts stay in Actions
+artifacts; only production artifacts reach a GitHub release.
 
 Verify a downloaded release:
 
@@ -157,6 +186,54 @@ addon or Electron ABI rebuild is required. If a native addon is introduced
 later, electron-builder's `npmRebuild` behavior and the ABI check must be
 reviewed before relying on this workflow.
 
+## Manual development builds
+
+`.github/workflows/desktop-dev-build.yml` is a manual (`workflow_dispatch`)
+job that accepts a branch, commit, or tag and builds only the development
+channel for Ubuntu x64. It runs the same source checks, Playwright dependency
+setup, packaging, staged-Chromium verification, and fresh-profile AppImage
+smoke test as CI. It then uploads:
+
+- `Surface-Dev-<version>-x86_64.AppImage`
+- `Surface-Dev-<version>-amd64.deb`
+- `BUILD-INFO.json`
+- `SHA256SUMS`
+
+as the `surface-desktop-dev-linux-x64` artifact for 30 days. Manual development
+builds have read-only permissions and never create a tag or release. Use them
+when you want a downloadable installer before a versioned release exists.
+
+## Changelog and release notes
+
+`CHANGELOG.md` at the repository root is the source of release notes. The
+release workflow extracts the matching `## desktop-v<version>` section with
+`scripts/release-notes.mjs` and attaches it to the draft release. A tag run
+fails before building if that section is missing or empty.
+
+To prepare an entry without editing the version by hand, run the manual **Desktop
+Changelog** workflow from the Actions tab:
+
+- `bump`: `patch`, `minor`, or `major` when no explicit version is supplied.
+- `version`: optional explicit version such as `0.2.0`.
+- `notes`: Markdown, optionally grouped with `### Added`, `### Changed`, and
+  `### Fixed`.
+
+The workflow runs `scripts/changelog.mjs` on the default branch, pushes a
+`chore/release-<version>` branch, and opens a pull request. Review it, merge it,
+then push the matching `desktop-v<version>` tag to start the release. The
+script does not push or create a pull request on its own.
+
+You can preview the extraction and the changelog edit locally:
+
+```sh
+node scripts/release-notes.mjs --check
+node scripts/release-notes.mjs 0.1.0
+node scripts/changelog.mjs --bump patch --notes-file notes.md --dry-run
+```
+
+`node scripts/release-notes.mjs --backfill` previews notes for existing
+`desktop-vX.Y.Z` GitHub releases; add `--apply` only after verifying the preview.
+
 ## Versioned production release
 
 `.github/workflows/desktop-release.yml` supports two intentional modes.
@@ -204,10 +281,12 @@ progress. If GitHub attestations are unavailable for this private repository,
 leave `DESKTOP_ATTESTATIONS` unset; `BUILD-INFO.json` and `SHA256SUMS` are still
 published on every release.
 
-GitHub generates release notes from commits and pull requests. The workflow
-does not create or delete git tags, does not modify the repository, and does
-not use application secrets. Do not run production releases from pull request
-code.
+Release notes come from the reviewed `CHANGELOG.md` entry, not from generated
+commit lists. The workflow verifies the entry before packaging, creates or
+updates a draft release with those notes, uploads the checksummed assets, and
+publishes the draft only after the upload succeeds. The workflow does not
+create or delete git tags, does not modify the repository, and does not use
+application secrets. Do not run production releases from pull request code.
 
 ## Remaining constraints
 

@@ -37,9 +37,13 @@ sqlite-verify:
 desktop-build:
     node apps/desktop/scripts/build.mjs
 
-# Build the Ubuntu AppImage and Debian package.
+# Build the production Ubuntu AppImage and Debian package with checksums.
 desktop-package:
-    cd apps/desktop && bun run package
+    node scripts/desktop-release.mjs package
+
+# Build the development Ubuntu AppImage and Debian package with checksums.
+desktop-package-dev:
+    node scripts/desktop-release.mjs package --channel development
 
 # Build only the Ubuntu AppImage.
 desktop-appimage:
@@ -48,6 +52,10 @@ desktop-appimage:
 # Build only the Ubuntu Debian package.
 desktop-deb:
     cd apps/desktop && bun run package:deb
+
+# Preview the release notes for the current desktop version.
+desktop-notes:
+    node scripts/release-notes.mjs --check
 
 # Start optional SearXNG only (no PostgreSQL or Surface containers).
 searxng-up:
