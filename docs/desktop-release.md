@@ -201,18 +201,19 @@ as CI. It can be started in two ways:
 - by adding the `desktop-dev-build` label to a pull request from this
   repository.
 
-It uploads one artifact:
+It uploads each file as a separate, unarchived artifact with 30-day retention:
 
 - `Surface-Dev-<version>-x86_64.AppImage`
 - `Surface-Dev-<version>-amd64.deb`
 - `BUILD-INFO.json`
 - `SHA256SUMS`
 
-as `surface-desktop-dev-linux-x64`, with 30-day retention. The workflow removes
-the previous development artifact before uploading so successive builds do not
-exhaust the account storage allowance. Development builds never create a git
-tag, prerelease, or release. Production packaging and publishing stay in the
-separate tag-driven **Desktop Linux Release** workflow.
+GitHub requires `archive: false` uploads to contain one file each, so the
+installers appear individually in the run's Artifacts section instead of inside
+a ZIP. The workflow removes the previous development artifacts before uploading
+so successive builds do not exhaust the account storage allowance. Development
+builds never create a git tag, prerelease, or release. Production packaging and
+publishing stay in the separate tag-driven **Desktop Linux Release** workflow.
 
 ## Changelog and release notes
 

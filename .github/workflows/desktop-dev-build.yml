@@ -111,49 +111,90 @@ jobs:
       - name: Show artifact checksums
         run: cat apps/desktop/release/dev/SHA256SUMS
 
-      # Keep only the newest development artifact so the shared account
-      # storage allowance can hold the AppImage and Debian package together.
-      - name: Remove the previous development artifact
+      # Keep only the newest development builds so the shared account storage
+      # allowance holds one current set of unarchived artifacts.
+      - name: Remove previous development artifacts
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           gh api --paginate "repos/$GH_REPO/actions/artifacts?per_page=100" \
-            --jq '.artifacts[] | select(.name == "surface-desktop-dev-linux-x64") | .id' |
+            --jq '.artifacts[] | select(
+              .name == "surface-desktop-dev-linux-x64" or
+              .name == "surface-desktop-dev-linux-x64-metadata" or
+              (.name | test("^Surface-Dev-")) or
+              .name == "BUILD-INFO.json" or
+              .name == "SHA256SUMS"
+            ) | .id' |
             while read -r id; do
               test -n "$id" || continue
               gh api -X DELETE "repos/$GH_REPO/actions/artifacts/$id" || \
                 echo "::warning::Could not delete old development artifact $id."
             done
 
-      - name: Upload development installers
-        id: artifact
+      # archive: false uploads each file as-is, without a ZIP wrapper. GitHub
+      # requires one upload per file in that mode.
+      - name: Upload development AppImage
+        id: appimage
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: surface-desktop-dev-linux-x64
-          path: |
-            apps/desktop/release/dev/Surface-Dev-*.AppImage
-            apps/desktop/release/dev/Surface-Dev-*.deb
-            apps/desktop/release/dev/BUILD-INFO.json
-            apps/desktop/release/dev/SHA256SUMS
+          name: surface-dev-appimage
+          path: apps/desktop/release/dev/Surface-Dev-*.AppImage
+          archive: false
+          overwrite: true
           if-no-files-found: error
           retention-days: 30
-          compression-level: 0
+
+      - name: Upload development Debian package
+        id: deb
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: surface-dev-deb
+          path: apps/desktop/release/dev/Surface-Dev-*.deb
+          archive: false
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload development build info
+        id: buildinfo
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: surface-dev-build-info
+          path: apps/desktop/release/dev/BUILD-INFO.json
+          archive: false
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload development checksums
+        id: checksums
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: surface-dev-checksums
+          path: apps/desktop/release/dev/SHA256SUMS
+          archive: false
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Summarize development build
         env:
-          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
-          ARTIFACT_DIGEST: ${{ steps.artifact.outputs.artifact-digest }}
+          APPIMAGE_URL: ${{ steps.appimage.outputs.artifact-url }}
+          DEB_URL: ${{ steps.deb.outputs.artifact-url }}
+          BUILD_INFO_URL: ${{ steps.buildinfo.outputs.artifact-url }}
+          CHECKSUMS_URL: ${{ steps.checksums.outputs.artifact-url }}
         run: |
           {
             echo "### Surface development build"
             echo
             cat apps/desktop/release/dev/SHA256SUMS
             echo
-            echo "[Download the development AppImage and Debian package]($ARTIFACT_URL)"
-            echo
-            echo "Artifact digest: \`$ARTIFACT_DIGEST\`"
+            echo "- [Download the AppImage]($APPIMAGE_URL)"
+            echo "- [Download the Debian package]($DEB_URL)"
+            echo "- [Download BUILD-INFO.json]($BUILD_INFO_URL)"
+            echo "- [Download SHA256SUMS]($CHECKSUMS_URL)"
             echo
             echo "Install the \`.deb\` with \`sudo apt install ./Surface-Dev-*.deb\`."
             echo "Run the AppImage directly, or with \`APPIMAGE_EXTRACT_AND_RUN=1\` when FUSE is unavailable."
