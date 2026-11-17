@@ -424,9 +424,31 @@ export function JobDetailSheet({
                 }
               />
             )}
-            {streamedText ? (
-              <StreamingText text={streamedText} streaming markdown />
-            ) : savedSummary ? (
+            {summaryPending && streamedText && (
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">
+                  Provisional draft · saved only after validation
+                </p>
+                <StreamingText text={streamedText} streaming markdown />
+              </div>
+            )}
+            {summaryPending && savedSummary && (
+              <Collapsible className="border-t pt-3">
+                <CollapsibleTrigger className="text-xs text-muted-foreground">
+                  Current saved summary · kept until replacement completes
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <StreamingText
+                    text={savedSummary.text}
+                    markdown={
+                      savedSummary.formatVersion >=
+                      DESCRIPTION_SUMMARY_FORMAT_VERSION
+                    }
+                  />
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+            {!summaryPending && savedSummary && (
               <StreamingText
                 text={savedSummary.text}
                 markdown={
@@ -434,14 +456,13 @@ export function JobDetailSheet({
                   DESCRIPTION_SUMMARY_FORMAT_VERSION
                 }
               />
-            ) : (
-              !summaryPending && (
-                <p className="text-muted-foreground">
-                  {job.description.trim()
-                    ? "Summarise the company, responsibilities, requirements and employment details."
-                    : "No description available to summarise."}
-                </p>
-              )
+            )}
+            {!summaryPending && !savedSummary && (
+              <p className="text-muted-foreground">
+                {job.description.trim()
+                  ? "Summarise the company, responsibilities, requirements and employment details."
+                  : "No description available to summarise."}
+              </p>
             )}
             {summaryStale && (
               <p className="text-muted-foreground">
