@@ -85,7 +85,8 @@ The native window frame and application menu are removed. Surface draws its own
   route, including sign-in, session checks and onboarding,
 - the maximize/restore button reflects live window state from Electron and uses
   accessible labels plus `aria-pressed`,
-- `F11` toggles fullscreen, `Alt+F9` minimizes, `Alt+F10` maximizes/restores,
+- `Ctrl+=` zooms in, `Ctrl+-` zooms out, and `Ctrl+0` resets the page zoom;
+  `F11` toggles fullscreen, `Alt+F9` minimizes, `Alt+F10` maximizes/restores,
   and the caption buttons work with Tab, Enter and Space,
 - all IPC is validated against the main window, its main frame and the backend
   origin. The renderer remains sandboxed with context isolation and no Node

@@ -67,6 +67,10 @@ let shuttingDown = false;
 let shutdownComplete = false;
 let running = false;
 
+const zoomStep = 0.5;
+const minimumZoomLevel = -3;
+const maximumZoomLevel = 4;
+
 async function bootstrap(): Promise<void> {
   Menu.setApplicationMenu(null);
   paths = desktopPaths();
@@ -186,6 +190,20 @@ async function bootstrap(): Promise<void> {
   }
 }
 
+function changeZoom(delta: number): void {
+  const contents = mainWindow?.webContents;
+  if (!contents) return;
+  const nextLevel = Math.min(
+    maximumZoomLevel,
+    Math.max(minimumZoomLevel, contents.getZoomLevel() + delta),
+  );
+  contents.setZoomLevel(nextLevel);
+}
+
+function resetZoom(): void {
+  mainWindow?.webContents.setZoomLevel(0);
+}
+
 function createWindow(): void {
   const preload = join(__dirname, "preload.cjs");
   mainWindow = new BrowserWindow({
@@ -226,6 +244,31 @@ function createWindow(): void {
       mainWindow.setFullScreen(!mainWindow.isFullScreen());
       publishWindowState();
       return;
+    }
+    if ((input.control || input.meta) && !input.alt) {
+      if (
+        input.key === "+" ||
+        input.key === "=" ||
+        input.code === "NumpadAdd"
+      ) {
+        event.preventDefault();
+        changeZoom(zoomStep);
+        return;
+      }
+      if (
+        input.key === "-" ||
+        input.key === "_" ||
+        input.code === "NumpadSubtract"
+      ) {
+        event.preventDefault();
+        changeZoom(-zoomStep);
+        return;
+      }
+      if (input.key === "0" || input.code === "Numpad0") {
+        event.preventDefault();
+        resetZoom();
+        return;
+      }
     }
     if (!input.alt) return;
     if (input.key === "F9") {
