@@ -165,6 +165,7 @@ async function bootstrap(): Promise<void> {
           AI_PROVIDER: selected.aiProvider,
           AI_BASE_URL: selected.aiBaseUrl,
           AI_MODEL: selected.aiModel,
+          AI_REASONING: selected.aiReasoning,
           OPENCODE_GO_API_KEY: selected.aiApiKey,
           SURFACE_DESKTOP_TOKEN: desktopToken,
           SURFACE_SECRET_STORAGE: selected.secretStorage,
@@ -366,6 +367,7 @@ function createWindow(): void {
                 aiProvider: before.aiProvider,
                 aiBaseUrl: before.aiBaseUrl,
                 aiModel: before.aiModel,
+                aiReasoning: before.aiReasoning,
                 aiApiKey: "smoke-test-key",
               });
               const after = await window.surfaceDesktop.getSettings();
@@ -536,6 +538,7 @@ async function applyRuntimeSettings(
         aiBaseUrl: settings.aiBaseUrl,
         aiApiKey: settings.aiApiKey,
         aiModel: settings.aiModel,
+        aiReasoning: settings.aiReasoning,
       }),
       signal: AbortSignal.timeout(5000),
     });

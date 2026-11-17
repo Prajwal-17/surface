@@ -76,6 +76,7 @@ beforeEach(() => {
     baseUrl: "http://ai.test/v1",
     apiKey: "test-key",
     model: "client-model",
+    reasoning: "default",
   });
 });
 
@@ -153,12 +154,28 @@ describe("structured generation", () => {
     expect(requests[0]!.url).toBe("http://ai.test/v1/chat/completions");
     expect(requests[0]!.authorization).toBe("Bearer test-key");
     expect(requests[0]!.body.model).toBe("client-model");
+    expect(requests[0]!.body.reasoning_effort).toBeUndefined();
     expect(requests[0]!.body.response_format.type).toBe("json_schema");
     expect(requests[0]!.body.response_format.json_schema.name).toBe(
       "surface_test",
     );
     expect(requests[0]!.body.stream).toBeUndefined();
     expect(activeModelRequests()).toBe(0);
+  });
+
+  test("applies the selected reasoning effort to provider requests", async () => {
+    respond = () => textResponse('{"text":"Hello"}');
+    updateRuntimeSettings({ model: "selected-model", reasoning: "high" });
+    await generateObject({
+      schema: z.object({ text: z.string() }),
+      name: "surface_test",
+      instructions: "Return JSON",
+      input: {},
+      maxOutputTokens: 100,
+      feature: "test",
+    });
+    expect(requests[0]!.body.model).toBe("selected-model");
+    expect(requests[0]!.body.reasoning_effort).toBe("high");
   });
 
   test("rejects a missing key before reaching the provider", async () => {

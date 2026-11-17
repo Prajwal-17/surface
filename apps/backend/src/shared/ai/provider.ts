@@ -91,3 +91,9 @@ export function assertAiConfigured(
 export function resetAiProviderCache() {
   cached = null;
 }
+
+export function aiProviderOptions(settings: Readonly<AiRuntimeSettings>) {
+  return settings.reasoning === "default"
+    ? undefined
+    : { opencodeGo: { reasoningEffort: settings.reasoning } };
+}

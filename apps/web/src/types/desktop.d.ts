@@ -6,6 +6,7 @@ interface DesktopSettingsSnapshot {
   aiProvider: string;
   aiBaseUrl: string;
   aiModel: string;
+  aiReasoning: "default" | "low" | "medium" | "high";
   hasAiApiKey: boolean;
   legacyOmniRouteConfigured: boolean;
   secretStorage: "os-encrypted" | "basic-text" | "plaintext" | "unavailable";
@@ -16,6 +17,7 @@ interface DesktopSettingsInput {
   aiProvider: string;
   aiBaseUrl: string;
   aiModel: string;
+  aiReasoning: "default" | "low" | "medium" | "high";
   aiApiKey?: string;
   clearAiApiKey?: boolean;
 }

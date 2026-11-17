@@ -15,7 +15,7 @@ import {
   describeUsage,
   normalizeAiError,
 } from "./errors";
-import { aiModel, assertAiConfigured } from "./provider";
+import { aiModel, aiProviderOptions, assertAiConfigured } from "./provider";
 
 export interface AiResult<T> {
   output: T;
@@ -106,6 +106,7 @@ export async function generateTextResult(options: {
   try {
     const result = await generateText({
       model: aiModel(settings),
+      providerOptions: aiProviderOptions(settings),
       instructions: options.instructions,
       ...(options.messages
         ? { messages: options.messages }
@@ -162,6 +163,7 @@ export async function generateObject<T>(
   try {
     const result = await generateText({
       model: aiModel(settings),
+      providerOptions: aiProviderOptions(settings),
       instructions: options.instructions,
       prompt: JSON.stringify(options.input),
       output: Output.object({
@@ -227,6 +229,7 @@ export async function streamObject<T>(
   try {
     const result = streamText({
       model: aiModel(settings),
+      providerOptions: aiProviderOptions(settings),
       instructions: options.instructions,
       prompt: JSON.stringify(options.input),
       output: Output.object({

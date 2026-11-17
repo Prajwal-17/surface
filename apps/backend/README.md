@@ -70,6 +70,7 @@ Job-fit analysis uses the Vercel AI SDK with the OpenCode Go provider. Configure
 - `AI_PROVIDER` — only `opencode-go` is supported
 - `AI_BASE_URL` — defaults to `https://opencode.ai/inference/go/openai/v1`
 - `AI_MODEL` — defaults to `deepseek-v4.1-flash`
+- `AI_REASONING` — optional reasoning effort: `default`, `low`, `medium`, or `high` (model support varies)
 - `OPENCODE_GO_API_KEY` — your OpenCode Go key
 
 The old `OMNIROUTE_*` variables are ignored for inference. Surface warns once at
