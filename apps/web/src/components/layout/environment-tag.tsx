@@ -1,11 +1,27 @@
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useDesktopChannel } from "@/lib/desktop-channel";
 
 /**
- * Development-only environment marker. Production builds render nothing,
- * including the packaged Ubuntu desktop app.
+ * Development-only environment marker. A packaged development build reports
+ * its channel through the desktop bridge, while Vite dev mode keeps the marker
+ * for the browser experience. Production builds and the browser build render
+ * nothing.
  */
 export function EnvironmentTag() {
-  if (!import.meta.env.DEV) return null;
+  const desktopChannel = useDesktopChannel();
+  const development = import.meta.env.DEV || desktopChannel === "development";
+
+  useEffect(() => {
+    if (desktopChannel !== "development") return;
+    const previous = document.title;
+    document.title = "Surface Dev — Your career workspace";
+    return () => {
+      document.title = previous;
+    };
+  }, [desktopChannel]);
+
+  if (!development) return null;
 
   return createPortal(
     <span

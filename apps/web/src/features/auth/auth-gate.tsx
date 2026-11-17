@@ -10,6 +10,7 @@ import { ArrowRight, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiClient } from "@/lib/api-client";
+import { useDesktopChannel } from "@/lib/desktop-channel";
 import { AuthContext, type AuthSession } from "./auth-context";
 
 const authQueryKey = ["auth", "session"] as const;
@@ -88,6 +89,7 @@ function LoginScreen({
   onRetry?: () => void;
   onAuthenticated?: (session: AuthSession) => void;
 }) {
+  const desktopChannel = useDesktopChannel();
   const [email, setEmail] = useState("");
   const loginMutation = useMutation({
     mutationFn: (value: string) =>
@@ -110,7 +112,9 @@ function LoginScreen({
           <span className="mb-4 grid size-10 place-items-center text-foreground">
             <SurfaceLogo className="size-6" aria-hidden="true" />
           </span>
-          <p className="text-sm font-semibold tracking-tight">Surface</p>
+          <p className="text-sm font-semibold tracking-tight">
+            {desktopChannel === "development" ? "Surface Dev" : "Surface"}
+          </p>
           <h1 className="mt-2 text-lg font-semibold tracking-tight">
             Sign in to your workspace
           </h1>

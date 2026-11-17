@@ -184,10 +184,10 @@ async function bootstrap(): Promise<void> {
     createWindow();
     running = true;
     startupLog.write(
-      `[${new Date().toISOString()}] Surface ready at ${backendUrl}`,
+      `[${new Date().toISOString()}] ${identity.productName} ready at ${backendUrl}`,
     );
   } catch (error) {
-    await fatal("Surface could not start", error);
+    await fatal(`${identity.productName} could not start`, error);
   }
 }
 
@@ -323,7 +323,7 @@ function createWindow(): void {
     mainWindow = null;
   });
   void mainWindow.loadURL(`${backendUrl}/`).catch(async (error) => {
-    await fatal("Surface could not open its interface", error);
+    await fatal(`${identity.productName} could not open its interface`, error);
   });
   if (process.env.SURFACE_DESKTOP_SMOKE_TEST === "1") {
     mainWindow.webContents.once("did-finish-load", () => {
@@ -361,6 +361,10 @@ function createWindow(): void {
                   ),
                   fetch("/api/schema").then((response) => response.json()),
                 ]);
+              const appInfo = await window.surfaceDesktop.appInfo();
+              if (appInfo.channel === "development") {
+                await waitFor(".environment-tag");
+              }
               const before = await window.surfaceDesktop.getSettings();
               const saved = await window.surfaceDesktop.saveSettings({
                 searxngUrl: before.searxngUrl,
@@ -379,6 +383,8 @@ function createWindow(): void {
               await new Promise((resolve) => setTimeout(resolve, 250));
               const windowRestored = await window.surfaceDesktop.getWindowState();
               return {
+                appInfo,
+                documentTitle: document.title,
                 health,
                 auth,
                 status,
@@ -411,7 +417,7 @@ function createWindow(): void {
           await delay(500);
           await shutdown(0);
         } catch (error) {
-          await fatal("Surface smoke test failed", error);
+          await fatal(`${identity.productName} smoke test failed`, error);
         }
       })();
     });
@@ -567,7 +573,7 @@ async function childFailed(name: string, code: number | null): Promise<void> {
   if (shuttingDown) return;
   const message = `${name} stopped unexpectedly (exit ${code ?? "unknown"}). See ${paths?.logs ?? "the log directory"}.`;
   mainLog?.write(`[${new Date().toISOString()}] ${message}`);
-  await fatal("Surface stopped", new Error(message));
+  await fatal(`${identity.productName} stopped`, new Error(message));
 }
 
 async function fatal(title: string, error: unknown): Promise<void> {

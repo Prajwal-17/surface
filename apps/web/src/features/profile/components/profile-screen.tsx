@@ -22,6 +22,7 @@ import {
 } from "@surface/contracts";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
+import { useDesktopChannel } from "@/lib/desktop-channel";
 import { Button } from "@/components/ui/button";
 import { ProfileLoading } from "@/components/feedback/loading-state";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -106,6 +107,7 @@ function ProfileEditor({
 }) {
   const navigate = useNavigate();
   const client = useQueryClient();
+  const desktopChannel = useDesktopChannel();
   const [revision, setRevision] = useState(initial?.revision ?? 0);
   const [saved, setSaved] = useState(() => editorProfile(initial));
   const draftKey = `surface-profile-draft:${revision}`;
@@ -265,7 +267,7 @@ function ProfileEditor({
             className="flex items-center gap-2.5 font-semibold"
           >
             <SurfaceLogo className="size-5 text-foreground" />
-            Surface
+            {desktopChannel === "development" ? "Surface Dev" : "Surface"}
           </Link>
           <div className="flex items-center gap-2">
             <ThemeToggle />

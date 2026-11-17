@@ -58,6 +58,8 @@ export function DesktopSettings() {
   const [appInfo, setAppInfo] = useState<Awaited<
     ReturnType<NonNullable<Window["surfaceDesktop"]>["appInfo"]>
   > | null>(null);
+  const appName =
+    appInfo?.channel === "development" ? "Surface Dev" : "Surface";
 
   const diagnostics = useQuery({
     queryKey: ["desktop-diagnostics"],
@@ -133,7 +135,7 @@ export function DesktopSettings() {
         toast.success("Service settings saved and applied.");
       } else {
         toast.warning(
-          `Settings saved, but the running backend did not apply them: ${result.applied.error ?? "unknown error"}. Restart Surface to apply them.`,
+          `Settings saved, but the running backend did not apply them: ${result.applied.error ?? "unknown error"}. Restart ${appName} to apply them.`,
         );
       }
       void diagnostics.refetch();
@@ -325,7 +327,7 @@ export function DesktopSettings() {
       {appInfo ? (
         <div className="rounded-lg border bg-card p-3 text-xs leading-5 text-muted-foreground">
           <p className="flex items-center gap-1.5 font-medium text-foreground">
-            <Database className="size-4" /> Surface {appInfo.version} ·{" "}
+            <Database className="size-4" /> {appName} {appInfo.version} ·{" "}
             {appInfo.database} ·{" "}
             {appInfo.packaged ? "packaged app" : "development app"}
           </p>

@@ -36,6 +36,7 @@ interface SurfaceDesktopApi {
   }>;
   appInfo(): Promise<{
     version: string;
+    channel: "development" | "production";
     packaged: boolean;
     dataDir: string;
     logsDir: string;

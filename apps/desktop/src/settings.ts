@@ -257,7 +257,7 @@ async function decryptKey(
   if (stored.scheme === "plaintext") return stored.value;
   if (!(await safeStorage.isAsyncEncryptionAvailable())) {
     throw new Error(
-      `The AI API key in ${file} is encrypted with the OS keychain, but secure storage is unavailable now. Unlock your keyring and restart Surface.`,
+      `The AI API key in ${file} is encrypted with the OS keychain, but secure storage is unavailable now. Unlock your keyring and restart ${app.getName()}.`,
     );
   }
   try {

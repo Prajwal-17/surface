@@ -1,4 +1,5 @@
 import { utilityProcess, type UtilityProcess } from "electron";
+import { desktopIdentity } from "./channel";
 import type { LogSink } from "./logger";
 import { logChunk } from "./logger";
 
@@ -24,7 +25,7 @@ export function startManagedProcess(
   const child = utilityProcess.fork(options.entry, [], {
     env: options.env,
     stdio: "pipe",
-    serviceName: `surface-${options.name}`,
+    serviceName: `${desktopIdentity().executableName}-${options.name}`,
   });
   const startedAt = Date.now();
   let stopping = false;

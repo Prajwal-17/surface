@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { SurfaceLogo } from "@/components/ui/surface-logo";
 import { useProfile } from "@/features/profile/profile-query";
 import { useAuth } from "@/features/auth/auth-context";
+import { useDesktopChannel } from "@/lib/desktop-channel";
 
 const destinations = [
   { href: "/", label: "Jobs", icon: BriefcaseBusiness },
@@ -45,6 +46,7 @@ const profileDestination = {
 export function AppHeader() {
   const location = useLocation();
   const pathname = location.pathname;
+  const desktopChannel = useDesktopChannel();
   const { toggleSidebar, setOpenMobile, state } = useSidebar();
   const auth = useAuth();
   const profile = useProfile();
@@ -128,13 +130,22 @@ export function AppHeader() {
           <Link
             to={jobsUrl}
             onClick={() => setOpenMobile(false)}
-            aria-label="Surface career workspace"
+            aria-label={
+              desktopChannel === "development"
+                ? "Surface Dev career workspace"
+                : "Surface career workspace"
+            }
             className="surface-brand flex h-8 min-w-0 items-center gap-2.5 rounded-md px-1.5 text-foreground hover:bg-hover"
           >
             <SurfaceLogo className="size-5 shrink-0" />
             <span className="truncate text-sm font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
-              Surface
+              {desktopChannel === "development" ? "Surface Dev" : "Surface"}
             </span>
+            {desktopChannel === "development" ? (
+              <span className="rounded border border-warning/30 bg-warning/10 px-1 py-px font-mono text-[10px] font-medium uppercase tracking-wide text-warning group-data-[collapsible=icon]:hidden">
+                Dev
+              </span>
+            ) : null}
           </Link>
         </SidebarHeader>
         <SidebarContent className="gap-0">
