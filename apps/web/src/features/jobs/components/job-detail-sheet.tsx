@@ -105,7 +105,6 @@ export function JobDetailSheet({
       );
     },
     onSettled: () => {
-      summaryAbort.current = null;
       void client.invalidateQueries({ queryKey: ["analysis-settings"] });
     },
   });
