@@ -253,13 +253,10 @@ node scripts/changelog.mjs --bump patch --notes-file notes.md --dry-run
 
 ## Versioned production release
 
-`.github/workflows/desktop-release.yml` supports two intentional modes.
-
-### Tag release
-
-Push a tag named `desktop-v<version>` after the matching version is committed
-to `apps/desktop/package.json`. For tag pushes, use a commit that already
-contains this release workflow:
+`.github/workflows/desktop-release.yml` is tag-only. Push a tag named
+`desktop-v<version>` after the matching version is committed to
+`apps/desktop/package.json`. The tag must point at a commit that already
+contains the release workflow:
 
 ```sh
 git tag desktop-v0.1.0
@@ -267,43 +264,29 @@ git push origin desktop-v0.1.0
 ```
 
 The workflow checks that the tag exists, points at the checked-out commit, and
-matches `desktop-v<apps/desktop/package.json version>` exactly. It then runs
-the same checks and packaging as CI, writes `BUILD-INFO.json`, creates a draft
-GitHub release, optionally attests the checksummed assets, uploads the
-AppImage, the `.deb`, `BUILD-INFO.json`, and `SHA256SUMS`, and publishes the
-release only after every step succeeds. A tag release never uses a long-lived
-Actions artifact as the published source.
+matches `desktop-v<apps/desktop/package.json version>` exactly. It then:
 
-### Manual build or publish
+1. validates the matching `CHANGELOG.md` entry and creates or updates a draft
+   GitHub release with those reviewed notes;
+2. runs the same source checks and production packaging as CI, writes
+   `BUILD-INFO.json` and `SHA256SUMS`, smoke-tests the AppImage, and attaches
+   the AppImage, `.deb`, manifest, and checksums directly to the draft release;
+3. verifies the draft assets, optionally attests the checksums, and publishes
+   the release.
 
-Run **Desktop Linux Release** from the Actions tab:
+Production installers never use Actions artifact storage. The `prepare` and
+`build` jobs have `contents: write` so they can create the draft and upload
+assets; `publish` additionally has `id-token: write` and `attestations: write`.
+The publish job runs in the optional `desktop-release` GitHub environment.
+Release jobs are serialized per tag and are not cancelled in progress.
 
-- `ref`: branch, commit, or tag to build. The default is `master`.
-- `publish`: `false` builds and uploads a temporary
-  `surface-desktop-release-linux-x64` Actions artifact without creating a
-  release. `true` requires `ref` to be an existing, matching
-  `desktop-v<version>` tag and publishes it after the build succeeds.
-
-Manual publishing does not create or move tags. A published release is never
-overwritten: if the tag already has a published release, the run fails. Reruns
-may update an existing **draft** release and replace its assets. A draft
-release has no public installers until the final publish step succeeds.
-
-Only the final publish job has `contents: write`, `id-token: write`, and
-`attestations: write`; the build jobs are read-only. The publish job runs in
-the `desktop-release` GitHub environment; its protection rules are optional, so
-repository owners can add required reviewers there without blocking ordinary
-PR builds. Release jobs are serialized per ref and are not cancelled in
-progress. If GitHub attestations are unavailable for this private repository,
-leave `DESKTOP_ATTESTATIONS` unset; `BUILD-INFO.json` and `SHA256SUMS` are still
-published on every release.
-
-Release notes come from the reviewed `CHANGELOG.md` entry, not from generated
-commit lists. The workflow verifies the entry before packaging, creates or
-updates a draft release with those notes, uploads the checksummed assets, and
-publishes the draft only after the upload succeeds. The workflow does not
-create or delete git tags, does not modify the repository, and does not use
-application secrets. Do not run production releases from pull request code.
+A published release is never overwritten: if the tag already has a published
+release, the run fails. Reruns update an existing **draft** release and replace
+its assets. A draft release has no public installers until the final publish
+step succeeds. Release notes come from the reviewed `CHANGELOG.md` entry, not
+from generated commit lists. The workflow does not create or delete git tags,
+does not modify the repository, and does not use application secrets. Do not
+run production releases from pull request code.
 
 ## Remaining constraints
 
@@ -324,12 +307,13 @@ application secrets. Do not run production releases from pull request code.
   one on each run so the shared account storage allowance holds one current
   build. CI still uploads build metadata only.
 - The hosted **Desktop Linux CI** and **Desktop Development Build** workflows
-  ran successfully for the desktop migration. Run `44098624087` uploaded the
-  AppImage, `.deb`, `BUILD-INFO.json`, and `SHA256SUMS` as separate unarchived
-  artifacts with 30-day retention. The repository artifact retention maximum is
-  set to 30 days for this storage allowance.
+  ran successfully for the desktop migration. The development workflow uploads
+  the AppImage, `.deb`, `BUILD-INFO.json`, and `SHA256SUMS` as separate
+  unarchived artifacts with 30-day retention. The repository artifact retention
+  maximum is set to 30 days for this storage allowance. Production installers
+  are release assets and do not use Actions artifact storage.
 
-If a release fails before publishing, fix the cause and rerun the same tag or
-manual publish. If it fails after creating a draft, the next run updates that
-draft. Never force-push or delete a published release tag to work around a
-failed build.
+If a release fails before publishing, fix the cause and rerun the same tag
+workflow. If it fails after creating a draft, the next run updates that draft.
+Never force-push or delete a published release tag to work around a failed
+build.

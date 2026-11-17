@@ -2,33 +2,56 @@
 
 ## desktop-v0.1.0 - 17 Nov 2026
 
-First Linux desktop release. Surface now ships as an Electron application with
-a local SQLite database, the existing web workspace, and the local crawler.
+First Linux desktop release. Surface now ships as an Electron application for
+Ubuntu with a local SQLite database, the existing workspace, and a local
+Playwright crawler.
 
 ### Added
 
 - Install Surface as an Ubuntu AppImage or Debian package. The desktop shell
   starts its own backend and crawler on loopback, keeps data in a local SQLite
-  database, and stores credentials through the platform secret store with an
+  database, and stores the OpenCode Go key through the OS keychain with an
   explicit plaintext fallback.
-- Development and production desktop builds use separate application names,
-  data directories, and installer identities, so both channels can be installed
-  side by side.
-- Add the GitHub Actions desktop workflows: Linux CI packaging, manual
-  development builds, tag-driven production releases, and a changelog-assisted
-  release preparation flow.
-- Add reviewed release notes from `CHANGELOG.md` to GitHub releases, plus
-  `BUILD-INFO.json` and `SHA256SUMS` for every published artifact.
+- A frameless Ubuntu title bar with minimize, maximize/restore, and close
+  controls, plus `Ctrl+=` / `Ctrl+-` zoom and `Ctrl+0` reset.
+- A separate Surface Dev channel for testing. It has its own product name, app
+  id, executable, desktop entry, Debian package, user-data directory, database,
+  settings, logs, keyring entries, child-process names, `DEV` badge, and window
+  title, so development and production never share state.
+- Development builds can include a production-data seed snapshot. It is applied
+  once to a new Surface Dev profile and never replaces an existing database.
+- GitHub Actions workflows for Linux CI, development builds on push, manual
+  dispatch, or pull-request label, and tag-driven production releases.
+  Development installers are separate unarchived artifacts; production
+  installers are release assets.
+- Reviewed release notes from `CHANGELOG.md`, plus `BUILD-INFO.json` and
+  `SHA256SUMS` for published artifacts.
+- OpenCode Go AI provider support through the AI SDK, with typed structured
+  output for assessments, resume extraction, and company matching, streamed job
+  summaries, and a bounded research tool loop.
 
 ### Changed
 
-- Replace the PostgreSQL requirement for the desktop path with a fresh local
-  SQLite profile. Existing PostgreSQL data is not imported or modified.
-- Draw a frameless window with native drag regions and Ubuntu-style caption
-  controls on every route, including onboarding and session checks.
+- Replace the desktop PostgreSQL requirement with a fresh local SQLite profile.
+  Existing PostgreSQL data is not imported or modified; the web deployment
+  keeps PostgreSQL.
+- Move AI calls to a shared SDK layer with request admission, normalized errors,
+  timeouts, abort handling, and bounded provider transport.
+- Rename desktop settings to a v2 format with a v1 backup, separate OpenCode Go
+  provider, base URL, model, and key fields, and provider-aware diagnostics.
+- Research now uses a bounded `ToolLoopAgent` with search and crawl tools,
+  citation repair, and a separate link-verification pass.
 
 ### Fixed
 
+- Make the custom title bar controls clickable by carving a no-drag hole in the
+  draggable header instead of letting clicks start a window drag.
 - Keep the packaged AppImage smoke test working on a fresh profile by checking
-  the window controls and the onboarding or workspace title bar instead of
-  assuming the workspace header is always present.
+  the window controls and either title bar, and verify the development tag and
+  window title.
+
+### Security
+
+- Keep the renderer sandboxed with context isolation and no Node integration.
+- Validate desktop IPC senders, keep the backend on loopback with a per-launch
+  bearer token, and keep credentials out of URLs, logs, and process arguments.
