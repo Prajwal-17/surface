@@ -32,11 +32,11 @@ import { useDesktopChannel } from "@/lib/desktop-channel";
 const destinations = [
   { href: "/", label: "Jobs", icon: BriefcaseBusiness },
   { href: "/companies", label: "Companies", icon: Building2 },
-  { href: "/activity", label: "Activity", icon: Activity },
 ] as const;
 const referenceDestinations = [
   { href: "/schema", label: "Schema", icon: Database },
   { href: "/settings", label: "Settings", icon: Settings2 },
+  { href: "/activity", label: "Activity", icon: Activity },
 ] as const;
 const profileDestination = {
   href: "/profile",
