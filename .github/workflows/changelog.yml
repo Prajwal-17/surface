@@ -1,0 +1,102 @@
+name: Desktop Changelog
+
+run-name: Add desktop changelog entry
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump when no explicit version is supplied"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      version:
+        description: "Explicit desktop version, for example 0.2.0 (optional)"
+        required: false
+        default: ""
+        type: string
+      notes:
+        description: "Changelog entries in Markdown (headings such as ### Added are preserved)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: desktop-changelog
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "24.20.0"
+
+jobs:
+  prepare:
+    name: Add changelog entry and open a pull request
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: master
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Add the changelog entry
+        id: changelog
+        env:
+          BUMP: ${{ inputs.bump }}
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          printf '%s\n' "$NOTES" > /tmp/desktop-changelog-notes.md
+          args=(--notes-file /tmp/desktop-changelog-notes.md)
+          if [[ -n "$VERSION" ]]; then
+            args+=(--version "$VERSION")
+          else
+            args+=(--bump "$BUMP")
+          fi
+          node scripts/changelog.mjs "${args[@]}"
+
+      - name: Commit and publish a pull request
+        id: pull-request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.changelog.outputs.version }}
+        run: |
+          set -euo pipefail
+          branch="chore/release-$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add CHANGELOG.md apps/desktop/package.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git commit -m "chore: add desktop v$VERSION changelog"
+          git push origin "$branch"
+          if gh pr create \
+            --base master \
+            --head "$branch" \
+            --title "chore: add desktop v$VERSION changelog" \
+            --body "Adds the CHANGELOG.md entry and desktop version bump for \`desktop-v$VERSION\`.
+
+          Merge this pull request, then push the \`desktop-v$VERSION\` tag to build and publish the release."; then
+            echo "Opened a pull request for desktop-v$VERSION." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::The branch was pushed but the pull request could not be opened automatically."
+            echo "Open https://github.com/$GITHUB_REPOSITORY/compare/master...$branch?expand=1" >> "$GITHUB_STEP_SUMMARY"
+          fi
