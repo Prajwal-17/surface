@@ -1,5 +1,18 @@
 import Markdown from "react-markdown";
 import type { ResearchSource } from "@surface/contracts";
+
+function urlHref(value: string): string[] {
+  try {
+    return [new URL(value).href];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeMarkdownUrl(value: string): string {
+  return value.replaceAll("%28", "(").replaceAll("%29", ")");
+}
+
 export function ResearchMarkdown({
   text,
   sources,
@@ -11,17 +24,18 @@ export function ResearchMarkdown({
   const allowed = new Set(
     sources
       .flatMap((s) => [s.url, ...s.links.map((l) => l.url)])
-      .map((url) =>
-        new URL(url).href.replaceAll("%28", "(").replaceAll("%29", ")"),
-      ),
+      .flatMap(urlHref)
+      .map(normalizeMarkdownUrl),
   );
   const content = text.replace(/\[S:([^\]]+)\]/g, (_, group: string) =>
     group
       .split(/[,;]\s*/)
       .map((raw) => {
         const id = raw.trim().replace(/^S:/, "");
-        return known.has(id)
-          ? `[source](${known.get(id)!.url.replaceAll("(", "%28").replaceAll(")", "%29")})`
+        const source = known.get(id);
+        const url = source ? urlHref(source.url)[0] : undefined;
+        return url
+          ? `[source](${url.replaceAll("(", "%28").replaceAll(")", "%29")})`
           : "[source]";
       })
       .join(" "),
@@ -32,15 +46,8 @@ export function ResearchMarkdown({
         skipHtml
         components={{
           a: ({ href, children }) => {
-            let value: string | undefined;
-            try {
-              value = new URL(href ?? "").href
-                .replaceAll("%28", "(")
-                .replaceAll("%29", ")");
-            } catch {
-              value = undefined;
-            }
-            return value && allowed.has(value) ? (
+            const value = href ? urlHref(href)[0] : undefined;
+            return value && allowed.has(normalizeMarkdownUrl(value)) ? (
               <a
                 href={value}
                 target="_blank"
