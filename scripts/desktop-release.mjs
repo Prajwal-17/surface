@@ -27,11 +27,28 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const desktopDirectory = join(root, "apps/desktop");
-const releaseDirectory = join(desktopDirectory, "release");
 const desktopPackage = readDesktopPackage();
 const version = desktopPackage.version;
 const expectedTag = `desktop-v${version}`;
 const require = createRequire(import.meta.url);
+const channels = {
+  production: {
+    name: "production",
+    directory: join(desktopDirectory, "release"),
+    product: "Surface",
+    artifactPrefix: "Surface",
+    packageScript: "package",
+    summary: "Ubuntu desktop production build",
+  },
+  development: {
+    name: "development",
+    directory: join(desktopDirectory, "release/dev"),
+    product: "Surface Dev",
+    artifactPrefix: "Surface-Dev",
+    packageScript: "package:dev",
+    summary: "Ubuntu desktop development build",
+  },
+};
 
 await main().catch((error) => {
   console.error(`desktop-release: ${error.message}`);
@@ -48,6 +65,7 @@ async function main() {
   }
 
   const options = parseOptions(args);
+  const channel = resolveChannel(options.channel);
   validateVersion();
   if (options.tag) assertTag(options.tag);
 
@@ -56,20 +74,20 @@ async function main() {
       console.log(version);
       return;
     case "package":
-      await packageApp(options);
+      await packageApp(options, channel);
       return;
     case "manifest":
-      await writeBuildInfo(options.tag);
-      printBuildInfo();
+      await writeBuildInfo(options.tag, channel);
+      printBuildInfo(channel);
       return;
     case "checksums":
-      printChecksums(await writeChecksums());
+      printChecksums(await writeChecksums(channel), channel);
       return;
     case "verify-build":
       await verifyBuild();
       return;
     case "smoke":
-      await smokeTest();
+      await smokeTest(channel);
       return;
     default:
       throw new Error(
@@ -79,25 +97,30 @@ async function main() {
 }
 
 function usage() {
-  console.log(`Usage: node scripts/desktop-release.mjs <command> [--tag <tag>]
+  console.log(`Usage: node scripts/desktop-release.mjs <command> [--tag <tag>] [--channel <channel>]
 
 Commands:
   version       Print the apps/desktop/package.json version.
-  package       Clean apps/desktop/release, run the desktop production build,
+  package       Clean the channel release directory, run the desktop build,
                 write BUILD-INFO.json, then write SHA256SUMS.
-  manifest      Write apps/desktop/release/BUILD-INFO.json for existing artifacts.
-  checksums     Verify existing artifacts and write apps/desktop/release/SHA256SUMS.
+  manifest      Write BUILD-INFO.json for existing channel artifacts.
+  checksums     Verify existing artifacts and write SHA256SUMS.
   verify-build  Launch the staged Playwright Chromium with the system libraries.
-  smoke         Extract and run the AppImage with Xvfb, a new temporary profile,
-                and SURFACE_DESKTOP_SMOKE_TEST=1.
+  smoke         Extract and run the channel AppImage with Xvfb, a new temporary
+                profile, and SURFACE_DESKTOP_SMOKE_TEST=1.
 
 Options:
-  --tag <tag>   Require the tag to equal desktop-v<version>.
+  --tag <tag>                Require the tag to equal desktop-v<version>.
+  --channel <production|development>
+                             Select the packaging channel. Defaults to
+                             production. Development artifacts live in
+                             apps/desktop/release/dev and use the Surface Dev
+                             identity, so they can coexist with production.
 `);
 }
 
 function parseOptions(args) {
-  const options = { tag: null };
+  const options = { tag: null, channel: null };
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === "--tag") {
@@ -111,9 +134,31 @@ function parseOptions(args) {
       options.tag = argument.slice("--tag=".length);
       continue;
     }
+    if (argument === "--channel") {
+      const value = args[index + 1];
+      if (!value) throw new Error("--channel requires a value.");
+      options.channel = value;
+      index += 1;
+      continue;
+    }
+    if (argument.startsWith("--channel=")) {
+      options.channel = argument.slice("--channel=".length);
+      continue;
+    }
     throw new Error(`Unknown option "${argument}".`);
   }
   return options;
+}
+
+function resolveChannel(name) {
+  if (!name) return channels.production;
+  const channel = channels[name];
+  if (!channel) {
+    throw new Error(
+      `Unknown channel "${name}". Use "production" or "development".`,
+    );
+  }
+  return channel;
 }
 
 function readDesktopPackage() {
@@ -143,7 +188,7 @@ function assertTag(tag) {
   }
 }
 
-async function packageApp(options) {
+async function packageApp(options, channel) {
   assertLinuxX64();
   const publish = desktopPackage.build?.publish;
   if (publish) {
@@ -151,21 +196,29 @@ async function packageApp(options) {
       "apps/desktop/package.json build.publish is configured. Publishing must only happen in the release workflow.",
     );
   }
+  assertBuilderDoesNotPublish();
 
-  console.log(`Building Surface ${version} for Linux x64...`);
-  rmSync(releaseDirectory, { recursive: true, force: true });
-  const result = spawnSync("bun", ["--cwd", "apps/desktop", "package"], {
-    cwd: root,
-    stdio: "inherit",
-    env: {
-      ...process.env,
-      // Never let a local or CI package step discover signing or publishing
-      // credentials. Linux artifacts are unsigned.
-      CSC_IDENTITY_AUTO_DISCOVERY: "false",
-      GH_TOKEN: "",
-      GITHUB_TOKEN: "",
+  console.log(
+    `Building ${channel.product} ${version} for Linux x64 (${channel.name})...`,
+  );
+  rmSync(channel.directory, { recursive: true, force: true });
+  const result = spawnSync(
+    "bun",
+    ["--cwd", "apps/desktop", channel.packageScript],
+    {
+      cwd: root,
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        SURFACE_DESKTOP_CHANNEL: channel.name,
+        // Never let a local or CI package step discover signing or publishing
+        // credentials. Linux artifacts are unsigned.
+        CSC_IDENTITY_AUTO_DISCOVERY: "false",
+        GH_TOKEN: "",
+        GITHUB_TOKEN: "",
+      },
     },
-  });
+  );
   if (result.error) throw result.error;
   if (result.status !== 0) {
     throw new Error(
@@ -173,16 +226,32 @@ async function packageApp(options) {
     );
   }
 
-  await writeBuildInfo(options.tag);
-  printChecksums(await writeChecksums());
+  await writeBuildInfo(options.tag, channel);
+  printChecksums(await writeChecksums(channel), channel);
 }
 
-async function writeBuildInfo(tag) {
-  const artifacts = findArtifacts();
-  const buildInfoPath = join(releaseDirectory, "BUILD-INFO.json");
+function assertBuilderDoesNotPublish() {
+  const configPath = join(desktopDirectory, "electron-builder.yml");
+  if (!existsSync(configPath)) return;
+  const config = readFileSync(configPath, "utf8");
+  const publishLines = config
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("publish:"));
+  if (publishLines.some((line) => !/^publish:\s*(?:null)?\s*$/.test(line))) {
+    throw new Error(
+      "apps/desktop/electron-builder.yml configures a publish provider. Publishing must only happen in the release workflow.",
+    );
+  }
+}
+
+async function writeBuildInfo(tag, channel) {
+  const artifacts = findArtifacts(channel);
+  const buildInfoPath = join(channel.directory, "BUILD-INFO.json");
   const buildInfo = {
     schemaVersion: 1,
-    product: "Surface",
+    product: channel.product,
+    channel: channel.name,
     version,
     tag: tag || null,
     source: {
@@ -227,13 +296,13 @@ async function writeBuildInfo(tag) {
   return buildInfo;
 }
 
-function printBuildInfo() {
-  console.log(`Wrote ${join(releaseDirectory, "BUILD-INFO.json")}`);
+function printBuildInfo(channel) {
+  console.log(`Wrote ${join(channel.directory, "BUILD-INFO.json")}`);
 }
 
-async function writeChecksums() {
-  const artifacts = findArtifacts();
-  const buildInfoPath = join(releaseDirectory, "BUILD-INFO.json");
+async function writeChecksums(channel) {
+  const artifacts = findArtifacts(channel);
+  const buildInfoPath = join(channel.directory, "BUILD-INFO.json");
   const files = [
     ...artifacts,
     ...(existsSync(buildInfoPath)
@@ -244,14 +313,14 @@ async function writeChecksums() {
   for (const file of files) {
     lines.push(`${await sha256File(file.path)}  ${file.name}`);
   }
-  const checksums = join(releaseDirectory, "SHA256SUMS");
+  const checksums = join(channel.directory, "SHA256SUMS");
   writeFileSync(checksums, `${lines.join("\n")}\n`, { mode: 0o644 });
   return { artifacts: files, checksums };
 }
 
-function printChecksums({ artifacts, checksums }) {
+function printChecksums({ artifacts, checksums }, channel) {
   console.log(
-    `Verified ${artifacts.length} artifact(s) for Surface ${version}:`,
+    `Verified ${artifacts.length} artifact(s) for ${channel.product} ${version}:`,
   );
   for (const artifact of artifacts) {
     console.log(
@@ -261,17 +330,17 @@ function printChecksums({ artifacts, checksums }) {
   console.log(`Checksums: ${checksums}`);
 }
 
-function findArtifacts() {
-  if (!existsSync(releaseDirectory)) {
+function findArtifacts(channel) {
+  if (!existsSync(channel.directory)) {
     throw new Error(
-      `Missing release directory ${releaseDirectory}. Run the desktop package command first.`,
+      `Missing release directory ${channel.directory}. Run the desktop package command first.`,
     );
   }
   const artifactPattern = new RegExp(
-    `^Surface-${escapeRegExp(version)}-(?:x86_64|amd64)\\.(?:AppImage|deb)$`,
+    `^${escapeRegExp(channel.artifactPrefix)}-${escapeRegExp(version)}-(?:x86_64|amd64)\\.(?:AppImage|deb)$`,
   );
   const installerPattern = /\.(?:AppImage|deb|rpm|snap|dmg|pkg|exe|msi)$/i;
-  const entries = readdirSync(releaseDirectory, { withFileTypes: true })
+  const entries = readdirSync(channel.directory, { withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => entry.name)
     .toSorted();
@@ -282,17 +351,17 @@ function findArtifacts() {
 
   if (unexpected.length) {
     throw new Error(
-      `Unexpected installer artifact(s) in apps/desktop/release: ${unexpected.join(", ")}. Remove stale outputs before packaging.`,
+      `Unexpected installer artifact(s) in ${channel.directory}: ${unexpected.join(", ")}. Remove stale outputs before packaging.`,
     );
   }
   if (!artifacts.some((name) => name.endsWith(".AppImage"))) {
     throw new Error(
-      `No Surface-${version}-*.AppImage was found in apps/desktop/release.`,
+      `No ${channel.artifactPrefix}-${version}-*.AppImage was found in ${channel.directory}.`,
     );
   }
 
   return artifacts.map((name) => {
-    const path = join(releaseDirectory, name);
+    const path = join(channel.directory, name);
     const size = statSync(path).size;
     if (!Number.isFinite(size) || size <= 0) {
       throw new Error(`Artifact ${name} is empty.`);
@@ -366,9 +435,9 @@ async function verifyBuild() {
   }
 }
 
-async function smokeTest() {
+async function smokeTest(channel) {
   assertLinuxX64();
-  const appImage = findArtifacts().find((artifact) =>
+  const appImage = findArtifacts(channel).find((artifact) =>
     artifact.name.endsWith(".AppImage"),
   );
   const temporaryRoot = mkdtempSync(join(tmpdir(), "surface-desktop-smoke-"));

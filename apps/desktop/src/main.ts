@@ -11,6 +11,7 @@ import {
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { desktopIdentity } from "./channel";
 import { createLogSink, type LogSink } from "./logger";
 import { desktopPaths, type DesktopPaths } from "./paths";
 import { getFreePort } from "./ports";
@@ -21,7 +22,11 @@ import {
   type DesktopSettingsSnapshot,
 } from "./settings";
 
-app.setName("Surface");
+const identity = desktopIdentity();
+
+// Development builds use a separate application name, so Electron derives a
+// separate userData directory and both channels can coexist on one machine.
+app.setName(identity.appName);
 if (process.env.SURFACE_DESKTOP_USER_DATA) {
   app.setPath("userData", resolve(process.env.SURFACE_DESKTOP_USER_DATA));
 }
@@ -69,7 +74,7 @@ async function bootstrap(): Promise<void> {
   mainLog = createLogSink(paths.logs, "desktop.log", { echo: true });
   const startupLog = mainLog;
   startupLog.write(
-    `[${new Date().toISOString()}] Surface ${app.getVersion()} starting (electron ${process.versions.electron}, node ${process.versions.node}, packaged=${app.isPackaged})`,
+    `[${new Date().toISOString()}] ${identity.productName} ${app.getVersion()} starting (channel=${identity.channel}, electron ${process.versions.electron}, node ${process.versions.node}, packaged=${app.isPackaged})`,
   );
   startupLog.write(`userData=${paths.root}`);
   startupLog.write(`sqlite=${paths.database}`);
@@ -176,7 +181,7 @@ function createWindow(): void {
     minHeight: 640,
     backgroundColor: "#0b0d10",
     show: false,
-    title: "Surface",
+    title: identity.productName,
     icon: app.isPackaged
       ? join(process.resourcesPath, "icon.png")
       : join(app.getAppPath(), "resources", "icon.png"),
@@ -277,7 +282,14 @@ function createWindow(): void {
                 }
                 throw new Error("Timed out waiting for " + selector);
               };
-              const header = await waitFor(".workspace-header");
+              // A fresh profile opens onboarding, while an onboarded profile
+              // opens the workspace. Both routes render the frameless window
+              // controls, so wait for those and then pick whichever drag
+              // header the current route rendered.
+              await waitFor(".desktop-window-controls");
+              const header = await waitFor(
+                ".workspace-header, .onboarding-top",
+              );
               const [health, auth, status, jobs, research, schema] =
                 await Promise.all([
                   fetch("/api/health").then((response) => response.json()),
@@ -299,7 +311,6 @@ function createWindow(): void {
                 omnirouteApiKey: "smoke-test-key",
               });
               const after = await window.surfaceDesktop.getSettings();
-              await waitFor(".desktop-window-controls");
               const windowBefore = await window.surfaceDesktop.getWindowState();
               const maximized = await window.surfaceDesktop.toggleMaximize();
               await new Promise((resolve) => setTimeout(resolve, 250));
@@ -381,6 +392,7 @@ function registerIpc(settings: SettingsStore): void {
     assertTrustedSender(event);
     return {
       version: app.getVersion(),
+      channel: identity.channel,
       packaged: app.isPackaged,
       dataDir: paths?.data ?? "",
       logsDir: paths?.logs ?? "",
