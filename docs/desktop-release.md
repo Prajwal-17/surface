@@ -317,12 +317,15 @@ application secrets. Do not run production releases from pull request code.
   production volumes, or production data.
 - The desktop SQLite path is fresh-only. No export, import, backup restore, or
   PGlite/PostgreSQL migration runs in CI, packaging, or the smoke test.
-- The AppImage is large because it bundles Chromium for the crawler; Actions
-  artifacts are ZIP uploads and expire after 14 days.
-- This checkout has locally validated the helper commands, Playwright launch,
-  packaged AppImage smoke test, YAML parsing, and actionlint. The hosted GitHub
-  Actions workflows themselves have not been executed from this branch; the
-  parent integration run will be the first remote execution.
+- The AppImage is large because it bundles Chromium for the crawler. The
+  AppImage and `.deb` together exceed this private repository's 500 MiB Actions
+  artifact quota, so installers are published as prerelease or release assets
+  and only build metadata uses Actions artifacts.
+- The hosted **Desktop Linux CI** and **Desktop Development Build** workflows
+  ran successfully for commit `c88a0f3` on 17 Nov 2026. The development build
+  passed the source checks, Playwright verification, fresh-profile AppImage
+  smoke test, and published `desktop-dev-1` with the AppImage, `.deb`,
+  `BUILD-INFO.json`, and `SHA256SUMS`.
 
 If a release fails before publishing, fix the cause and rerun the same tag or
 manual publish. If it fails after creating a draft, the next run updates that
