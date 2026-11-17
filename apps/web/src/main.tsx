@@ -7,6 +7,7 @@ import { router } from "@/app/router";
 import { createAppQueryClient } from "@/lib/query-client";
 import { AuthGate } from "@/features/auth/auth-gate";
 import { EnvironmentTag } from "@/components/layout/environment-tag";
+import { DesktopWindowControls } from "@/components/layout/desktop-window-controls";
 // oxlint-disable-next-line import/no-unassigned-import -- load global application styles
 import "@/styles/globals.css";
 
@@ -16,12 +17,17 @@ if (!rootElement) {
   throw new Error("The app root element was not found.");
 }
 
+if (window.surfaceDesktop?.getWindowState) {
+  document.documentElement.dataset.desktop = "true";
+}
+
 const queryClient = createAppQueryClient();
 
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <EnvironmentTag />
+      <DesktopWindowControls />
       <AuthGate>
         <RouterProvider router={router} />
       </AuthGate>

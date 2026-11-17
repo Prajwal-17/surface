@@ -1,11 +1,12 @@
 import type { z } from "zod";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   companyContactInputSchema,
   type CompanyContact,
   type ContactMethod,
 } from "@surface/contracts";
-import { db } from "../../infrastructure/database/client";
+import { transaction } from "../../infrastructure/database/client";
+import { lockCoordination } from "../../infrastructure/database/locks";
 import { companyContacts } from "./tables";
 import { normalizedName } from "./identity";
 import { pageEvidence, type DiscoveryPage } from "./sources";
@@ -123,10 +124,8 @@ export async function saveContact(
     data.kind === "person"
       ? `person:${normalizedName(data.name)}`
       : `inbox:${data.methods.find((m) => m.kind === "email")?.value.toLowerCase() ?? normalizedName(data.role)}`;
-  return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`SELECT pg_advisory_xact_lock(hashtext(${`contacts:${companyId}`}))`,
-    );
+  return transaction(async (tx) => {
+    await lockCoordination(tx, `contacts:${companyId}`);
     const [existing] = await tx
       .select()
       .from(companyContacts)

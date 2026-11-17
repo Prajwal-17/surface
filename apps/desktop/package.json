@@ -1,0 +1,33 @@
+{
+  "name": "desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Surface local-first job-review desktop app",
+  "author": {
+    "name": "Surface",
+    "email": "desktop@surface.local"
+  },
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:dev": "SURFACE_DESKTOP_CHANNEL=development node scripts/build.mjs",
+    "package": "node scripts/build.mjs && electron-builder --linux AppImage deb",
+    "package:dev": "SURFACE_DESKTOP_CHANNEL=development node scripts/build.mjs && SURFACE_DESKTOP_CHANNEL=development electron-builder --linux AppImage deb --config electron-builder.dev.yml",
+    "package:appimage": "node scripts/build.mjs && electron-builder --linux AppImage",
+    "package:deb": "node scripts/build.mjs && electron-builder --linux deb",
+    "package:ubuntu": "node scripts/build.mjs && electron-builder --linux AppImage deb",
+    "package:dir": "node scripts/build.mjs && electron-builder --linux dir",
+    "check-types": "tsc --noEmit",
+    "lint": "oxlint --config ../../.oxlintrc.json ."
+  },
+  "devDependencies": {
+    "@surface/typescript-config": "workspace:*",
+    "@types/node": "26.3.0",
+    "electron": "latest",
+    "electron-builder": "latest",
+    "esbuild": "latest",
+    "typescript": "npm:typescript@6.0.2"
+  },
+  "homepage": "https://github.com/Prajwal-17/surface"
+}

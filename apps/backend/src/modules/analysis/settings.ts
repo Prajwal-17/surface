@@ -1,7 +1,7 @@
-import { modelCapacityAvailable } from "../../shared/model-client";
 import { and, count, eq } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
-import { env } from "../../config/env";
+import { aiConfigured, getAiSettings } from "../../config/runtime";
+import { modelCapacityAvailable } from "../../shared/ai/capacity";
 import { analysisSettings } from "./analysis.tables";
 import { workItems } from "../work/work.tables";
 
@@ -21,7 +21,11 @@ export async function getSettings() {
       .where(and(eq(workItems.kind, "analysis"), eq(workItems.state, "queued")))
       .limit(1)
   )[0]!.n;
-  return { ...row, configured: Boolean(env.OMNIROUTE_API_KEY), queued };
+  return {
+    ...row,
+    configured: aiConfigured(),
+    queued,
+  };
 }
 export async function saveSettings(input: { paused: boolean }) {
   await getSettings();
@@ -39,7 +43,7 @@ export async function enableAnalysis() {
     .where(eq(analysisSettings.id, "me"));
 }
 export async function canRequestModel(
-  configured = Boolean(env.OMNIROUTE_API_KEY),
+  configured = aiConfigured(getAiSettings()),
   manual = false,
 ) {
   const settings = await getSettings();

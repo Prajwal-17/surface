@@ -12,7 +12,8 @@ import {
   companyContactInputSchema,
   publicUrlSchema,
 } from "@surface/contracts";
-import { db } from "../../infrastructure/database/client";
+import { db, transaction } from "../../infrastructure/database/client";
+import { withRowLock } from "../../infrastructure/database/locks";
 import { companies } from "../workspace/workspace.tables";
 import { workItems } from "../work/work.tables";
 import { companyContacts, companyDiscoverySearches } from "./tables";
@@ -63,12 +64,13 @@ for (const method of ["post", "put"] as const)
           400,
           "Only TechCrunch has passed source validation. Add other publishers through URL intake.",
         );
-      const row = await db.transaction(async (tx) => {
-        const [existing] = await tx
-          .select()
-          .from(companyDiscoverySearches)
-          .where(eq(companyDiscoverySearches.id, id))
-          .for("update");
+      const row = await transaction(async (tx) => {
+        const [existing] = await withRowLock(
+          tx
+            .select()
+            .from(companyDiscoverySearches)
+            .where(eq(companyDiscoverySearches.id, id)),
+        );
         if (method === "put" && (!existing || existing.archived))
           throw new HttpError(404, "Company search not found.");
         const values = {
@@ -419,7 +421,10 @@ companyDiscoveryRoutes.post(
     await db
       .update(workItems)
       .set({
-        payload: sql`jsonb_set(${workItems.payload},ARRAY['outcomes',${v.url}],${JSON.stringify(outcome)}::jsonb)`,
+        payload: {
+          ...payload,
+          outcomes: { ...outcomes, [v.url]: outcome },
+        },
       })
       .where(eq(workItems.id, work.id));
     await enqueueEnrichment(result.company.id, "light", official.url);

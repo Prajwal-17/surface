@@ -1,0 +1,17 @@
+extends: ./electron-builder.yml
+appId: dev.surface.desktop.dev
+productName: Surface Dev
+artifactName: Surface-Dev-${version}-${arch}.${ext}
+directories:
+  output: release/dev
+extraMetadata:
+  name: surface-dev
+  desktopName: surface-dev.desktop
+linux:
+  executableName: surface-dev
+  desktop:
+    entry:
+      StartupWMClass: surface-dev
+  synopsis: Local-first job-review workspace (development build)
+deb:
+  packageName: surface-dev

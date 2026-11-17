@@ -14,19 +14,16 @@ services:
       SEARXNG_BASE_URL: http://searxng:8080
       CRAWLER_BASE_URL: http://crawler:4100
       SOURCE_TIMEOUT_MS: ${SOURCE_TIMEOUT_MS:-12000}
-      # 127.0.0.1 is the container here; use the Docker-specific override when
-      # OmniRoute is running somewhere other than the host gateway.
-      OMNIROUTE_BASE_URL: ${OMNIROUTE_DOCKER_BASE_URL:-http://host.docker.internal:20128/v1}
-      OMNIROUTE_API_KEY: ${OMNIROUTE_API_KEY:-}
-      OMNIROUTE_MODEL: ${OMNIROUTE_MODEL:-auto}
+      AI_PROVIDER: ${AI_PROVIDER:-opencode-go}
+      AI_BASE_URL: ${AI_BASE_URL:-https://opencode.ai/inference/go/openai/v1}
+      AI_MODEL: ${AI_MODEL:-deepseek-v4.1-flash}
+      OPENCODE_GO_API_KEY: ${OPENCODE_GO_API_KEY:-}
       TZ: ${TZ:-Asia/Kolkata}
     volumes:
       - ${FIELDWORK_DATA_DIR:-./data}:/data
     networks:
       - default
       - postgres
-    extra_hosts:
-      - host.docker.internal:host-gateway
     restart: unless-stopped
     healthcheck:
       test:

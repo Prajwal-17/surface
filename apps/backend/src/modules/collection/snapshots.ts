@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
-import { db } from "../../infrastructure/database/client";
+import { transaction } from "../../infrastructure/database/client";
 import { env } from "../../config/env";
 import { resources, snapshots } from "./collection.tables";
 import type { FetchedPayload } from "./public-http";
@@ -19,7 +19,7 @@ export async function persistSnapshot(payload: FetchedPayload): Promise<{
     flag: "w",
     mode: 0o600,
   });
-  return await db.transaction(async (tx) => {
+  return await transaction(async (tx) => {
     await tx
       .insert(resources)
       .values({ id: crypto.randomUUID(), url: payload.url, createdAt: now })

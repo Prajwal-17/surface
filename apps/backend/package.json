@@ -4,19 +4,26 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "APP_ENV=development NODE_ENV=development bun --watch src/index.ts",
-    "start": "APP_ENV=production NODE_ENV=production bun run src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target bun",
+    "dev": "APP_ENV=development NODE_ENV=development node --import tsx --watch src/index.ts",
+    "start": "APP_ENV=production NODE_ENV=production node dist/index.mjs",
+    "build": "node scripts/build.mjs",
     "check-types": "tsc --noEmit",
     "lint": "oxlint --config ../../.oxlintrc.json .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "bun run src/infrastructure/database/migrate.ts",
+    "db:generate:sqlite": "SQLITE_DATABASE_FILE=:memory: drizzle-kit generate --config drizzle.sqlite.config.ts",
+    "db:migrate": "node --import tsx scripts/migrate.ts",
+    "db:migrate:sqlite": "node --import tsx scripts/migrate.ts",
     "db:studio": "drizzle-kit studio",
-    "test": "bun run scripts/test-postgres.ts"
+    "test": "bun run scripts/test-postgres.ts",
+    "verify:sqlite": "node --import tsx scripts/verify-sqlite.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "3.0.92",
+    "@hono/node-server": "^2.1.8",
     "@hono/zod-validator": "latest",
     "@surface/contracts": "workspace:*",
+    "ai": "7.0.173",
+    "dotenv": "^18.0.10",
     "drizzle-orm": "latest",
     "fast-xml-parser": "latest",
     "hono": "^4.13.5",
@@ -32,6 +39,8 @@
     "@types/node": "26.3.0",
     "@types/sanitize-html": "^2.16.1",
     "drizzle-kit": "latest",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
     "typescript": "npm:typescript@6.0.2"
   }
 }

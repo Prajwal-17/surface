@@ -1,7 +1,15 @@
 import { companyDiscoveryRoutes } from "./modules/company-discovery/routes";
+import { existsSync } from "node:fs";
+import { extname, resolve } from "node:path";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { pg } from "./infrastructure/database/client";
+import { env } from "./config/env";
+import {
+  databaseDialect,
+  executeStatement,
+  rawQuery,
+} from "./infrastructure/database/client";
 import { discoveryRoutes } from "./modules/discovery";
 import { jobsRoutes } from "./modules/jobs";
 import { profileRoutes } from "./modules/profile";
@@ -17,9 +25,22 @@ import { workspaceRoutes } from "./modules/workspace/workspace.routes";
 import { researchRoutes } from "./modules/research/research.routes";
 import { authRoutes } from "./modules/auth";
 import { readSession } from "./modules/auth/session";
+import { desktopRoutes } from "./modules/desktop/routes";
 
 export const app = new Hono();
 
+app.use("*", async (context, next) => {
+  context.header("X-Content-Type-Options", "nosniff");
+  context.header("Referrer-Policy", "no-referrer");
+  context.header("X-Frame-Options", "DENY");
+  if (env.WEB_DIST_DIR) {
+    context.header(
+      "Content-Security-Policy",
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+    );
+  }
+  await next();
+});
 app.use("*", requestLogger());
 app.use(
   "/api/*",
@@ -53,10 +74,10 @@ app.use("/api/*", async (context, next) => {
 });
 
 app.get("/api/health", async (context) => {
-  await pg`select 1`;
+  await rawQuery`select 1`;
   return context.json({
     status: "ok",
-    database: "connected",
+    database: databaseDialect(),
     timestamp: new Date().toISOString(),
   });
 });
@@ -64,14 +85,17 @@ app.get("/api/health", async (context) => {
 app.route("/api/auth", authRoutes);
 
 app.get("/api/schema", async (context) => {
-  const tables = await pg<{ name: string }[]>`
+  if (databaseDialect() === "sqlite") {
+    return context.json({ tables: await sqliteSchema() });
+  }
+  const tables = await rawQuery<{ name: string }[]>`
     SELECT table_name AS name FROM information_schema.tables
     WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
     ORDER BY table_name`;
   return context.json({
     tables: await Promise.all(
       tables.map(async ({ name }) => {
-        const columns = await pg`
+        const columns = await rawQuery`
         SELECT c.ordinal_position - 1 AS cid, c.column_name AS name,
           c.data_type AS type, CASE WHEN c.is_nullable = 'NO' THEN 1 ELSE 0 END AS notnull,
           c.column_default AS dflt_value,
@@ -82,7 +106,7 @@ app.get("/api/schema", async (context) => {
         FROM information_schema.columns c
         WHERE c.table_schema = 'public' AND c.table_name = ${name}
         ORDER BY c.ordinal_position`;
-        const foreignKeys = await pg`
+        const foreignKeys = await rawQuery`
         SELECT con.oid::integer AS id, k.ordinality::integer - 1 AS seq,
           target.relname AS "table", a.attname AS "from", af.attname AS "to",
           CASE con.confupdtype WHEN 'a' THEN 'NO ACTION' WHEN 'r' THEN 'RESTRICT'
@@ -104,6 +128,34 @@ app.get("/api/schema", async (context) => {
   });
 });
 
+async function sqliteSchema() {
+  const tables = await executeStatement<{ name: string }>(
+    `SELECT name FROM sqlite_master
+     WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+       AND name <> '__surface_sqlite_migrations'
+     ORDER BY name`,
+  );
+  return Promise.all(
+    tables.map(async ({ name }) => ({
+      name,
+      columns: await executeStatement(
+        `PRAGMA table_info(${quoteIdentifier(name)})`,
+      ),
+      foreignKeys: await executeStatement(
+        `PRAGMA foreign_key_list(${quoteIdentifier(name)})`,
+      ),
+    })),
+  );
+}
+
+function quoteIdentifier(name: string): string {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(name)) {
+    throw new Error(`Unsafe SQL identifier: ${name}`);
+  }
+  return `"${name.replaceAll('"', '""')}"`;
+}
+
+app.route("/api/desktop", desktopRoutes);
 app.route("/api", researchRoutes);
 app.route("/api/company-discovery", companyDiscoveryRoutes);
 app.route("/api/discovery", discoveryRoutes);
@@ -114,6 +166,31 @@ app.route("/api", collectionRoutes);
 app.route("/api", workRoutes);
 app.route("/api/analysis", analysisRoutes);
 app.route("/api", eventsRoutes);
+
+if (env.WEB_DIST_DIR && existsSync(resolve(env.WEB_DIST_DIR, "index.html"))) {
+  const root = resolve(env.WEB_DIST_DIR);
+  const staticFiles = serveStatic({
+    root,
+    onFound: (path, context) => {
+      if (path.includes("/assets/")) {
+        context.header("Cache-Control", "public, max-age=31536000, immutable");
+      } else {
+        context.header("Cache-Control", "no-cache");
+      }
+    },
+  });
+  const index = serveStatic({ root, path: "index.html" });
+  app.use("*", staticFiles);
+  app.get("*", async (context, next) => {
+    if (
+      context.req.path.startsWith("/api/") ||
+      extname(context.req.path) !== ""
+    ) {
+      return next();
+    }
+    return index(context, next);
+  });
+}
 
 app.notFound((context) =>
   context.json({ error: "The requested endpoint does not exist." }, 404),

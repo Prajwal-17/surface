@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { tool } from "ai";
 import { HttpError } from "../../shared/errors/http-error";
 import { env } from "../../config/env";
+import { getRuntimeSettings } from "../../config/runtime";
 import { publicUrlSchema, crawlMetadataSchema } from "@surface/contracts";
-import type { ToolDefinition } from "./model";
 export const searchInput = z
   .object({
     query: z.string().trim().min(1).max(1000),
@@ -27,31 +28,38 @@ export const crawlOutput = z.object({
   status: z.string(),
   retrievedAt: z.string(),
 });
-export const toolDefinitions: ToolDefinition[] = [
-  {
-    type: "function",
-    function: {
-      name: "search_web",
+
+export type WebToolExecutors = {
+  search: (input: z.infer<typeof searchInput>) => Promise<unknown>;
+  crawl: (input: z.infer<typeof crawlInput>) => Promise<unknown>;
+};
+
+/** Typed SDK tools around the existing SearXNG and crawler executors. */
+export function webTools(executors: WebToolExecutors) {
+  return {
+    search_web: tool({
       description:
         "Search public web pages using our SearXNG instance. Search snippets are leads, not verified page evidence.",
-      parameters: z.toJSONSchema(searchInput),
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "crawl_page",
+      inputSchema: searchInput,
+      execute: async (input) => await executors.search(input),
+    }),
+    crawl_page: tool({
       description:
         "Read a public page with Crawlee, extracting text and links. JavaScript rendering is automatic when needed; set render=true if the static content is incomplete. Do not attempt private sites or authenticated access.",
-      parameters: z.toJSONSchema(crawlInput),
-    },
-  },
-];
+      inputSchema: crawlInput,
+      execute: async (input) => await executors.crawl(input),
+    }),
+  };
+}
 export async function searchWeb(
   input: z.infer<typeof searchInput>,
   signal?: AbortSignal,
 ) {
-  const url = new URL("search", env.SEARXNG_BASE_URL.replace(/\/?$/, "/"));
+  const settings = getRuntimeSettings();
+  const url = new URL(
+    "search",
+    `${settings.searxngBaseUrl.replace(/\/?$/, "")}/`,
+  );
   url.search = new URLSearchParams({
     q: input.query,
     format: "json",

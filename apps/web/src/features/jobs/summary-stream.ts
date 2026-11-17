@@ -1,62 +1,81 @@
 import {
+  parseJsonEventStream,
+  readUIMessageStream,
+  uiMessageChunkSchema,
+} from "ai";
+import {
   descriptionSummarySchema,
   type DescriptionSummary,
 } from "@surface/contracts";
+
+type SummaryStreamData =
+  | { status: "complete"; summary: DescriptionSummary }
+  | { status: "error"; error: string };
 
 export async function streamSummary(
   id: string,
   regenerate: boolean,
   onText: (text: string) => void,
+  signal?: AbortSignal,
 ) {
-  const response = await fetch(`/api/jobs/${id}/summary`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/x-ndjson",
-    },
-    body: JSON.stringify({ regenerate }),
-  });
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(
-      typeof body.error === "string"
-        ? body.error
-        : "Could not summarise this job. Try again.",
-    );
-  }
-  if (!response.body)
-    throw new Error("The summary response was empty. Try again.");
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let pending = "",
-    text = "";
-  let result: DescriptionSummary | undefined;
-  function line(value: string) {
-    if (!value.trim()) return;
-    const event = JSON.parse(value);
-    if (event.type === "error") throw new Error(event.error);
-    if (event.type === "text" && typeof event.text === "string") {
-      text += event.text;
-      onText(text);
-    }
-    if (event.type === "complete")
-      result = descriptionSummarySchema.parse(event.summary);
-  }
   try {
-    for (;;) {
-      const chunk = await reader.read();
-      if (chunk.done) break;
-      pending += decoder.decode(chunk.value, { stream: true });
-      const lines = pending.split("\n");
-      pending = lines.pop()!;
-      for (const value of lines) line(value);
+    const response = await fetch(`/api/jobs/${id}/summary/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ regenerate }),
+      signal,
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(
+        typeof body.error === "string"
+          ? body.error
+          : "Could not summarise this job. Try again.",
+      );
     }
-    line(pending + decoder.decode());
-    if (!result)
+    if (!response.body)
+      throw new Error("The summary response was empty. Try again.");
+    const chunks = parseJsonEventStream({
+      stream: response.body,
+      schema: uiMessageChunkSchema,
+    }).pipeThrough(
+      new TransformStream({
+        transform(chunk, controller) {
+          if (!chunk.success) throw chunk.error;
+          controller.enqueue(chunk.value);
+        },
+      }),
+    );
+    let text = "";
+    let summary: DescriptionSummary | undefined;
+    let streamError: string | undefined;
+    for await (const message of readUIMessageStream({ stream: chunks })) {
+      const nextText = message.parts
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("");
+      if (nextText !== text) {
+        text = nextText;
+        onText(text);
+      }
+      for (const part of message.parts) {
+        if (part.type !== "data-summary") continue;
+        const data = part.data as SummaryStreamData;
+        if (data.status === "complete") {
+          summary = descriptionSummarySchema.parse(data.summary);
+          streamError = undefined;
+        } else {
+          streamError = data.error;
+        }
+      }
+    }
+    if (streamError) throw new Error(streamError);
+    if (!summary)
       throw new Error("The summary connection ended early. Try again.");
-    return result;
-  } finally {
-    await reader.cancel().catch(() => {});
-    reader.releaseLock();
+    return summary;
+  } catch (error) {
+    if (signal?.aborted)
+      throw new Error("The summary was stopped.", { cause: error });
+    throw error;
   }
 }

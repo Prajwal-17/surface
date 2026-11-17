@@ -1,9 +1,24 @@
 import { roleMatcher } from "../jobs/relevance";
 import { findProfile } from "../profile/profile.repository";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { db } from "../../infrastructure/database/client";
+import {
+  db,
+  queryRows,
+  transaction,
+} from "../../infrastructure/database/client";
+import {
+  lockCoordination,
+  withRowLock,
+} from "../../infrastructure/database/locks";
+import {
+  jsonText,
+  containsPattern,
+  countAsInteger,
+  countWhereAsInteger,
+} from "../../infrastructure/database/sql-helpers";
 import { companies } from "../workspace/workspace.tables";
 import { jobs } from "../jobs/jobs.tables";
+import { workItems } from "../work/work.tables";
 import { researchReports, researchRuns } from "../research/research.tables";
 import {
   companyActions,
@@ -33,10 +48,8 @@ export async function persistCandidate(
   search?: { id: string; revision: number },
   confirmedId?: string,
 ) {
-  return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`SELECT pg_advisory_xact_lock(hashtext('surface:company-identity'))`,
-    );
+  return transaction(async (tx) => {
+    await lockCoordination(tx, "surface:company-identity");
     const domain = websiteIdentity(candidate.website);
     if (!domain) throw new Error("Company website requires confirmation.");
     const all = await tx.select().from(companies);
@@ -229,7 +242,7 @@ export async function opportunityRows(ids: string[]) {
     db
       .select({
         companyId: researchReports.companyId,
-        reportCount: sql<number>`count(*)::int`,
+        reportCount: countAsInteger(),
         latestReportAt: sql<string>`max(${researchReports.createdAt})`,
       })
       .from(researchReports)
@@ -291,7 +304,7 @@ export async function listOpportunities(input: {
   const filters = [eq(companies.archived, input.archived ?? false)];
   if (input.q)
     filters.push(
-      sql`(${companies.name} ILIKE ${`%${input.q}%`} OR ${companies.description} ILIKE ${`%${input.q}%`} OR ${companies.website} ILIKE ${`%${input.q}%`})`,
+      sql`(${containsPattern(companies.name, input.q)} OR ${containsPattern(companies.description, input.q)} OR ${containsPattern(companies.website, input.q)})`,
     );
   if (input.searchId)
     filters.push(
@@ -314,12 +327,12 @@ export async function listOpportunities(input: {
     );
   const [counts] = await db
     .select({
-      all: sql<number>`count(*)::int`,
-      new: sql<number>`count(*) FILTER (WHERE ${queue}='new')::int`,
-      will_apply: sql<number>`count(*) FILTER (WHERE ${queue}='will_apply')::int`,
-      later: sql<number>`count(*) FILTER (WHERE ${queue}='later')::int`,
-      done: sql<number>`count(*) FILTER (WHERE ${queue}='done')::int`,
-      skipped: sql<number>`count(*) FILTER (WHERE ${queue}='skipped')::int`,
+      all: countAsInteger(),
+      new: countWhereAsInteger(sql`${queue}='new'`),
+      will_apply: countWhereAsInteger(sql`${queue}='will_apply'`),
+      later: countWhereAsInteger(sql`${queue}='later'`),
+      done: countWhereAsInteger(sql`${queue}='done'`),
+      skipped: countWhereAsInteger(sql`${queue}='skipped'`),
     })
     .from(companies)
     .where(and(...filters));
@@ -331,7 +344,7 @@ export async function listOpportunities(input: {
   )
     filters.push(sql`${queue}=${input.queue}`);
   const [total] = await db
-    .select({ value: sql<number>`count(*)::int` })
+    .select({ value: countAsInteger() })
     .from(companies)
     .where(and(...filters));
   const ids = await db
@@ -395,8 +408,8 @@ export async function companyDetail(id: string) {
         eq(companySearchMatches.searchId, companyDiscoverySearches.id),
       )
       .where(eq(companySearchMatches.companyId, id)),
-    db.execute(
-      sql`SELECT 1 FROM work_items WHERE kind='company-enrichment' AND state IN ('queued','running') AND payload->>'companyId'=${id} LIMIT 1`,
+    queryRows<{ found: number }>(
+      sql`SELECT 1 AS found FROM work_items WHERE kind='company-enrichment' AND state IN ('queued','running') AND ${jsonText(workItems.payload, "companyId")}=${id} LIMIT 1`,
     ),
   ]);
   const profile = await findProfile(),
@@ -421,12 +434,10 @@ export async function recordAction(
   companyId: string,
   input: z.infer<typeof companyActionInputSchema>,
 ) {
-  return db.transaction(async (tx) => {
-    const [company] = await tx
-      .select()
-      .from(companies)
-      .where(eq(companies.id, companyId))
-      .for("update");
+  return transaction(async (tx) => {
+    const [company] = await withRowLock(
+      tx.select().from(companies).where(eq(companies.id, companyId)),
+    );
     if (!company) throw new HttpError(404, "Company not found.");
     if (
       input.contactId &&

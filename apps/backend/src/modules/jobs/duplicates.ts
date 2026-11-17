@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { db } from "../../infrastructure/database/client";
+import { transaction } from "../../infrastructure/database/client";
 import { duplicateDecisions } from "../collection/collection.tables";
 import { jobs, jobSources } from "./jobs.tables";
 import { HttpError } from "../../shared/errors/http-error";
@@ -7,7 +7,7 @@ export async function decideDuplicate(
   id: string,
   action: "merge" | "separate" | "undo",
 ) {
-  return await db.transaction(async (tx) => {
+  return await transaction(async (tx) => {
     let decision = (
       await tx
         .select()

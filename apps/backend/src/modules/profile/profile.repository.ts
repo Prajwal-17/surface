@@ -5,7 +5,7 @@ import {
   type Profile,
 } from "@surface/contracts";
 import { eq } from "drizzle-orm";
-import { db } from "../../infrastructure/database/client";
+import { db, transaction } from "../../infrastructure/database/client";
 import { jobPreferences, profileRevisions } from "./profile.tables";
 
 const profileId = "me";
@@ -38,7 +38,7 @@ export async function saveProfile(input: ProfileInput): Promise<Profile> {
     revision: (previous?.revision ?? 0) + 1,
     updatedAt: new Date().toISOString(),
   };
-  await db.transaction(async (tx) => {
+  await transaction(async (tx) => {
     await tx
       .insert(jobPreferences)
       .values({ ...row, id: profileId })

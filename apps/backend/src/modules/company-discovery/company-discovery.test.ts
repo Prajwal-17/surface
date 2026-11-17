@@ -1,12 +1,12 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import {
   companySearchInputSchema,
   companyContactInputSchema,
   contactMethodSchema,
 } from "@surface/contracts";
 import { runMigrations } from "../../infrastructure/database/migrate";
-import { db } from "../../infrastructure/database/client";
+import { db, pg } from "../../infrastructure/database/client";
 import { companies } from "../workspace/workspace.tables";
 import {
   researchRuns,
@@ -571,9 +571,8 @@ describe("persistent company workflow", () => {
     expect(item!.result!.new).toBe(1);
     expect(item!.result!.failed).toBe(1);
     const result = await retryCompanyRun([item!], "Test partial");
-    const retried = await db.execute(
-      sql`SELECT w.* FROM work_items w JOIN run_items r ON r.work_id=w.id WHERE r.run_id=${result.runId}`,
-    );
+    const retried = await pg<{ id: string }[]>`
+      SELECT w.* FROM work_items w JOIN run_items r ON r.work_id=w.id WHERE r.run_id=${result.runId}`;
     expect(retried).toHaveLength(1);
     const [retry] = await db
       .select()

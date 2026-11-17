@@ -3,6 +3,7 @@ import { env } from "../src/config/env";
 
 // Always create an isolated disposable database. No tests run on either application DB.
 const name = `surface-test-${crypto.randomUUID()}`;
+if (!env.DATABASE_URL) throw new Error("TEST_DATABASE_URL is required.");
 const adminUrl = new URL(env.DATABASE_URL);
 adminUrl.pathname = "/postgres";
 const admin = postgres(adminUrl.toString(), { max: 1 });

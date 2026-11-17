@@ -1,5 +1,6 @@
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { AnalysisSettings } from "@/features/profile/components/analysis-settings";
+import { DesktopSettings } from "@/features/settings/desktop-settings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScanLine, Sun } from "lucide-react";
 
@@ -37,7 +38,8 @@ export function Component() {
             </div>
           </section>
         </TabsContent>
-        <TabsContent value="analysis">
+        <TabsContent value="analysis" className="space-y-8">
+          <DesktopSettings />
           <AnalysisSettings />
         </TabsContent>
       </Tabs>

@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, lte, or, sql } from "drizzle-orm";
-import { db } from "../../infrastructure/database/client";
+import { db, transaction } from "../../infrastructure/database/client";
+import { lockCoordination } from "../../infrastructure/database/locks";
 import { configuredSources, companies } from "../workspace/workspace.tables";
 import { runs, workItems, runItems, savedSearches } from "./work.tables";
 import { HttpError } from "../../shared/errors/http-error";
@@ -38,10 +39,8 @@ export async function enqueueCollection(
   sourceIds: string[],
   label = "Manual refresh",
 ) {
-  return await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`SELECT pg_advisory_xact_lock(hashtext('surface:enqueue-work'))`,
-    );
+  return await transaction(async (tx) => {
+    await lockCoordination(tx, "surface:enqueue-work");
     const now = new Date().toISOString(),
       id = crypto.randomUUID();
     const sources = await tx

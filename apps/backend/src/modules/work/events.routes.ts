@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import { pg } from "../../infrastructure/database/client";
+import { rawQuery } from "../../infrastructure/database/client";
 export async function workspaceRevision(): Promise<string> {
-  const [row] = await pg`
-    SELECT (SELECT count(*)::integer FROM job_versions) versions,
-      (SELECT count(*)::integer FROM assessments) assessments,
+  const [row] = await rawQuery`
+    SELECT (SELECT CAST(count(*) AS INTEGER) FROM job_versions) versions,
+      (SELECT CAST(count(*) AS INTEGER) FROM assessments) assessments,
       (SELECT coalesce(max(revision),0) FROM job_preferences) profile,
-      (SELECT count(*)::integer FROM job_sources) sources,
+      (SELECT CAST(count(*) AS INTEGER) FROM job_sources) sources,
       (SELECT coalesce(max(updated_at),'') FROM jobs) updated`;
   return JSON.stringify(row);
 }

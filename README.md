@@ -28,7 +28,8 @@ bun run dev
 ```
 
 `bun dev` opens http://localhost:17000 automatically. Development and production
-use port 17000 by default. A persistent DEV/PROD tag appears in the app corner.
+use port 17000 by default. Vite development shows a `DEV` badge; production
+builds show no environment badge.
 Vite proxies `/api` to the backend on port 4000
 during development. The Docker web server also proxies `/api` to the backend.
 Use `BACKEND_URL` for a different backend. PostgreSQL runs in the existing
@@ -58,6 +59,41 @@ transfer safeguards, verification report, backup locations and recovery steps.
 `APP_ENV=production bun run db:migrate`. The backend performs monitoring and
 analysis while the browser is closed; an expiring PostgreSQL lease coordinates
 executors for each database.
+
+## Desktop app
+
+Surface can run as a single Ubuntu Linux Electron app with a local SQLite
+database, a Node backend utility process, and a local Crawlee/Playwright crawler.
+The React renderer is the existing `apps/web` build. Only SearXNG remains
+optional Docker infrastructure; OpenCode Go is a hosted API. No PostgreSQL,
+backend, web or crawler container is required for the desktop app. macOS and
+Windows packaging are not supported.
+
+```sh
+bun install
+bun --cwd apps/desktop package
+./apps/desktop/release/Surface-0.1.0-x86_64.AppImage
+# or: sudo apt install ./apps/desktop/release/Surface-0.1.0-amd64.deb
+```
+
+The app removes the native title bar and application menu in favor of a
+Surface-specific 44px draggable title bar with accessible minimize,
+maximize/restore and close controls. The `DEV` badge appears only in Vite
+development; packaged production builds show no environment badge.
+
+Start optional web search with
+`docker compose -f compose.searxng.yaml up -d`. Data, snapshots, settings and
+logs live under Electron's user-data directory. The desktop database is a new
+`surface.sqlite3` file with its own from-scratch migrations in
+`apps/backend/drizzle-sqlite/`.
+
+The desktop build does not export, import, or automatically migrate PGlite or
+PostgreSQL data. Existing desktop `pglite/` files are left untouched and
+ignored. Start fresh by using a new `SURFACE_DESKTOP_USER_DATA` directory or by
+moving the old profile aside; never delete production backups. See
+[desktop](docs/desktop.md) and
+[desktop verification](docs/desktop-migration.md). The existing Docker Compose
+deployment and PostgreSQL data remain operational and unchanged.
 
 ## Collect and review
 
@@ -102,19 +138,28 @@ qualifications, working arrangements, compensation, benefits and application det
 from the full posting. The prompt requires explicit handling of missing or conflicting
 facts. Summary text streams as the provider responds, renders as Markdown headings,
 lists, emphasis and links, and is saved after validation; **Regenerate** requests
-a fresh summary. Providers returning buffered JSON still work. Older summary formats
-are marked for regeneration with the improved prompt.
+a fresh summary. Summary progress uses the Vercel AI SDK structured stream, and
+**Stop** cancels the provider request. Older summary formats are marked for
+regeneration with the improved prompt.
 Changed descriptions mark old summaries as outdated. Summaries never include your profile or run automatically.
 
-## OmniRoute assessment
+## AI assessment
 
+AI features use the Vercel AI SDK through the user's OpenCode Go subscription.
 Configure `apps/backend/.env`, which [Bun loads automatically](https://bun.sh/docs/runtime/environment-variables):
 
 ```dotenv
-OMNIROUTE_BASE_URL=http://127.0.0.1:20128/v1
-OMNIROUTE_API_KEY=your-local-endpoint-key
-OMNIROUTE_MODEL=auto
+AI_PROVIDER=opencode-go
+AI_BASE_URL=https://opencode.ai/inference/go/openai/v1
+AI_MODEL=deepseek-v4.1-flash
+OPENCODE_GO_API_KEY=your-key
 ```
+
+`OMNIROUTE_*` variables are no longer used. If they remain set, Surface warns at
+startup and never sends the old key to OpenCode. Add a separate OpenCode Go key.
+Desktop installs keep their old OmniRoute key only as legacy data in
+`settings.json`; the version-2 settings migration writes a `.v1.backup.json` file
+next to it.
 
 Save your Profile, open a job’s **Assessment** tab, and click **Assess this job** for a brief plain-text
 recommendation: whether to apply, the strongest match, the main gap, and a next
@@ -126,8 +171,8 @@ your targets. Missing or incomparable facts need clarification.
 Free-text preferences and deal-breakers remain advisory.
 
 AI requests have no daily quota or reset schedule. Settings retains configuration status
-and the pause control. Two model requests can run concurrently to keep the local service
-responsive. Assessments are started from the job reader.
+and the pause control. Two model requests can run concurrently. Assessments are
+started from the job reader.
 No analysis backfill runs during migration. Collection works without AI.
 
 Assessments cite supplied job/profile excerpts, distinguish interpretation from
@@ -135,15 +180,18 @@ facts, and record the job version, profile revision and assessment format versio
 Stale in-flight output is discarded. Successful results persist independently.
 Background changes announce **Updated results available** without replacing the
 review list. Only current assessments contribute to Best fit ordering.
-OmniRoute memory is disabled; its configured upstream models may receive prompts.
+Prompts are sent directly to the configured OpenCode Go model. Resume text,
+profiles and job descriptions may be included in the prompts for the feature you
+request; API keys are never sent to the browser.
 
 ## Docker
 
 ```sh
 # Set these in a root .env first if you want AI assessments.
-# OMNIROUTE_DOCKER_BASE_URL=http://host.docker.internal:20128/v1
-# OMNIROUTE_API_KEY=your-local-endpoint-key
-# OMNIROUTE_MODEL=auto
+# AI_PROVIDER=opencode-go
+# AI_BASE_URL=https://opencode.ai/inference/go/openai/v1
+# AI_MODEL=deepseek-v4.1-flash
+# OPENCODE_GO_API_KEY=your-key
 bun run prod
 ```
 
@@ -153,10 +201,8 @@ start, use `docker compose up --build -d`. Set `FIELDWORK_PROD_WEB_PORT` in the
 root `.env` to use a different production port.
 
 Compose builds `apps/backend/Dockerfile` and `apps/web/Dockerfile` separately.
-The backend reaches a host-running OmniRoute through `host.docker.internal` by
-default. Use `OMNIROUTE_DOCKER_BASE_URL` when OmniRoute is reachable elsewhere;
-keep the local-development `OMNIROUTE_BASE_URL` value separate because
-`127.0.0.1` inside a container refers to that container.
+The backend calls the hosted OpenCode Go API directly. Keep
+`OPENCODE_GO_API_KEY` in the root `.env`; it stays server-side.
 
 The backend connects to `primary-pg` through the existing external Docker network.
 Set `DOCKER_DATABASE_URL` in root `.env` to the `primary-pg:5432/surface-data` URL
@@ -166,8 +212,7 @@ Database files remain in the PostgreSQL volume; snapshots and the session key
 remain mounted under `./data`.
 Set `FIELDWORK_DATA_DIR` for a different local mount and
 `FIELDWORK_PROD_WEB_PORT` for a production port other than 17000. The backend
-reaches a host gateway using `host.docker.internal`; `OMNIROUTE_BASE_URL` can
-override that address.
+uses the AI provider URL from the root `.env`.
 The web port binds to loopback; the backend is internal to the Compose network.
 The production crawler binds to host port 4101 (`FIELDWORK_PROD_CRAWLER_PORT`),
 so the development crawler can keep using 4100.
@@ -214,7 +259,7 @@ fields use the existing JSON context column, so no SQL migration is required.
 
 `POST /api/profile/resume` accepts a PDF as multipart field `file`, or JSON
 `{ "text": "..." }`. Text-based PDFs are limited to 10 MB and 30 pages; scanned or
-locked files offer a pasted-text/manual fallback. OmniRoute proposes exact document
+locked files offer a pasted-text/manual fallback. The AI provider proposes exact document
 excerpts and catalog matches. Review selects replacements before anything reaches
 the saved profile. Uploaded files are not retained. Explicit imports share the two-request concurrency control and can run
 while automatic job analysis is paused.

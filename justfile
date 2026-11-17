@@ -25,6 +25,46 @@ db-studio-prod: db-up
 db-studio-dev: db-up
     APP_ENV=development bun run db:studio
 
+# Generate the from-scratch SQLite migration baseline for the desktop app.
+sqlite-generate:
+    bun run db:generate:sqlite
+
+# Verify the embedded SQLite backend in a new temporary profile.
+sqlite-verify:
+    bun run verify:sqlite
+
+# Build the Electron desktop bundle and assets.
+desktop-build:
+    node apps/desktop/scripts/build.mjs
+
+# Build the production Ubuntu AppImage and Debian package with checksums.
+desktop-package:
+    node scripts/desktop-release.mjs package
+
+# Build the development Ubuntu AppImage and Debian package with checksums.
+desktop-package-dev:
+    node scripts/desktop-release.mjs package --channel development
+
+# Build only the Ubuntu AppImage.
+desktop-appimage:
+    cd apps/desktop && bun run package:appimage
+
+# Build only the Ubuntu Debian package.
+desktop-deb:
+    cd apps/desktop && bun run package:deb
+
+# Preview the release notes for the current desktop version.
+desktop-notes:
+    node scripts/release-notes.mjs --check
+
+# Start optional SearXNG only (no PostgreSQL or Surface containers).
+searxng-up:
+    docker compose -f compose.searxng.yaml up -d
+
+# Stop the optional SearXNG stack.
+searxng-down:
+    docker compose -f compose.searxng.yaml down
+
 # Start the production stack.
 prod:
     docker compose up -d

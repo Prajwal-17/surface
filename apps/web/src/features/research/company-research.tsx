@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
@@ -9,12 +9,8 @@ import {
   Square,
   ChevronDown,
 } from "lucide-react";
-import {
-  researchDetailSchema,
-  researchEventSchema,
-  type ResearchEvent,
-  type ResearchSource,
-} from "@surface/contracts";
+import { researchDetailSchema, type ResearchSource } from "@surface/contracts";
+import { useResearchRun, researchPhaseLabel } from "./use-research-run";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { CopyMessage } from "./copy-message";
@@ -96,12 +92,7 @@ export function CompanyResearch({
 }) {
   const client = useQueryClient();
   const [view, setView] = useState("report"),
-    [versionId, setVersionId] = useState<string | null>(null),
-    [live, setLive] = useState<{
-      runId: string;
-      text: string;
-      events: ResearchEvent[];
-    }>({ runId: "", text: "", events: [] });
+    [versionId, setVersionId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const timeline = useRef<HTMLDivElement>(null);
   const queryKey = ["company-research", companyId];
@@ -115,48 +106,7 @@ export function CompanyResearch({
       q.state.data?.runs.some((r) => r.state === "running") ? 2500 : false,
   });
   const active = detail.data?.runs.find((r) => r.state === "running");
-  const activeId = active?.id;
-  useEffect(() => {
-    if (!activeId) return;
-    const stream = new EventSource(
-      `/api/companies/${companyId}/research/runs/${activeId}/events`,
-    );
-    const receive = (raw: MessageEvent) => {
-      const parsed = researchEventSchema.safeParse(JSON.parse(raw.data));
-      if (!parsed.success) return;
-      const event = parsed.data;
-      setLive((previous) => {
-        const state =
-          previous.runId === activeId
-            ? previous
-            : { runId: activeId, text: "", events: [] };
-        return event.type === "text"
-          ? { ...state, text: event.text }
-          : {
-              ...state,
-              events: [
-                ...state.events.filter((e) => e.id !== event.id),
-                event,
-              ].slice(-30),
-            };
-      });
-    };
-    stream.addEventListener("progress", receive);
-    stream.addEventListener("text", receive);
-    const finish = () => {
-      stream.close();
-      void client.invalidateQueries({
-        queryKey: ["company-research", companyId],
-      });
-      void client.invalidateQueries({ queryKey: ["company-opportunities"] });
-      void client.invalidateQueries({
-        queryKey: ["company-detail", companyId],
-      });
-    };
-    stream.addEventListener("done", finish);
-    stream.addEventListener("end", finish);
-    return () => stream.close();
-  }, [activeId, companyId, client]);
+  const live = useResearchRun(companyId, active);
   const mutate = useMutation({
     mutationFn: async ({
       suffix = "",
@@ -207,7 +157,7 @@ export function CompanyResearch({
   const report =
     data.reports.find((r) => r.id === versionId) ?? data.reports[0];
   const draft =
-    active && live.runId === active.id ? live.text : (active?.draft ?? "");
+    active && live.runId === active.id ? live.draft : (active?.draft ?? "");
   const progress =
     live.runId === active?.id
       ? live.events.filter((e) => e.type === "progress")
@@ -226,14 +176,19 @@ export function CompanyResearch({
         )
       : data.sources;
   const busy = Boolean(active) || mutate.isPending;
+  const phase = active && live.runId === active.id ? live.phase : "connecting";
   const status = active ? (
     <div className="space-y-3">
       <AiLoadingState
         label={
-          progress.at(-1)?.text ||
-          (active.kind === "report"
-            ? "Researching company"
-            : "Preparing answer")
+          phase === "writing"
+            ? "Writing answer"
+            : progress.at(-1)?.text ||
+              (phase === "gathering"
+                ? "Gathering sources"
+                : active.kind === "report"
+                  ? "Researching company"
+                  : "Preparing answer")
         }
       />
       {!!progress.length && (
@@ -363,10 +318,14 @@ export function CompanyResearch({
               )}
             </div>
           )}
-          {!active && latestRun?.error && (
+          {!active && latestRun && latestRun.state !== "completed" && (
             <div role="alert" className="mb-5 rounded-md border p-3 text-sm">
-              <p className="font-medium">Research {latestRun.state}</p>
-              <p className="mt-1 text-muted-foreground">{latestRun.error}</p>
+              <p className="font-medium">
+                {researchPhaseLabel(latestRun.state)}
+              </p>
+              {latestRun.error && (
+                <p className="mt-1 text-muted-foreground">{latestRun.error}</p>
+              )}
               <p className="mt-2 text-xs text-muted-foreground">
                 Saved reports and sources are retained. Choose Run research to
                 try again.

@@ -21,6 +21,7 @@ coverage
 # Build Outputs
 build/
 dist/
+release/
 .vite/
 .turbo/
 dist

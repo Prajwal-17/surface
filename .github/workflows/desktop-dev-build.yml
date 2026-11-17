@@ -1,0 +1,206 @@
+name: Desktop Development Build
+
+run-name: Surface development build (${{ inputs.ref || github.event.pull_request.head.ref || github.ref_name }})
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Optional branch, commit, or tag; defaults to the selected workflow ref"
+        required: false
+        default: ""
+        type: string
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: desktop-dev-${{ inputs.ref || github.event.pull_request.head.sha || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "24.20.0"
+  BUN_VERSION: "1.4.1"
+
+jobs:
+  build:
+    name: Build development Linux x64
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event.label.name == 'desktop-dev-build' &&
+      github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out requested ref
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.event.pull_request.head.sha || github.ref }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install JavaScript dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Electron and Playwright system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            libsecret-1-0 libnotify4 xvfb
+          ./apps/crawler/node_modules/.bin/playwright install-deps chromium
+
+      - name: Verify native Linux x64 runner
+        run: |
+          node -e 'if (process.platform !== "linux" || process.arch !== "x64") throw new Error("Expected linux/x64, got " + process.platform + "/" + process.arch)'
+
+      - name: Run source checks
+        run: |
+          bun run format:check
+          bun run lint
+          bun run check-types
+          bun --cwd apps/web test
+          bun --cwd apps/crawler test
+          bun run verify:sqlite
+
+      - name: Download development seed data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          seed_root="$RUNNER_TEMP/surface-dev-seed"
+          mkdir -p "$seed_root"
+          if gh release view desktop-dev-seed >/dev/null 2>&1; then
+            gh release download desktop-dev-seed \
+              --pattern 'surface-dev-seed.tar.gz' \
+              --dir "$seed_root" --clobber
+            tar -xzf "$seed_root/surface-dev-seed.tar.gz" -C "$seed_root"
+            test -f "$seed_root/seed/surface.sqlite3"
+            echo "SURFACE_DEV_SEED_DIR=$seed_root/seed" >> "$GITHUB_ENV"
+            du -sh "$seed_root/seed"
+          else
+            echo "::warning::No desktop-dev-seed release found; building without a seeded profile."
+          fi
+
+      - name: Build development AppImage and Debian package
+        env:
+          SURFACE_SOURCE_COMMIT: ${{ steps.checkout.outputs.commit }}
+          SURFACE_SOURCE_REF: ${{ inputs.ref || github.event.pull_request.head.ref || github.ref_name }}
+        run: node scripts/desktop-release.mjs package --channel development
+
+      - name: Verify staged Playwright Chromium
+        run: node scripts/desktop-release.mjs verify-build
+
+      - name: Smoke-test packaged development AppImage
+        run: node scripts/desktop-release.mjs smoke --channel development
+
+      - name: Show artifact checksums
+        run: cat apps/desktop/release/dev/SHA256SUMS
+
+      # Keep only the newest development builds so the shared account storage
+      # allowance holds one current set of unarchived artifacts.
+      - name: Remove previous development artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$GH_REPO/actions/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(
+              .name == "surface-desktop-dev-linux-x64" or
+              .name == "surface-desktop-dev-linux-x64-metadata" or
+              (.name | test("^Surface-Dev-")) or
+              .name == "BUILD-INFO.json" or
+              .name == "SHA256SUMS"
+            ) | .id' |
+            while read -r id; do
+              test -n "$id" || continue
+              gh api -X DELETE "repos/$GH_REPO/actions/artifacts/$id" || \
+                echo "::warning::Could not delete old development artifact $id."
+            done
+
+      # archive: false uploads each file as-is, without a ZIP wrapper. GitHub
+      # requires one upload per file in that mode.
+      - name: Upload development AppImage
+        id: appimage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: surface-dev-appimage
+          path: apps/desktop/release/dev/Surface-Dev-*.AppImage
+          archive: false
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload development Debian package
+        id: deb
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: surface-dev-deb
+          path: apps/desktop/release/dev/Surface-Dev-*.deb
+          archive: false
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload development build info
+        id: buildinfo
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: surface-dev-build-info
+          path: apps/desktop/release/dev/BUILD-INFO.json
+          archive: false
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload development checksums
+        id: checksums
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: surface-dev-checksums
+          path: apps/desktop/release/dev/SHA256SUMS
+          archive: false
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Summarize development build
+        env:
+          APPIMAGE_URL: ${{ steps.appimage.outputs.artifact-url }}
+          DEB_URL: ${{ steps.deb.outputs.artifact-url }}
+          BUILD_INFO_URL: ${{ steps.buildinfo.outputs.artifact-url }}
+          CHECKSUMS_URL: ${{ steps.checksums.outputs.artifact-url }}
+        run: |
+          {
+            echo "### Surface development build"
+            echo
+            cat apps/desktop/release/dev/SHA256SUMS
+            echo
+            echo "- [Download the AppImage]($APPIMAGE_URL)"
+            echo "- [Download the Debian package]($DEB_URL)"
+            echo "- [Download BUILD-INFO.json]($BUILD_INFO_URL)"
+            echo "- [Download SHA256SUMS]($CHECKSUMS_URL)"
+            echo
+            echo "Install the \`.deb\` with \`sudo apt install ./Surface-Dev-*.deb\`."
+            echo "Run the AppImage directly, or with \`APPIMAGE_EXTRACT_AND_RUN=1\` when FUSE is unavailable."
+            echo
+            echo "To build a development installer from a pull request, add the \`desktop-dev-build\` label."
+          } >> "$GITHUB_STEP_SUMMARY"
