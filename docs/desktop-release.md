@@ -83,14 +83,10 @@ node scripts/desktop-release.mjs package --channel development
 
 Development artifacts are written to `apps/desktop/release/dev` and carry the
 `Surface-Dev-` prefix. The manual **Desktop Development Build** workflow builds
-this channel and publishes the AppImage, Debian package, manifest, and checksums
-as assets on a `desktop-dev-<run number>` prerelease. It also keeps
-`BUILD-INFO.json` and `SHA256SUMS` in a small Actions artifact.
-
-The installers are published as release assets instead of Actions artifacts
-because the AppImage and `.deb` together exceed the private repository's
-Actions storage quota. Release assets have a separate per-file limit and are
-not subject to that quota.
+this channel and uploads the AppImage, Debian package, manifest, and checksums
+as the `surface-desktop-dev-linux-x64` Actions artifact. It never creates a git
+tag or GitHub release. The workflow deletes the previous development artifact
+before uploading, so the account keeps one current development build.
 
 You can inspect and verify the helper independently:
 
@@ -138,9 +134,9 @@ the version and generates checksums.
 | `SHA256SUMS`                            | Standard `sha256sum` file for every channel artifact.               |
 
 No blockmaps, updater feeds, macOS images, Windows installers, or Linux ARM
-packages are produced or published. Development installers are published as
-prerelease assets, and production installers are published on the versioned
-release; both carry `BUILD-INFO.json` and `SHA256SUMS`.
+packages are produced or published. Development installers stay in Actions
+artifacts. Only the tag-driven production workflow publishes installers on a
+GitHub release; both paths carry `BUILD-INFO.json` and `SHA256SUMS`.
 
 Verify a downloaded release:
 
@@ -205,18 +201,18 @@ as CI. It can be started in two ways:
 - by adding the `desktop-dev-build` label to a pull request from this
   repository.
 
-It publishes:
+It uploads one artifact:
 
 - `Surface-Dev-<version>-x86_64.AppImage`
 - `Surface-Dev-<version>-amd64.deb`
 - `BUILD-INFO.json`
 - `SHA256SUMS`
 
-to a `desktop-dev-<run number>` prerelease, and uploads the manifest and
-checksums as the `surface-desktop-dev-linux-x64-metadata` Actions artifact.
-Development builds never create a stable tag or publish a production release.
-Use them when you want a downloadable installer before a versioned release
-exists.
+as `surface-desktop-dev-linux-x64`, with 30-day retention. The workflow removes
+the previous development artifact before uploading so successive builds do not
+exhaust the account storage allowance. Development builds never create a git
+tag, prerelease, or release. Production packaging and publishing stay in the
+separate tag-driven **Desktop Linux Release** workflow.
 
 ## Changelog and release notes
 
@@ -317,15 +313,13 @@ application secrets. Do not run production releases from pull request code.
   production volumes, or production data.
 - The desktop SQLite path is fresh-only. No export, import, backup restore, or
   PGlite/PostgreSQL migration runs in CI, packaging, or the smoke test.
-- The AppImage is large because it bundles Chromium for the crawler. The
-  AppImage and `.deb` together exceed this private repository's 500 MiB Actions
-  artifact quota, so installers are published as prerelease or release assets
-  and only build metadata uses Actions artifacts.
+- The AppImage is large because it bundles Chromium for the crawler and the
+  development seed snapshot. The development artifact replaces the previous
+  one on each run so the shared account storage allowance holds one current
+  build. CI still uploads build metadata only.
 - The hosted **Desktop Linux CI** and **Desktop Development Build** workflows
-  ran successfully for commit `c88a0f3` on 17 Nov 2026. The development build
-  passed the source checks, Playwright verification, fresh-profile AppImage
-  smoke test, and published `desktop-dev-1` with the AppImage, `.deb`,
-  `BUILD-INFO.json`, and `SHA256SUMS`.
+  ran successfully for the desktop migration. The hosted development artifact
+  upload is validated on the next run after this workflow change.
 
 If a release fails before publishing, fix the cause and rerun the same tag or
 manual publish. If it fails after creating a draft, the next run updates that
