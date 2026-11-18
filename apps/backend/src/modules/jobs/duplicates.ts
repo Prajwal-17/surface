@@ -1,5 +1,4 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { lockCoordination } from "../../infrastructure/database/locks";
 import { applications } from "../applications/applications.tables";
 import { transaction } from "../../infrastructure/database/client";
 import { duplicateDecisions } from "../collection/collection.tables";
@@ -10,7 +9,6 @@ export async function decideDuplicate(
   action: "merge" | "separate" | "undo",
 ) {
   return await transaction(async (tx) => {
-    await lockCoordination(tx, "surface:application-links");
     let decision = (
       await tx
         .select()

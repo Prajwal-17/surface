@@ -19,6 +19,9 @@ const backendDir = join(root, "apps/backend");
 const crawlerDir = join(root, "apps/crawler");
 const webDir = join(root, "apps/web");
 
+const includeCrawler =
+  !process.argv.includes("--local") ||
+  process.env.SURFACE_DESKTOP_ENABLE_CRAWLER === "1";
 const channel = process.env.SURFACE_DESKTOP_CHANNEL ?? "production";
 if (channel !== "development" && channel !== "production") {
   throw new Error(
@@ -75,35 +78,40 @@ await step("backend", async () => {
   }
 });
 
-await step("crawler", async () => {
-  run("bun", ["run", "build"], { cwd: crawlerDir });
-  const target = join(buildDir, "crawler");
-  mkdirSync(target, { recursive: true });
-  copyFileSync(join(crawlerDir, "package.json"), join(target, "package.json"));
-  copyFileSync(
-    join(crawlerDir, "package-lock.json"),
-    join(target, "package-lock.json"),
-  );
-  cpSync(join(crawlerDir, "dist"), join(target, "dist"), {
-    recursive: true,
-  });
-  run(
-    "npm",
-    ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"],
-    { cwd: target },
-  );
-  run(
-    process.execPath,
-    [join(target, "node_modules/playwright/cli.js"), "install", "chromium"],
-    {
-      cwd: target,
-      env: {
-        ...process.env,
-        PLAYWRIGHT_BROWSERS_PATH: join(buildDir, "playwright"),
+if (includeCrawler) {
+  await step("crawler", async () => {
+    run("bun", ["run", "build"], { cwd: crawlerDir });
+    const target = join(buildDir, "crawler");
+    mkdirSync(target, { recursive: true });
+    copyFileSync(
+      join(crawlerDir, "package.json"),
+      join(target, "package.json"),
+    );
+    copyFileSync(
+      join(crawlerDir, "package-lock.json"),
+      join(target, "package-lock.json"),
+    );
+    cpSync(join(crawlerDir, "dist"), join(target, "dist"), {
+      recursive: true,
+    });
+    run(
+      "npm",
+      ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"],
+      { cwd: target },
+    );
+    run(
+      process.execPath,
+      [join(target, "node_modules/playwright/cli.js"), "install", "chromium"],
+      {
+        cwd: target,
+        env: {
+          ...process.env,
+          PLAYWRIGHT_BROWSERS_PATH: join(buildDir, "playwright"),
+        },
       },
-    },
-  );
-});
+    );
+  });
+}
 
 await step("desktop shell", async () => {
   await bundle(
@@ -127,9 +135,12 @@ await step("verify build layout", async () => {
     "backend/drizzle-sqlite/meta/_journal.json",
     "backend/drizzle-sqlite/0000_wide_wither.sql",
     "backend/data/locations.json.gz",
-    "crawler/dist/index.js",
-    "crawler/node_modules/playwright/package.json",
   ];
+  if (includeCrawler)
+    required.push(
+      "crawler/dist/index.js",
+      "crawler/node_modules/playwright/package.json",
+    );
   const missing = required.filter((file) => !existsSync(join(buildDir, file)));
   if (
     process.env.SURFACE_DEV_SEED_DIR &&
@@ -142,10 +153,14 @@ await step("verify build layout", async () => {
   if (missing.length) {
     throw new Error(`Build is incomplete: ${missing.join(", ")}`);
   }
-  const browsers = readdirSync(join(buildDir, "playwright")).filter((name) =>
-    name.startsWith("chromium-"),
-  );
-  if (!browsers.length) throw new Error("Playwright Chromium was not staged.");
+  if (
+    includeCrawler &&
+    !readdirSync(join(buildDir, "playwright")).some((name) =>
+      name.startsWith("chromium-"),
+    )
+  ) {
+    throw new Error("Playwright Chromium was not staged.");
+  }
   console.info("Build layout verified.");
 });
 

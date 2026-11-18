@@ -5,7 +5,8 @@ services:
       dockerfile: apps/backend/Dockerfile
     environment:
       APP_ENV: production
-      DATABASE_URL: ${DOCKER_DATABASE_URL:?Set DOCKER_DATABASE_URL for primary-pg/surface-data}
+      SQLITE_DATABASE_FILE: /data/surface.sqlite3
+      HOST: 0.0.0.0
       DATA_DIR: /data
       PORT: "4000"
       AUTH_EMAIL: ${AUTH_EMAIL:-}
@@ -21,9 +22,6 @@ services:
       TZ: ${TZ:-Asia/Kolkata}
     volumes:
       - ${FIELDWORK_DATA_DIR:-./data}:/data
-    networks:
-      - default
-      - postgres
     restart: unless-stopped
     healthcheck:
       test:
@@ -78,9 +76,3 @@ services:
       interval: 15s
       timeout: 5s
       retries: 3
-
-# Use the existing primary-pg container; never provision or replace its volume.
-networks:
-  postgres:
-    external: true
-    name: ${POSTGRES_NETWORK:-grill-me_default}

@@ -4,7 +4,6 @@ import {
   type ProfileInput,
   type Profile,
 } from "@surface/contracts";
-import { lockCoordination } from "../../infrastructure/database/locks";
 import { HttpError } from "../../shared/errors/http-error";
 import { validateProfileLocations } from "./locations";
 import { eq } from "drizzle-orm";
@@ -29,7 +28,6 @@ export async function saveProfile(
   expectedRevision?: number,
 ): Promise<Profile> {
   return await transaction(async (tx) => {
-    await lockCoordination(tx, "surface:profile-revision");
     const [current] = await tx
       .select()
       .from(jobPreferences)
@@ -68,13 +66,11 @@ export async function saveProfile(
       .insert(jobPreferences)
       .values({ ...row, id: profileId })
       .onConflictDoUpdate({ target: jobPreferences.id, set: row });
-    await tx
-      .insert(profileRevisions)
-      .values({
-        revision: row.revision,
-        content: input,
-        createdAt: row.updatedAt,
-      });
+    await tx.insert(profileRevisions).values({
+      revision: row.revision,
+      content: input,
+      createdAt: row.updatedAt,
+    });
     return row;
   }).then(async (profile) => {
     await enableAnalysis();

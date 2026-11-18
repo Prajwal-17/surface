@@ -1,14 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { migrate as migratePostgres } from "drizzle-orm/postgres-js/migrator";
-import {
-  db,
-  databaseDialect,
-  resolveMigrationsFolder,
-  sqliteHandle,
-  type Database,
-} from "./client";
+import { resolveMigrationsFolder, sqliteHandle, type Database } from "./client";
 
 interface JournalEntry {
   idx: number;
@@ -20,22 +13,13 @@ const SQLITE_MIGRATIONS_TABLE = "__surface_sqlite_migrations";
 
 export async function runMigrations(): Promise<string> {
   const migrationsFolder = resolveMigrationsFolder();
-  if (databaseDialect() === "sqlite") {
-    runSqliteMigrations(migrationsFolder);
-  } else {
-    await migratePostgres(db as never, { migrationsFolder });
-  }
+  runSqliteMigrations(migrationsFolder);
   return migrationsFolder;
 }
 
-/**
- * Applies the SQLite baseline in order and records it separately from the
- * PostgreSQL history. There is no import, data copy, or compatibility layer.
- */
+/** Applies migrations in order using the existing SQLite history. */
 function runSqliteMigrations(migrationsFolder: string): void {
   const database = sqliteHandle();
-  if (!database)
-    throw new Error("SQLite migrations require a SQLite database.");
   const journalPath = join(migrationsFolder, "meta", "_journal.json");
   const journal = JSON.parse(readFileSync(journalPath, "utf8")) as {
     dialect?: string;

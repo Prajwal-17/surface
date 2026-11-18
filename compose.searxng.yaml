@@ -2,8 +2,7 @@
 #
 #   docker compose -f compose.searxng.yaml up -d
 #
-# This stack contains only SearXNG. It does not use the Surface PostgreSQL
-# network, the production Compose project, or any other Surface container.
+# Optional web search for the local desktop app.
 services:
   searxng:
     image: searxng/searxng:2026.9.8-3fdc6d753

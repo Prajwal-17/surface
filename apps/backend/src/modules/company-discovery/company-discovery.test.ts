@@ -6,7 +6,7 @@ import {
   contactMethodSchema,
 } from "@surface/contracts";
 import { runMigrations } from "../../infrastructure/database/migrate";
-import { db, pg } from "../../infrastructure/database/client";
+import { db, rawQuery } from "../../infrastructure/database/client";
 import { companies } from "../workspace/workspace.tables";
 import {
   researchRuns,
@@ -68,12 +68,8 @@ function candidate(p = page()): CompanyCandidate {
   return parseCompanyPage(p)!;
 }
 beforeAll(async () => {
-  if (
-    !new URL(process.env.DATABASE_URL!).pathname
-      .slice(1)
-      .startsWith("surface-test-")
-  )
-    throw new Error("Disposable test database required.");
+  if (process.env.SQLITE_DATABASE_FILE !== ":memory:")
+    throw new Error("Run this suite with an isolated in-memory database.");
   await runMigrations();
 });
 describe("company discovery evidence and rules", () => {
@@ -571,7 +567,7 @@ describe("persistent company workflow", () => {
     expect(item!.result!.new).toBe(1);
     expect(item!.result!.failed).toBe(1);
     const result = await retryCompanyRun([item!], "Test partial");
-    const retried = await pg<{ id: string }[]>`
+    const retried = await rawQuery<{ id: string }[]>`
       SELECT w.* FROM work_items w JOIN run_items r ON r.work_id=w.id WHERE r.run_id=${result.runId}`;
     expect(retried).toHaveLength(1);
     const [retry] = await db

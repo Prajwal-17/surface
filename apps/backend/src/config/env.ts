@@ -38,15 +38,9 @@ const envSchema = z.object({
   RESEARCH_TIMEOUT_MS: z.coerce.number().int().min(1000).default(900000),
   PORT: z.coerce.number().int().positive().default(4000),
   HOST: z.string().default("127.0.0.1"),
-  DATABASE_URL: z.string().url().optional(),
-  PRODUCTION_DATABASE_URL: z.string().url().optional(),
-  DEVELOPMENT_DATABASE_URL: z.string().url().optional(),
-  TEST_DATABASE_URL: z.string().url().optional(),
-  /** When set, Surface stores data in a real SQLite database at this file. */
   SQLITE_DATABASE_FILE: z.string().min(1).optional(),
   DATA_DIR: z.string().optional(),
   WEB_DIST_DIR: z.string().optional(),
-  MIGRATIONS_DIR: z.string().optional(),
   /** Folder containing the generated SQLite migrations. */
   SQLITE_MIGRATIONS_DIR: z.string().optional(),
   /** Set by the Electron launcher; protects local APIs for the desktop session. */
@@ -76,39 +70,13 @@ const envSchema = z.object({
 
 const parsedEnvironment = envSchema.parse(process.env);
 const appEnvironment = parsedEnvironment.APP_ENV;
-const sqliteDatabaseFile = parsedEnvironment.SQLITE_DATABASE_FILE?.trim();
-const databaseDialect = sqliteDatabaseFile ? "sqlite" : "postgres";
-const databaseUrl =
-  parsedEnvironment.DATABASE_URL ??
-  (appEnvironment === "production"
-    ? parsedEnvironment.PRODUCTION_DATABASE_URL
-    : appEnvironment === "test"
-      ? parsedEnvironment.TEST_DATABASE_URL
-      : parsedEnvironment.DEVELOPMENT_DATABASE_URL);
-if (databaseDialect === "postgres" && !databaseUrl) {
-  throw new Error(
-    `Configure ${appEnvironment === "production" ? "PRODUCTION_DATABASE_URL" : appEnvironment === "test" ? "TEST_DATABASE_URL" : "DEVELOPMENT_DATABASE_URL"}, DATABASE_URL, or SQLITE_DATABASE_FILE for Surface storage.`,
+const dataDirectory =
+  parsedEnvironment.DATA_DIR ??
+  resolve(
+    workspaceDirectory,
+    "data",
+    ...(appEnvironment === "production" ? [] : [appEnvironment]),
   );
-}
-if (databaseDialect === "sqlite" && process.env.PGLITE_DATA_DIR) {
-  console.warn(
-    "PGLITE_DATA_DIR is set but ignored; Surface now uses SQLITE_DATABASE_FILE. No existing PGlite data is read or migrated.",
-  );
-}
-if (databaseDialect === "postgres" && databaseUrl) {
-  const database = new URL(databaseUrl);
-  if (!["postgres:", "postgresql:"].includes(database.protocol)) {
-    throw new Error("DATABASE_URL must be a PostgreSQL connection URL.");
-  }
-  if (
-    appEnvironment !== "production" &&
-    decodeURIComponent(database.pathname.slice(1)) === "surface-data"
-  ) {
-    throw new Error(
-      "Development and tests must never connect to the production surface-data database.",
-    );
-  }
-}
 const legacyOmniRouteConfigured = Boolean(
   parsedEnvironment.OMNIROUTE_BASE_URL ||
   parsedEnvironment.OMNIROUTE_API_KEY ||
@@ -123,14 +91,8 @@ if (legacyOmniRouteConfigured) {
 export const env = {
   ...parsedEnvironment,
   LEGACY_OMNIROUTE_CONFIGURED: legacyOmniRouteConfigured,
-  DATABASE_URL: databaseUrl,
-  DATABASE_DIALECT: databaseDialect,
-  SQLITE_DATABASE_FILE: sqliteDatabaseFile,
-  DATA_DIR:
-    parsedEnvironment.DATA_DIR ??
-    resolve(
-      workspaceDirectory,
-      "data",
-      ...(appEnvironment === "production" ? [] : [appEnvironment]),
-    ),
+  SQLITE_DATABASE_FILE:
+    parsedEnvironment.SQLITE_DATABASE_FILE?.trim() ||
+    resolve(dataDirectory, "surface.sqlite3"),
+  DATA_DIR: dataDirectory,
 };

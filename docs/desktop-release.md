@@ -1,9 +1,8 @@
 # Desktop builds and releases
 
 Surface ships a single Linux desktop application: an Electron shell with a
-local Node backend on SQLite and a local Crawlee/Playwright crawler. This
-document covers the Ubuntu-only CI and production release automation. It does
-not describe the web/PostgreSQL deployment.
+local Node backend on SQLite and an optional Crawlee/Playwright crawler. This
+document covers the Ubuntu-only CI and production release automation.
 
 ## Scope
 
@@ -15,9 +14,8 @@ not describe the web/PostgreSQL deployment.
   stable `major.minor.patch` value. A release tag is `desktop-v<version>`, for
   example `desktop-v0.1.0`.
 - **Output directory:** `apps/desktop/release`.
-- **Database:** only a new local `surface.sqlite3` profile. There is no
-  export, import, backup restore, or PostgreSQL migration path in the desktop
-  build or its smoke test.
+- **Database:** the SQLite file in the selected desktop profile. Smoke tests
+  cover a fresh profile and can rehearse a backup in a temporary directory.
 
 The desktop implementation owns `apps/desktop/package.json`,
 `apps/desktop/scripts/build.mjs`, and the electron-builder configuration in
@@ -53,14 +51,13 @@ bun run format:check
 bun run lint
 bun run check-types
 bun --cwd apps/web test
+bun --cwd apps/backend test
 bun --cwd apps/crawler test
 bun run verify:sqlite
 ```
 
-`verify:sqlite` uses a new temporary directory. The backend's PostgreSQL test
-is intentionally not part of desktop CI because it creates a PostgreSQL test
-database; desktop validation uses SQLite only. Do not point the desktop
-commands at a real profile.
+`verify:sqlite` uses a temporary profile. Backend tests use separate in-memory
+SQLite databases.
 
 Build and package the production application:
 

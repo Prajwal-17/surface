@@ -7,10 +7,6 @@ import {
   transaction,
 } from "../../infrastructure/database/client";
 import {
-  lockCoordination,
-  withRowLock,
-} from "../../infrastructure/database/locks";
-import {
   jsonText,
   containsPattern,
   countAsInteger,
@@ -49,7 +45,6 @@ export async function persistCandidate(
   confirmedId?: string,
 ) {
   return transaction(async (tx) => {
-    await lockCoordination(tx, "surface:company-identity");
     const domain = websiteIdentity(candidate.website);
     if (!domain) throw new Error("Company website requires confirmation.");
     const all = await tx.select().from(companies);
@@ -435,9 +430,10 @@ export async function recordAction(
   input: z.infer<typeof companyActionInputSchema>,
 ) {
   return transaction(async (tx) => {
-    const [company] = await withRowLock(
-      tx.select().from(companies).where(eq(companies.id, companyId)),
-    );
+    const [company] = await tx
+      .select()
+      .from(companies)
+      .where(eq(companies.id, companyId));
     if (!company) throw new HttpError(404, "Company not found.");
     if (
       input.contactId &&

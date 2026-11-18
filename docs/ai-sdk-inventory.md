@@ -5,7 +5,7 @@ Planning baseline: `7186b1e`, inspected 2026-11-17. This is a source audit, not 
 ## Workspace and runtime
 
 - Bun 1.4.1 workspaces and Turbo; root `bun.lock` is authoritative.
-- Backend: Hono, TypeScript ESM, Node >=24, Zod, Drizzle; PostgreSQL for server deployments and SQLite for desktop.
+- Backend: Hono, TypeScript ESM, Node >=24, Zod, Drizzle; SQLite.
 - Web: React 19, Vite, TanStack Query; shared by browser and Electron.
 - Desktop: Electron starts the backend and crawler, passes settings through environment variables and a protected runtime API, and stores secrets using Electron safeStorage with existing fallback behavior.
 - No `ai` or `@ai-sdk/*` dependency exists in the inspected package manifests. This is a custom-stack migration, not an existing SDK major-version upgrade.
@@ -53,13 +53,13 @@ Paths below are repository-relative. Follow each row through its callers and tes
 
 ## Existing verification assets
 
-- `apps/backend/src/modules/research/research.test.ts`: persisted reports, matching, verified links, saved-evidence Q&A, web tools, summaries, citation rejection, duplicate/cancel, restart, event replay/ownership, PostgreSQL behavior and >20 requests without an application quota.
+- `apps/backend/src/modules/research/research.test.ts`: persisted reports, matching, verified links, saved-evidence Q&A, web tools, summaries, citation rejection, duplicate/cancel, restart, event replay/ownership, SQLite behavior and >20 requests without an application quota.
 - `apps/backend/src/modules/profile/resume.test.ts`: resume link normalization and invented-link rejection.
 - `apps/backend/src/modules/company-discovery/company-discovery.test.ts`: deterministic discovery/evidence regression coverage.
-- `apps/backend/scripts/test-postgres.ts`: isolated disposable PostgreSQL database and separate suite processes; requires a suitable test DB account.
+- `apps/backend/scripts/test.ts`: runs each suite in a separate process with an in-memory SQLite database.
 - `apps/backend/scripts/verify-sqlite.ts`: SQLite migration/storage/reopen and application integration checks; extend for AI state/settings where relevant.
 - `apps/web/tests/*`: existing UI preferences, filtering and keyboard tests; streaming hook/component coverage needs adding.
-- `.github/workflows/desktop-ci.yml`: frozen install, format, lint, types, web/crawler tests, SQLite verification, packaged Ubuntu desktop checks. PostgreSQL AI suites need an explicit CI job/service if absent.
+- `.github/workflows/desktop-ci.yml`: frozen install, format, lint, types, web/crawler/backend tests, SQLite verification, and packaged Ubuntu desktop checks.
 
 ## Audit limitations
 

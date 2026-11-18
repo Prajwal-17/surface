@@ -5,29 +5,13 @@ default:
 install:
     bun install
 
-# Start the existing shared Postgres container.
-db-up:
-    docker start primary-pg
+# Launch the local Electron development app.
+dev:
+    bun dev
 
-# Apply production database migrations.
-db-migrate-prod: db-up
-    APP_ENV=production bun run db:migrate
-
-# Apply development database migrations.
-db-migrate-dev: db-up
-    APP_ENV=development bun run db:migrate
-
-# Open Drizzle Studio for the production database.
-db-studio-prod: db-up
-    APP_ENV=production bun run db:studio
-
-# Open Drizzle Studio for the development database.
-db-studio-dev: db-up
-    APP_ENV=development bun run db:studio
-
-# Generate the from-scratch SQLite migration baseline for the desktop app.
+# Generate SQLite migrations.
 sqlite-generate:
-    bun run db:generate:sqlite
+    bun run db:generate
 
 # Verify the embedded SQLite backend in a new temporary profile.
 sqlite-verify:
@@ -57,7 +41,7 @@ desktop-deb:
 desktop-notes:
     node scripts/release-notes.mjs --check
 
-# Start optional SearXNG only (no PostgreSQL or Surface containers).
+# Start optional SearXNG for desktop search.
 searxng-up:
     docker compose -f compose.searxng.yaml up -d
 

@@ -1,13 +1,7 @@
 import type { OutreachTarget } from "@surface/contracts";
-import { pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
-import {
-  sqliteTable,
-  text as sqliteText,
-  uniqueIndex as sqliteUniqueIndex,
-} from "drizzle-orm/sqlite-core";
-import { env } from "../../config/env";
+import { sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
-const pgOutreachDrafts = pgTable(
+export const outreachDrafts = sqliteTable(
   "outreach_drafts",
   {
     id: text("id").primaryKey(),
@@ -23,28 +17,3 @@ const pgOutreachDrafts = pgTable(
     uniqueIndex("outreach_target_unique").on(table.target, table.targetId),
   ],
 );
-
-export const sqliteOutreachDrafts = sqliteTable(
-  "outreach_drafts",
-  {
-    id: sqliteText("id").primaryKey(),
-    target: sqliteText("target").$type<OutreachTarget>().notNull(),
-    targetId: sqliteText("target_id").notNull(),
-    to: sqliteText("recipient").notNull().default(""),
-    subject: sqliteText("subject").notNull().default(""),
-    body: sqliteText("body").notNull().default(""),
-    writingExamples: sqliteText("writing_examples").notNull().default(""),
-    updatedAt: sqliteText("updated_at").notNull(),
-  },
-  (table) => [
-    sqliteUniqueIndex("outreach_target_unique").on(
-      table.target,
-      table.targetId,
-    ),
-  ],
-);
-
-export const outreachDrafts =
-  env.DATABASE_DIALECT === "sqlite"
-    ? (sqliteOutreachDrafts as unknown as typeof pgOutreachDrafts)
-    : pgOutreachDrafts;

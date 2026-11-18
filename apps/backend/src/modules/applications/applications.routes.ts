@@ -13,10 +13,6 @@ import {
   type Database,
   type Transaction,
 } from "../../infrastructure/database/client";
-import {
-  lockCoordination,
-  withRowLock,
-} from "../../infrastructure/database/locks";
 import { HttpError } from "../../shared/errors/http-error";
 import { jobs } from "../jobs/jobs.tables";
 import { companies } from "../workspace/workspace.tables";
@@ -125,10 +121,10 @@ applicationRoutes.patch(
     const input = c.req.valid("json");
     const id = c.req.param("id");
     const row = await transaction(async (tx) => {
-      await lockCoordination(tx, "surface:application-links");
-      const [current] = await withRowLock(
-        tx.select().from(applications).where(eq(applications.id, id)),
-      );
+      const [current] = await tx
+        .select()
+        .from(applications)
+        .where(eq(applications.id, id));
       if (!current) throw new HttpError(404, "Application not found.");
       if (input.companyId && !(await existingCompany(tx, input.companyId)))
         throw new HttpError(400, "Company not found.");
@@ -161,11 +157,11 @@ applicationRoutes.put(
     const input = c.req.valid("json");
     const id = c.req.param("id");
     const row = await transaction(async (tx) => {
-      await lockCoordination(tx, "surface:application-links");
       const job = await canonicalJob(tx, id);
-      const [current] = await withRowLock(
-        tx.select().from(applications).where(eq(applications.jobId, job.id)),
-      );
+      const [current] = await tx
+        .select()
+        .from(applications)
+        .where(eq(applications.jobId, job.id));
       if (current && current.status === input.status) return current;
 
       const now = new Date().toISOString();

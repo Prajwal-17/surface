@@ -1,6 +1,5 @@
 import { and, desc, eq, inArray, lte, or, sql } from "drizzle-orm";
 import { db, transaction } from "../../infrastructure/database/client";
-import { lockCoordination } from "../../infrastructure/database/locks";
 import { configuredSources } from "../workspace/workspace.tables";
 import { runs, workItems, runItems, savedSearches } from "./work.tables";
 import { HttpError } from "../../shared/errors/http-error";
@@ -40,7 +39,6 @@ export async function enqueueCollection(
   label = "Manual refresh",
 ) {
   return await transaction(async (tx) => {
-    await lockCoordination(tx, "surface:enqueue-work");
     const now = new Date().toISOString(),
       id = crypto.randomUUID();
     const sources = await tx

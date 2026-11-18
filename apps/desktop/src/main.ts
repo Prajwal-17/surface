@@ -9,7 +9,7 @@ import {
   type IpcMainInvokeEvent,
 } from "electron";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { GmailConnection } from "./gmail";
 import { desktopIdentity } from "./channel";
@@ -84,11 +84,6 @@ async function bootstrap(): Promise<void> {
   );
   startupLog.write(`userData=${paths.root}`);
   startupLog.write(`sqlite=${paths.database}`);
-  if (existsSync(paths.legacyDatabase)) {
-    startupLog.write(
-      "legacy pglite/ directory found; it is not read, migrated, overwritten, or deleted",
-    );
-  }
   if (identity.channel === "development") {
     const seeded = applyDevelopmentSeed({
       seedDirectory: paths.devSeed,

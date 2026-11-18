@@ -1,99 +1,38 @@
 # Surface
 
-A local job-review workspace: what is worth reviewing, why it fits, and where to act.
-Jobs, Companies, Activity and Profile share a Vite, React, React Router,
-TanStack Query and shadcn interface backed by Hono, Bun, Drizzle and PostgreSQL.
-Turborepo coordinates builds and checks across the Bun workspaces. API contracts
-and TypeScript presets are shared from `packages/`; company research uses bundled
-SearXNG and Crawlee services, and application data stays in PostgreSQL.
+Surface is an Ubuntu desktop workspace for finding jobs, tracking applications,
+and drafting outreach. Electron serves the React interface through a local Hono
+backend. Jobs, company research, profiles, and drafts are stored in SQLite.
 
 ## Development
 
-With [just](https://github.com/casey/just) installed, run `just` to list the
-available dependency, database, and production stack commands. Database recipes
-start the existing `primary-pg` container; `db-migrate-prod` and `db-studio-prod`
-select production, while their `-dev` counterparts select development using
-the database URLs configured in `apps/backend/.env`.
-
-Use Bun 1.4.1 or newer and Node 24 or newer. Root scripts use Turborepo for
-workspace task scheduling and caching. Oxlint and Prettier provide repository-wide
-linting and formatting. Shared TypeScript presets live in
-`packages/typescript-config`; browser-safe API contracts live in
-`packages/contracts`.
+Use Bun 1.4.1 or newer and Node 24 or newer.
 
 ```sh
 bun install
-bun run db:migrate
-bun run dev
+bun dev
 ```
 
-`bun dev` opens http://localhost:17000 automatically. Development and production
-use port 17000 by default. Vite development shows a `DEV` badge; production
-builds show no environment badge.
-Vite proxies `/api` to the backend on port 4000
-during development. The Docker web server also proxies `/api` to the backend.
-Use `BACKEND_URL` for a different backend. PostgreSQL runs in the existing
-`primary-pg` container. Production uses `surface-data`; development uses
-`surface-dev-data`. Set `PRODUCTION_DATABASE_URL` and `DEVELOPMENT_DATABASE_URL`
-in `apps/backend/.env` (see its example). `APP_ENV` selects the matching URL;
-`DATABASE_URL` is an explicit override. Development and test startup reject
-`surface-data` to protect production. Create the databases before running migrations.
+`bun dev` builds the app from the checkout and opens the **Surface Dev**
+Electron window. The local backend applies pending SQLite migrations on startup.
+The app reuses `~/.config/Surface Dev/surface.sqlite3`. Set
+`SURFACE_DESKTOP_USER_DATA` to an existing directory to run with an isolated
+profile. Re-run `bun dev` after editing source files.
 
-Raw content-addressed snapshots and the login signing key remain on disk.
-`DATA_DIR` defaults to `data/` for production and `data/development/` for development.
-Keep the production snapshot files and `.surface-auth-secret` together with database
-backups. Copy `apps/backend/.env.development.example` to
-`apps/backend/.env.development` for development-only login overrides.
-Development accepts any valid email when no owner is configured; production uses
-`AUTH_EMAIL` or the email saved in its profile.
+Turborepo coordinates workspace builds and checks. Shared TypeScript presets and
+browser-safe API contracts live under `packages/`.
 
-The generated PostgreSQL baseline is in `apps/backend/drizzle/`. The previous
-SQLite migrations and the original database are retained in migration backups.
-Startup applies pending PostgreSQL migrations. Before future production schema
-changes, stop writers, take a `pg_dump -Fc` backup, and rehearse the migration on
-an isolated restore. PostgreSQL migration history is separate from SQLite history.
-See [database migration and recovery](docs/postgres-migration.md) for the data
-transfer safeguards, verification report, backup locations and recovery steps.
-
-`bun run db:migrate` defaults to development. For production, use
-`APP_ENV=production bun run db:migrate`. The backend performs monitoring and
-analysis while the browser is closed; an expiring PostgreSQL lease coordinates
-executors for each database.
-
-## Desktop app
-
-Surface can run as a single Ubuntu Linux Electron app with a local SQLite
-database, a Node backend utility process, and a local Crawlee/Playwright crawler.
-The React renderer is the existing `apps/web` build. Only SearXNG remains
-optional Docker infrastructure; OpenCode Go is a hosted API. No PostgreSQL,
-backend, web or crawler container is required for the desktop app. macOS and
-Windows packaging are not supported.
+## Desktop packaging
 
 ```sh
-bun install
-bun --cwd apps/desktop package
-./apps/desktop/release/Surface-0.1.0-x86_64.AppImage
-# or: sudo apt install ./apps/desktop/release/Surface-0.1.0-amd64.deb
+bun run desktop:package:dev
+bun run desktop:smoke:dev
 ```
 
-The app removes the native title bar and application menu in favor of a
-Surface-specific 44px draggable title bar with accessible minimize,
-maximize/restore and close controls. The `DEV` badge appears only in Vite
-development; packaged production builds show no environment badge.
-
-Start optional web search with
-`docker compose -f compose.searxng.yaml up -d`. Data, snapshots, settings and
-logs live under Electron's user-data directory. The desktop database is a new
-`surface.sqlite3` file with its own from-scratch migrations in
-`apps/backend/drizzle-sqlite/`.
-
-The desktop build does not export, import, or automatically migrate PGlite or
-PostgreSQL data. Existing desktop `pglite/` files are left untouched and
-ignored. Start fresh by using a new `SURFACE_DESKTOP_USER_DATA` directory or by
-moving the old profile aside; never delete production backups. See
-[desktop](docs/desktop.md) and
-[desktop verification](docs/desktop-migration.md). The existing Docker Compose
-deployment and PostgreSQL data remain operational and unchanged.
+The Ubuntu x64 installers are written to `apps/desktop/release/dev/`. Start
+optional web search with `docker compose -f compose.searxng.yaml up -d`. See
+[desktop setup](docs/desktop.md) and
+[backup and restore](docs/desktop-release-baseline.md).
 
 ## Collect and review
 
@@ -204,23 +143,9 @@ Compose builds `apps/backend/Dockerfile` and `apps/web/Dockerfile` separately.
 The backend calls the hosted OpenCode Go API directly. Keep
 `OPENCODE_GO_API_KEY` in the root `.env`; it stays server-side.
 
-The backend connects to `primary-pg` through the existing external Docker network.
-Set `DOCKER_DATABASE_URL` in root `.env` to the `primary-pg:5432/surface-data` URL
-and `POSTGRES_NETWORK` to a network containing that container (currently
-`grill-me_default`). Compose does not create or replace PostgreSQL or its volume.
-Database files remain in the PostgreSQL volume; snapshots and the session key
-remain mounted under `./data`.
-Set `FIELDWORK_DATA_DIR` for a different local mount and
-`FIELDWORK_PROD_WEB_PORT` for a production port other than 17000. The backend
-uses the AI provider URL from the root `.env`.
-The web port binds to loopback; the backend is internal to the Compose network.
-The production crawler binds to host port 4101 (`FIELDWORK_PROD_CRAWLER_PORT`),
-so the development crawler can keep using 4100.
-
-If a machine lacks Docker Buildx, install/repair its plugin or build with its
-available legacy builder and use `docker compose up --no-build` with matching
-project image names. Dependency install scripts are disabled in the image because
-the PostgreSQL driver is JavaScript and requires no native SQLite module.
+Compose keeps SQLite, snapshots, and the session signing key in the mounted data
+directory. Set `FIELDWORK_DATA_DIR` to change the mount or
+`FIELDWORK_PROD_WEB_PORT` to change the loopback web port.
 
 ## Verification
 
@@ -231,9 +156,9 @@ bun run build
 bun --cwd apps/backend test
 ```
 
-The backend test runner creates and drops a disposable `surface-test-*` PostgreSQL
-database; neither application database is used for tests. Its configured user needs
-permission to create databases.
+Each backend suite gets an in-memory SQLite database and its own temporary
+asset directory. `bun run verify:sqlite` checks migrations and reopening a
+SQLite file on disk.
 
 Browser review remains manual: desktop/mobile, keyboard, long titles, reader focus,
 empty/error states, source links and stability during background updates.

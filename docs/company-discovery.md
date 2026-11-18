@@ -1,7 +1,7 @@
 # Company discovery: first release
 
 Milestones A–C live in the existing Companies workspace. Discover, Searches,
-Watchlist, and Sources share existing company IDs, PostgreSQL, the background
+Watchlist, and Sources share existing company IDs, SQLite, the background
 executor, job collectors, snapshot storage, and the cited research engine.
 Configured job sources and saved job searches remain independent.
 
@@ -130,19 +130,8 @@ Captures and checks are under `/tmp/surface-merged-research-qa/`.
 
 ## Rollout and verification
 
-Production was not migrated or deployed during implementation. Before rollout,
-rehearse the additive changes on a fresh isolated restore:
-
-```sh
-bun --cwd apps/backend scripts/rehearse-company-discovery.ts
-```
-
-The script dumps production under ignored `data/backups`, restores into a new
-`surface-test-company-rehearsal-*` database, applies migrations, and compares
-counts and hashes of every pre-existing column/row. It removes the isolated DB by
-default. `verification.json` records results without credentials. Set
-`KEEP_REHEARSAL_DATABASE=true` only for local QA. Follow `postgres-migration.md`
-for coordinated production backups and rollout.
+Rehearse SQLite upgrades on an isolated copy using the
+[backup and restore instructions](desktop-release-baseline.md).
 
 ```sh
 bun run lint
@@ -153,8 +142,7 @@ bun run --cwd apps/crawler test
 bun run --cwd apps/web test
 ```
 
-Backend suites use a disposable PostgreSQL database and separate processes so
-network mocks and pool teardown cannot leak across suites. Added coverage includes
+Backend suites use separate processes and in-memory SQLite databases. Added coverage includes
 deduplication, same-name companies, contact provenance/corrections, timezones/DST,
 paused rules, captured revisions, partial retries, restart recovery, and failed
 asset retention. Browser QA uses the isolated restore, both themes at 1440, 1000,

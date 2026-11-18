@@ -6,10 +6,6 @@ import {
   companySearchInputSchema,
 } from "@surface/contracts";
 import { db, transaction } from "../../infrastructure/database/client";
-import {
-  lockCoordination,
-  withRowLock,
-} from "../../infrastructure/database/locks";
 import { companies } from "../workspace/workspace.tables";
 import { runs, workItems, runItems } from "../work/work.tables";
 import { companyDiscoverySearches } from "./tables";
@@ -33,7 +29,6 @@ export async function enqueueCompanyWork(
   label: string,
 ) {
   return transaction(async (tx) => {
-    await lockCoordination(tx, "surface:company-enqueue");
     const now = new Date().toISOString();
     let [work] = await tx
       .select()
@@ -68,19 +63,16 @@ export async function enqueueCompanyWork(
 export async function enqueueCompanySearch(id: string, scheduled = false) {
   // Serialize against editing, pausing and concurrent scheduler ticks. The work owns its immutable rule revision.
   return transaction(async (tx) => {
-    const [row] = await withRowLock(
-      tx
-        .select()
-        .from(companyDiscoverySearches)
-        .where(eq(companyDiscoverySearches.id, id)),
-    );
+    const [row] = await tx
+      .select()
+      .from(companyDiscoverySearches)
+      .where(eq(companyDiscoverySearches.id, id));
     if (!row) throw new HttpError(404, "Company search not found.");
     if (row.paused)
       throw new HttpError(409, "Resume this company search before running it.");
     const now = new Date();
     if (scheduled && row.nextRunAt && row.nextRunAt > now.toISOString())
       return null;
-    await lockCoordination(tx, "surface:company-enqueue");
     const identity = `company-search:${id}`;
     let [work] = await tx
       .select()
@@ -504,7 +496,6 @@ export async function retryCompanyRun(items: WorkItem[], label: string) {
   const runId = crypto.randomUUID(),
     now = new Date().toISOString();
   await transaction(async (tx) => {
-    await lockCoordination(tx, "surface:company-enqueue");
     await tx.insert(runs).values({
       id: runId,
       kind: items[0]!.kind,

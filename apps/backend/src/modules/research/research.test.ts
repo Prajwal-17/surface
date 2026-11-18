@@ -4,21 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 const directory = mkdtempSync(join(tmpdir(), "surface-research-test-"));
-if (!process.env.TEST_DATABASE_URL)
-  throw new Error(
-    "Set TEST_DATABASE_URL to a dedicated PostgreSQL test database.",
-  );
-const testDatabase = new URL(process.env.TEST_DATABASE_URL);
-if (
-  !decodeURIComponent(testDatabase.pathname.slice(1)).startsWith(
-    "surface-test-",
-  )
-) {
-  throw new Error("Tests require a disposable surface-test-* database.");
-}
 process.env.APP_ENV = "test";
-process.env.AUTH_EMAIL = "postgres-test@example.com";
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+process.env.AUTH_EMAIL = "research-test@example.com";
+process.env.SQLITE_DATABASE_FILE = ":memory:";
 process.env.DATA_DIR = directory;
 delete process.env.OMNIROUTE_API_KEY;
 delete process.env.OMNIROUTE_BASE_URL;
@@ -29,7 +17,7 @@ process.env.AI_MODEL = "test";
 process.env.SEARXNG_BASE_URL = "http://search.test";
 process.env.CRAWLER_BASE_URL = "http://crawler.test";
 const { runMigrations } = await import("../../infrastructure/database/migrate");
-const { closeDatabase, db, pg } =
+const { closeDatabase, db, executeStatement, transaction } =
   await import("../../infrastructure/database/client");
 const service = await import("./research.service");
 const { companyDomain, normalizedName, inputUrl, citeMarkdown } =
@@ -252,7 +240,7 @@ beforeAll(async () => {
   const login = await app.request("/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: "postgres-test@example.com" }),
+    body: JSON.stringify({ email: "research-test@example.com" }),
   });
   expect(login.status).toBe(200);
   cookie = login.headers.get("set-cookie")!.split(";")[0]!;
@@ -278,16 +266,23 @@ async function finish(run: { id: string }) {
 }
 let owner: Awaited<ReturnType<typeof service.confirmCompany>>;
 describe("company research", () => {
-  test("PostgreSQL schema has research relationships and no quota storage", async () => {
-    const [legacy] = await pg`SELECT to_regclass('public.ai_usage') AS name`;
-    expect(legacy!.name).toBeNull();
-    const columns =
-      await pg`SELECT column_name AS name FROM information_schema.columns
-      WHERE table_schema='public' AND table_name='analysis_settings' ORDER BY ordinal_position`;
-    expect(columns.map((c) => c.name)).toEqual(["id", "enabled", "paused"]);
-    const [keys] = await pg`SELECT count(*)::integer AS n FROM pg_constraint
-      WHERE contype='f' AND conrelid='public.research_sources'::regclass`;
-    expect(keys!.n).toBe(2);
+  test("SQLite schema has research relationships and no quota storage", async () => {
+    expect(
+      await executeStatement(
+        "SELECT name FROM sqlite_schema WHERE name = 'ai_usage'",
+      ),
+    ).toHaveLength(0);
+    const columns = await executeStatement<{ name: string }>(
+      "PRAGMA table_info(analysis_settings)",
+    );
+    expect(columns.map((column) => column.name)).toEqual([
+      "id",
+      "enabled",
+      "paused",
+    ]);
+    expect(
+      await executeStatement("PRAGMA foreign_key_list(research_sources)"),
+    ).toHaveLength(2);
   });
   test("normalized identities reopen companies and survive renaming", async () => {
     expect(inputUrl("example.com/about")).toBe("https://example.com/about");
@@ -596,7 +591,7 @@ test("link selection rejects uninspected, blocked, empty and duplicate destinati
       ?.url,
   ).toBe(page.url);
 });
-test("PostgreSQL supports job filters, transactional collection, JSON, booleans and bigint leases", async () => {
+test("SQLite supports job filters, transactional collection, JSON, booleans and millisecond leases", async () => {
   const { jobsListQuerySchema } = await import("@surface/contracts");
   const { upsertCandidates, listJobs, findJobById, setJobStatus } =
     await import("../jobs/jobs.repository");
@@ -606,22 +601,22 @@ test("PostgreSQL supports job filters, transactional collection, JSON, booleans 
   const { persistSnapshot } = await import("../collection/snapshots");
   const candidate = normalizeCandidate({
     source: "arbeitnow",
-    externalId: "pg-test",
-    title: "Postgres Engineer",
-    company: "PG Test",
+    externalId: "sqlite-test",
+    title: "SQLite Engineer",
+    company: "SQLite Test",
     location: "Remote",
     isRemote: true,
     employmentType: null,
-    description: "Build reliable systems with PostgreSQL.",
-    applyUrl: "https://pg-test.example/jobs/1",
-    sourceUrl: "https://pg-test.example/jobs/1",
+    description: "Build reliable systems with SQLite.",
+    applyUrl: "https://sqlite-test.example/jobs/1",
+    sourceUrl: "https://sqlite-test.example/jobs/1",
     postedAt: null,
     tags: ["SQL"],
     countries: ["IN"],
     workMode: "remote",
   });
   await expect(
-    db.transaction(async (tx) => {
+    transaction(async (tx) => {
       await upsertCandidates([candidate], tx);
       throw new Error("rollback proof");
     }),
@@ -629,7 +624,7 @@ test("PostgreSQL supports job filters, transactional collection, JSON, booleans 
   expect(
     (
       await listJobs(
-        jobsListQuerySchema.parse({ search: "pg test", relevance: "all" }),
+        jobsListQuerySchema.parse({ search: "sqlite test", relevance: "all" }),
       )
     ).total,
   ).toBe(0);
@@ -639,7 +634,7 @@ test("PostgreSQL supports job filters, transactional collection, JSON, booleans 
   ]);
   const listed = await listJobs(
     jobsListQuerySchema.parse({
-      search: "pOsTgReS",
+      search: "sQLiTe",
       relevance: "all",
       source: "arbeitnow",
     }),
@@ -679,10 +674,8 @@ test("PostgreSQL supports job filters, transactional collection, JSON, booleans 
   expect(snapshot.resourceId).toBeString();
   expect(snapshot.snapshotId).toBeString();
   await expect(
-    Promise.resolve(
-      db.execute(
-        "INSERT INTO research_sources (id, company_id, run_id, url, title, kind, text, links, status, retrieved_at) VALUES ('bad-fk','missing','missing','https://example.com','test','page','text','[]','ok','now')",
-      ),
+    executeStatement(
+      "INSERT INTO research_sources (id, company_id, run_id, url, title, kind, text, links, status, retrieved_at) VALUES ('bad-fk','missing','missing','https://example.com','test','page','text','[]','ok','now')",
     ),
   ).rejects.toThrow();
   const health = await app.request("/api/health");

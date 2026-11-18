@@ -94,7 +94,7 @@ function statusPayload() {
   const settings = getRuntimeSettings();
   return {
     desktop: Boolean(env.SURFACE_DESKTOP_TOKEN),
-    database: env.DATABASE_DIALECT,
+    database: "sqlite",
     databaseFile: env.SQLITE_DATABASE_FILE ?? null,
     dataDir: env.DATA_DIR,
     searxngUrl: settings.searxngBaseUrl,

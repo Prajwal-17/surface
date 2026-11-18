@@ -11,7 +11,6 @@ import {
   sql,
 } from "drizzle-orm";
 import { db, transaction } from "../../infrastructure/database/client";
-import { lockCoordination } from "../../infrastructure/database/locks";
 import { aiConfigured } from "../../config/runtime";
 import { jobSources, jobs } from "../jobs/jobs.tables";
 import { roleMatcher } from "../jobs/relevance";
@@ -174,7 +173,6 @@ export async function enqueueAnalysis(onlyIds: string[]) {
   if (!profile)
     throw new HttpError(409, "Save your profile before assessing a job.");
   return await transaction(async (tx) => {
-    await lockCoordination(tx, "surface:enqueue-work");
     const now = new Date().toISOString();
     const candidates = await tx
       .select()

@@ -13,7 +13,6 @@ import {
   publicUrlSchema,
 } from "@surface/contracts";
 import { db, transaction } from "../../infrastructure/database/client";
-import { withRowLock } from "../../infrastructure/database/locks";
 import { companies } from "../workspace/workspace.tables";
 import { workItems } from "../work/work.tables";
 import { companyContacts, companyDiscoverySearches } from "./tables";
@@ -65,12 +64,10 @@ for (const method of ["post", "put"] as const)
           "Only TechCrunch has passed source validation. Add other publishers through URL intake.",
         );
       const row = await transaction(async (tx) => {
-        const [existing] = await withRowLock(
-          tx
-            .select()
-            .from(companyDiscoverySearches)
-            .where(eq(companyDiscoverySearches.id, id)),
-        );
+        const [existing] = await tx
+          .select()
+          .from(companyDiscoverySearches)
+          .where(eq(companyDiscoverySearches.id, id));
         if (method === "put" && (!existing || existing.archived))
           throw new HttpError(404, "Company search not found.");
         const values = {

@@ -13,21 +13,9 @@ import {
 } from "@surface/contracts";
 
 const directory = mkdtempSync(join(tmpdir(), "surface-summary-test-"));
-if (!process.env.TEST_DATABASE_URL)
-  throw new Error(
-    "Set TEST_DATABASE_URL to a dedicated PostgreSQL test database.",
-  );
-const testDatabase = new URL(process.env.TEST_DATABASE_URL);
-if (
-  !decodeURIComponent(testDatabase.pathname.slice(1)).startsWith(
-    "surface-test-",
-  )
-) {
-  throw new Error("Tests require a disposable surface-test-* database.");
-}
 process.env.APP_ENV = "test";
 process.env.AUTH_EMAIL = "summary-test@example.com";
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+process.env.SQLITE_DATABASE_FILE = ":memory:";
 process.env.DATA_DIR = directory;
 delete process.env.OMNIROUTE_API_KEY;
 delete process.env.OMNIROUTE_BASE_URL;
@@ -123,7 +111,7 @@ beforeAll(async () => {
     canonicalUrl: "https://example.com/jobs/1",
     title: "Platform Engineer",
     company: "Example",
-    description: "Build reliable systems with TypeScript and PostgreSQL.",
+    description: "Build reliable systems with TypeScript and SQLite.",
     applyUrl: "https://example.com/jobs/1/apply",
     firstSeenAt: now,
     lastSeenAt: now,

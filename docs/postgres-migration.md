@@ -1,5 +1,8 @@
 # PostgreSQL migration and recovery
 
+Historical migration record. Current Surface builds use SQLite. Refer to this
+record for the location and contents of older backups.
+
 Surface now uses the existing PostgreSQL 17 container `primary-pg`:
 
 - Production database: `surface-data`.

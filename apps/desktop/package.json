@@ -10,6 +10,7 @@
   },
   "main": "dist/main.cjs",
   "scripts": {
+    "dev": "SURFACE_DESKTOP_CHANNEL=development node scripts/build.mjs --local && node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
     "build:dev": "SURFACE_DESKTOP_CHANNEL=development node scripts/build.mjs",
     "package": "node scripts/build.mjs && electron-builder --linux AppImage deb",

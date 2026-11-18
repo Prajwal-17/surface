@@ -1,19 +1,16 @@
 # Surface desktop
 
-Surface runs as one personal **Ubuntu Linux** desktop app. macOS and Windows
-packaging are not supported. Electron starts two local
-utility processes:
+Surface runs as one personal **Ubuntu Linux** desktop app. Electron starts a
+local Node backend with SQLite. Hono serves the React renderer on a loopback
+port. Browser research and SearXNG are optional.
 
-- the Node backend, using a real SQLite database through Node's built-in
-  `node:sqlite` driver and a separate from-scratch Drizzle migration baseline, and
-- the Crawlee/Playwright crawler.
+Open the development app with `bun dev` from the repository root. The launcher
+builds the renderer and backend before opening the Surface Dev window. Re-run
+the command to pick up source changes.
 
-The renderer is the existing Vite React app in `apps/web`, built separately and
-served by Hono on a loopback port. Only SearXNG remains optional Docker
-infrastructure. OpenCode Go is a hosted API reached directly by the backend.
-Existing Docker Compose production
-services and the deployed PostgreSQL database are unchanged and are not required
-by the desktop app.
+On Ubuntu hosts that require a setuid Chromium sandbox, the launcher can use an
+installed Chromium or Google Chrome sandbox helper. The helper must be
+root-owned with mode `4755`.
 
 ## Requirements
 
@@ -22,7 +19,7 @@ by the desktop app.
   not supported.
 - Electron 45 bundles Node 24 with `node:sqlite`; there is no native SQLite
   addon to rebuild or stage.
-- Optional: Docker for SearXNG. No PostgreSQL container is needed.
+- Optional: Docker for SearXNG.
 - Optional: an OpenCode Go API key for AI summaries, assessments and
   company research.
 
@@ -54,7 +51,7 @@ Artifacts:
 - `apps/desktop/release/Surface-0.1.0-amd64.deb`
 - `apps/desktop/release/linux-unpacked/surface`
 
-The packaged application does not need Bun, a Vite dev server, PostgreSQL, or
+The packaged application does not need Bun, a Vite dev server or
 the backend/web/crawler Compose services at runtime.
 
 ## Run
@@ -132,18 +129,12 @@ development channel:
 `SURFACE_DESKTOP_USER_DATA=/path` overrides the user-data directory for testing
 or an isolated profile. It is not needed for normal use.
 
-### Fresh start and old desktop profiles
+### Existing and isolated profiles
 
-This build starts with a new and distinct `surface.sqlite3` file. It does not
-read, import, convert, overwrite, or delete an older desktop `pglite/` directory
-or any old desktop data. There is **no data export, import, or automatic
-migration** from PGlite, SQLite backups, or PostgreSQL.
-
-To use the app while keeping all previous files untouched, either use a new
-`SURFACE_DESKTOP_USER_DATA` directory, or move the old profile directory aside
-(for example `mv ~/.config/Surface ~/.config/Surface-pglite-backup`) and launch
-Surface. The app creates a fresh SQLite profile. The existing PostgreSQL
-deployment and its backups remain in place.
+Surface opens the SQLite file already in the selected profile and applies
+pending migrations. Set `SURFACE_DESKTOP_USER_DATA` to an existing empty
+directory for a fresh profile. See the
+[backup and restore instructions](desktop-release-baseline.md) for rehearsals.
 
 ### Settings and credentials
 
@@ -176,8 +167,7 @@ Start only SearXNG:
 docker compose -f compose.searxng.yaml up -d
 ```
 
-This Compose file has no PostgreSQL network dependency and never references the
-production Compose project. Verify with:
+Verify the optional search service with:
 
 ```sh
 curl 'http://127.0.0.1:8080/search?q=surface&format=json'
@@ -208,10 +198,7 @@ version.
 - All writes run on one embedded connection. Transactions start with
   `BEGIN IMMEDIATE`; SQLite statements are serialized so reads cannot observe a
   half-finished transaction.
-- The desktop migration folder is `apps/backend/drizzle-sqlite/`. It is a fresh
-  baseline and does not reuse PostgreSQL's `apps/backend/drizzle/` history.
-- PostgreSQL remains the production web deployment's database. The existing
-  PostgreSQL migrations and deployment tooling are unchanged.
+- The shared SQLite migration folder is `apps/backend/drizzle-sqlite/`.
 - JSON values are stored as SQLite `text` with Drizzle JSON mapping; booleans
   use SQLite integer `0/1`; timestamps remain ISO text so existing application
   comparisons stay stable.

@@ -28,8 +28,6 @@ process.env.DATA_DIR = dataDirectory;
 process.env.SQLITE_MIGRATIONS_DIR = join(backendDirectory, "drizzle-sqlite");
 process.env.APP_ENV = "test";
 process.env.NODE_ENV = "test";
-delete process.env.DATABASE_URL;
-delete process.env.TEST_DATABASE_URL;
 
 if (phase === "reopen") {
   await reopenCheck();

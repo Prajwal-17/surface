@@ -5,7 +5,6 @@ export interface DesktopPaths {
   root: string;
   data: string;
   database: string;
-  legacyDatabase: string;
   logs: string;
   settings: string;
   web: string;
@@ -25,10 +24,7 @@ export function desktopPaths(): DesktopPaths {
   return {
     root: userData,
     data: join(userData, "data"),
-    // A new, distinct SQLite file. Any previous pglite/ directory is never
-    // opened, migrated, overwritten, or deleted.
     database: join(userData, "surface.sqlite3"),
-    legacyDatabase: join(userData, "pglite"),
     logs: join(userData, "logs"),
     settings: join(userData, "settings.json"),
     web: join(resources, "web"),

@@ -38,7 +38,6 @@ import {
   type Database,
   type Transaction,
 } from "../../infrastructure/database/client";
-import { lockCoordination } from "../../infrastructure/database/locks";
 import {
   containsText,
   countAsInteger,
@@ -84,7 +83,6 @@ export async function upsertCandidates(
   let insertedCount = 0,
     updatedCount = 0;
   await runTransaction(connection, async (tx) => {
-    await lockCoordination(tx, "surface:job-upsert");
     for (const candidate of candidates) {
       const now = new Date().toISOString(),
         canonicalUrl = canonicalizeUrl(candidate.applyUrl),
