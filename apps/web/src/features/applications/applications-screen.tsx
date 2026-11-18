@@ -18,6 +18,13 @@ import {
 import { Link, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { LoadingRows } from "@/components/feedback/loading-state";
@@ -43,9 +50,9 @@ function dateLabel(value: string) {
 
 function StatusOptions() {
   return applicationStatusSchema.options.map((status) => (
-    <option key={status} value={status}>
+    <SelectItem key={status} value={status}>
       {applicationLabels[status]}
-    </option>
+    </SelectItem>
   ));
 }
 
@@ -173,66 +180,79 @@ export function ApplicationsScreen() {
               onChange={(event) => patch({ q: event.target.value })}
             />
           </div>
-          <select
-            aria-label="Filter by status"
-            className={selectStyle}
+          <Select
             value={status}
-            onChange={(event) =>
-              patch({
-                status:
-                  event.target.value === "all" ? null : event.target.value,
-              })
+            onValueChange={(value) =>
+              patch({ status: value === "all" ? null : value })
             }
           >
-            <option value="all">All statuses</option>
-            <StatusOptions />
-          </select>
-          <select
-            aria-label="Filter by company"
-            className={`${selectStyle} max-w-40`}
-            value={company ?? ""}
-            onChange={(event) => patch({ company: event.target.value || null })}
+            <SelectTrigger aria-label="Filter by status" className="min-w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <StatusOptions />
+            </SelectContent>
+          </Select>
+          <Select
+            value={company ?? "all"}
+            onValueChange={(value) =>
+              patch({ company: value === "all" ? null : value })
+            }
           >
-            <option value="">All companies</option>
-            {selectedCompany && (
-              <option value={selectedCompany.id}>{selectedCompany.name}</option>
-            )}
-            {companyNames.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Filter by archive state"
-            className={selectStyle}
+            <SelectTrigger
+              aria-label="Filter by company"
+              className="max-w-40 min-w-32"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All companies</SelectItem>
+              {selectedCompany && (
+                <SelectItem value={selectedCompany.id}>
+                  {selectedCompany.name}
+                </SelectItem>
+              )}
+              {companyNames.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
             value={archive}
-            onChange={(event) =>
-              patch({
-                archive:
-                  event.target.value === "active" ? null : event.target.value,
-              })
+            onValueChange={(value) =>
+              patch({ archive: value === "active" ? null : value })
             }
           >
-            <option value="active">Active</option>
-            <option value="archived">Archived</option>
-            <option value="all">All records</option>
-          </select>
-          <select
-            aria-label="Sort applications"
-            className={selectStyle}
+            <SelectTrigger
+              aria-label="Filter by archive state"
+              className="min-w-32"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+              <SelectItem value="all">All records</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
             value={sort}
-            onChange={(event) =>
-              patch({
-                sort:
-                  event.target.value === "recent" ? null : event.target.value,
-              })
+            onValueChange={(value) =>
+              patch({ sort: value === "recent" ? null : value })
             }
           >
-            <option value="recent">Recently updated</option>
-            <option value="applied">Date applied</option>
-            <option value="followup">Next follow-up</option>
-          </select>
+            <SelectTrigger aria-label="Sort applications" className="min-w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Recently updated</SelectItem>
+              <SelectItem value="applied">Date applied</SelectItem>
+              <SelectItem value="followup">Next follow-up</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         {list.isPending && (
           <LoadingRows label="Loading applications" count={4} />
@@ -300,24 +320,28 @@ export function ApplicationsScreen() {
                         </span>
                       )}
                     </button>
-                    <select
-                      aria-label={`Status for ${row.title}`}
-                      className={`${selectStyle} ${statusTones[row.status]}`}
+                    <Select
                       value={row.status}
-                      disabled={update.isPending}
-                      onChange={(event) =>
+                      onValueChange={(value) =>
                         update.mutate({
                           id: row.id,
                           fields: {
-                            status: applicationStatusSchema.parse(
-                              event.target.value,
-                            ),
+                            status: applicationStatusSchema.parse(value),
                           },
                         })
                       }
                     >
-                      <StatusOptions />
-                    </select>
+                      <SelectTrigger
+                        aria-label={`Status for ${row.title}`}
+                        disabled={update.isPending}
+                        className={`${statusTones[row.status]} min-w-0`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <StatusOptions />
+                      </SelectContent>
+                    </Select>
                     <span className="text-xs text-muted-foreground max-sm:hidden">
                       {date ? dateLabel(date) : "—"}
                     </span>
