@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, lte, or, sql } from "drizzle-orm";
 import { db, transaction } from "../../infrastructure/database/client";
 import { configuredSources } from "../workspace/workspace.tables";
-import { runs, workItems, runItems, savedSearches } from "./work.tables";
+import { runs, workItems, runItems } from "./work.tables";
 import { HttpError } from "../../shared/errors/http-error";
 export const minimumFetchHours = (_provider: string) => 6;
 export async function syncRuns() {
@@ -193,35 +193,5 @@ export async function enqueueDueSchedules(now = new Date()) {
         ).toISOString(),
       })
       .where(eq(configuredSources.id, source.id));
-  }
-  for (const search of await db
-    .select()
-    .from(savedSearches)
-    .where(
-      and(
-        eq(savedSearches.paused, false),
-        sql`${savedSearches.scheduleHours} > 0`,
-        or(
-          lte(savedSearches.nextDueAt, stamp),
-          sql`${savedSearches.nextDueAt} IS NULL`,
-        ),
-      ),
-    )) {
-    try {
-      await enqueueCollection(
-        search.sourceIds,
-        `Saved search · ${search.name}`,
-      );
-    } catch (error) {
-      if (!(error instanceof HttpError)) throw error;
-    }
-    await db
-      .update(savedSearches)
-      .set({
-        nextDueAt: new Date(
-          now.getTime() + search.scheduleHours * 3600000,
-        ).toISOString(),
-      })
-      .where(eq(savedSearches.id, search.id));
   }
 }

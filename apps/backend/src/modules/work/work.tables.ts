@@ -68,22 +68,6 @@ export const runItems = sqliteTable(
   (table) => [primaryKey({ columns: [table.runId, table.workId] })],
 );
 
-export const savedSearches = sqliteTable("saved_searches", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  query: text("query").notNull().default(""),
-  sourceIds: text("source_ids", { mode: "json" }).$type<string[]>().notNull(),
-  filters: text("filters", { mode: "json" })
-    .$type<Record<string, string>>()
-    .notNull()
-    .default({}),
-  scheduleHours: integer("schedule_hours").notNull().default(12),
-  paused: integer("paused", { mode: "boolean" }).notNull().default(false),
-  nextDueAt: text("next_due_at"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
-
 export const executorLease = sqliteTable("executor_lease", {
   id: text("id").primaryKey(),
   owner: text("owner").notNull(),

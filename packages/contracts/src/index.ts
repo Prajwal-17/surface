@@ -46,8 +46,8 @@ export const discoverySearchSchema = z.object({
   query: z
     .string()
     .trim()
-    .min(2, "Enter at least 2 characters.")
-    .max(80, "Keep the search under 80 characters."),
+    .max(80, "Keep the search under 80 characters.")
+    .default(""),
   location: z
     .string()
     .trim()
@@ -55,6 +55,22 @@ export const discoverySearchSchema = z.object({
     .optional()
     .transform((value) => value || undefined),
 });
+
+export const jobFindInputSchema = discoverySearchSchema;
+export const jobFindPortalSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  found: z.number().int().nonnegative(),
+  error: z.string().nullable(),
+});
+export const jobFindResultSchema = z.object({
+  found: z.number().int().nonnegative(),
+  inserted: z.number().int().nonnegative(),
+  updated: z.number().int().nonnegative(),
+  portals: z.array(jobFindPortalSchema),
+});
+export type JobFindInput = z.infer<typeof jobFindInputSchema>;
+export type JobFindResult = z.infer<typeof jobFindResultSchema>;
 
 export const jobFitVerdicts = ["strong", "possible", "weak"] as const;
 export const jobFitVerdictSchema = z.enum(jobFitVerdicts);

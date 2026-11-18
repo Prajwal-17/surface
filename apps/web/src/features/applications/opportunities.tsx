@@ -6,12 +6,11 @@ export function Opportunities() {
   const [params, setParams] = useSearchParams();
   const parsed = jobsListQuerySchema.safeParse({
     ...Object.fromEntries(params),
-    status: "inbox",
-    view: params.get("view") ?? "all",
+    status: params.get("status") ?? "inbox",
   });
   const filters = parsed.success
     ? parsed.data
-    : jobsListQuerySchema.parse({ view: "all" });
+    : jobsListQuerySchema.parse({ status: "inbox" });
 
   function change(patch: Record<string, string | undefined>) {
     const next = new URLSearchParams(window.location.search);

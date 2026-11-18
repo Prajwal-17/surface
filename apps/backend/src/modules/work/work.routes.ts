@@ -5,10 +5,9 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { and, desc, eq, isNotNull, lte, or } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
-import { runs, savedSearches, workItems } from "./work.tables";
+import { runs, workItems } from "./work.tables";
 import { configuredSources } from "../workspace/workspace.tables";
 import { enqueueCollection, getRun, syncRuns } from "./work.service";
-import { savedSearchInputSchema } from "@surface/contracts";
 import { HttpError } from "../../shared/errors/http-error";
 export const workRoutes = new Hono();
 workRoutes.get("/runs", async (c) => {
@@ -121,70 +120,4 @@ workRoutes.post(
   async (c) =>
     c.json(await enqueueCollection(c.req.valid("json").sourceIds), 202),
 );
-workRoutes.get("/saved-searches", async (c) =>
-  c.json(await db.select().from(savedSearches)),
-);
-for (const method of ["post", "put"] as const)
-  workRoutes[method](
-    method === "post" ? "/saved-searches" : "/saved-searches/:id",
-    zValidator("json", savedSearchInputSchema),
-    async (c) => {
-      const input = c.req.valid("json"),
-        now = new Date().toISOString();
-      for (const id of input.sourceIds)
-        if (
-          !(
-            await db
-              .select()
-              .from(configuredSources)
-              .where(eq(configuredSources.id, id))
-              .limit(1)
-          )[0]
-        )
-          throw new HttpError(400, "Unknown configured source.");
-      const id = c.req.param("id") ?? crypto.randomUUID();
-      if (
-        method === "put" &&
-        !(
-          await db
-            .select()
-            .from(savedSearches)
-            .where(eq(savedSearches.id, id))
-            .limit(1)
-        )[0]
-      )
-        throw new HttpError(404, "Saved search not found.");
-      const existing = (
-        await db
-          .select()
-          .from(savedSearches)
-          .where(eq(savedSearches.id, id))
-          .limit(1)
-      )[0];
-      const row = {
-        ...input,
-        id,
-        nextDueAt: input.scheduleHours
-          ? new Date(Date.now() + input.scheduleHours * 3600000).toISOString()
-          : null,
-        createdAt: existing?.createdAt ?? now,
-        updatedAt: now,
-      };
-      await db
-        .insert(savedSearches)
-        .values(row)
-        .onConflictDoUpdate({ target: savedSearches.id, set: row });
-      return c.json(row, method === "post" ? 201 : 200);
-    },
-  );
-workRoutes.post("/saved-searches/:id/refresh", async (c) => {
-  const search = (
-    await db
-      .select()
-      .from(savedSearches)
-      .where(eq(savedSearches.id, c.req.param("id")))
-      .limit(1)
-  )[0];
-  if (!search) throw new HttpError(404, "Saved search not found.");
-  return c.json(await enqueueCollection(search.sourceIds, search.name), 202);
-});
+

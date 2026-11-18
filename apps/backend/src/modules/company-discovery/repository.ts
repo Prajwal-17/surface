@@ -255,6 +255,10 @@ export async function listOpportunities(input: {
   signal?: string;
   watchlist?: boolean;
   archived?: boolean;
+  sort?: string;
+  roles?: string;
+  contacts?: string;
+  website?: string;
 }) {
   const now = new Date().toISOString();
   const filters = [eq(companies.archived, input.archived ?? false)];
@@ -270,6 +274,23 @@ export async function listOpportunities(input: {
     filters.push(
       sql`EXISTS (SELECT 1 FROM company_signals s WHERE s.company_id=${companies.id} AND s.kind=${input.signal})`,
     );
+  for (const [value, condition] of [
+    [
+      input.roles,
+      sql`EXISTS (SELECT 1 FROM jobs j WHERE j.company_id=${companies.id})`,
+    ],
+    [
+      input.contacts,
+      sql`EXISTS (SELECT 1 FROM company_contacts c WHERE c.company_id=${companies.id})`,
+    ],
+    [
+      input.website,
+      sql`(${companies.website} IS NOT NULL AND ${companies.website} <> '')`,
+    ],
+  ] as const) {
+    if (value === "yes") filters.push(condition);
+    if (value === "no") filters.push(sql`NOT ${condition}`);
+  }
   const queue = sql`CASE WHEN ${companies.deferredUntil}>${now} THEN 'later' ELSE ${companies.reviewState} END`;
   if (input.watchlist)
     filters.push(
@@ -301,7 +322,16 @@ export async function listOpportunities(input: {
     .select({ id: companies.id })
     .from(companies)
     .where(and(...filters))
-    .orderBy(desc(companies.createdAt), companies.id)
+    .orderBy(
+      input.sort === "oldest"
+        ? companies.createdAt
+        : input.sort === "name"
+          ? companies.name
+          : input.sort === "name_desc"
+            ? desc(companies.name)
+            : desc(companies.createdAt),
+      companies.id,
+    )
     .limit(input.pageSize)
     .offset((input.page - 1) * input.pageSize);
   const rows = await opportunityRows(ids.map((r) => r.id)),
@@ -324,49 +354,54 @@ export async function listOpportunities(input: {
 export async function companyDetail(id: string) {
   await getCompany(id);
   const [company] = await opportunityRows([id]);
-  const [contacts, actions, roles, matches, links, pending] = await Promise.all([
-    db.select().from(companyContacts).where(eq(companyContacts.companyId, id)),
-    db
-      .select()
-      .from(companyActions)
-      .where(eq(companyActions.companyId, id))
-      .orderBy(desc(companyActions.createdAt)),
-    db
-      .select({
-        id: jobs.id,
-        title: jobs.title,
-        location: jobs.location,
-        applyUrl: jobs.applyUrl,
-      })
-      .from(jobs)
-      .where(
-        and(
-          eq(jobs.companyId, id),
-          sql`${jobs.mergedInto} IS NULL`,
-          sql`EXISTS(SELECT 1 FROM job_sources s WHERE s.job_id=${jobs.id} AND s.availability IN ('observed','open','active'))`,
-        ),
-      )
-      .limit(500),
-    db
-      .selectDistinct({
-        id: companyDiscoverySearches.id,
-        name: companyDiscoverySearches.name,
-      })
-      .from(companySearchMatches)
-      .innerJoin(
-        companyDiscoverySearches,
-        eq(companySearchMatches.searchId, companyDiscoverySearches.id),
-      )
-      .where(eq(companySearchMatches.companyId, id)),
-    db
-      .select()
-      .from(companyLinks)
-      .where(eq(companyLinks.companyId, id))
-      .orderBy(companyLinks.category, companyLinks.label),
-    queryRows<{ found: number }>(
-      sql`SELECT 1 AS found FROM work_items WHERE kind='company-enrichment' AND state IN ('queued','running') AND ${jsonText(workItems.payload, "companyId")}=${id} LIMIT 1`,
-    ),
-  ]);
+  const [contacts, actions, roles, matches, links, pending] = await Promise.all(
+    [
+      db
+        .select()
+        .from(companyContacts)
+        .where(eq(companyContacts.companyId, id)),
+      db
+        .select()
+        .from(companyActions)
+        .where(eq(companyActions.companyId, id))
+        .orderBy(desc(companyActions.createdAt)),
+      db
+        .select({
+          id: jobs.id,
+          title: jobs.title,
+          location: jobs.location,
+          applyUrl: jobs.applyUrl,
+        })
+        .from(jobs)
+        .where(
+          and(
+            eq(jobs.companyId, id),
+            sql`${jobs.mergedInto} IS NULL`,
+            sql`EXISTS(SELECT 1 FROM job_sources s WHERE s.job_id=${jobs.id} AND s.availability IN ('observed','open','active'))`,
+          ),
+        )
+        .limit(500),
+      db
+        .selectDistinct({
+          id: companyDiscoverySearches.id,
+          name: companyDiscoverySearches.name,
+        })
+        .from(companySearchMatches)
+        .innerJoin(
+          companyDiscoverySearches,
+          eq(companySearchMatches.searchId, companyDiscoverySearches.id),
+        )
+        .where(eq(companySearchMatches.companyId, id)),
+      db
+        .select()
+        .from(companyLinks)
+        .where(eq(companyLinks.companyId, id))
+        .orderBy(companyLinks.category, companyLinks.label),
+      queryRows<{ found: number }>(
+        sql`SELECT 1 AS found FROM work_items WHERE kind='company-enrichment' AND state IN ('queued','running') AND ${jsonText(workItems.payload, "companyId")}=${id} LIMIT 1`,
+      ),
+    ],
+  );
   const profile = await findProfile(),
     matchesRole = roleMatcher(profile);
   return {

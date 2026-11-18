@@ -2,7 +2,14 @@ import { OutreachComposer } from "@/features/outreach/outreach-composer";
 import { useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ArrowUpRight, Plus, RotateCcw, Search } from "lucide-react";
+import {
+  Archive,
+  ArrowUpRight,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   companyDetailSchema,
@@ -13,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CompanyMark } from "@/components/ui/company-mark";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -62,12 +70,17 @@ function CompanyStatusOptions() {
 export function TrackedCompanies() {
   const [params, setParams] = useSearchParams();
   const [adding, setAdding] = useState(false);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [deleteIds, setDeleteIds] = useState<string[]>([]);
   const client = useQueryClient();
   const selectedId = params.get("company");
   const q = params.get("q") ?? "";
   const status = params.get("status") ?? "all";
   const archive = params.get("archive") ?? "active";
   const sort = params.get("sort") ?? "name";
+  const roles = params.get("roles") ?? "all";
+  const apps = params.get("applications") ?? "all";
+  const website = params.get("website") ?? "all";
   const list = useQuery({
     queryKey: ["tracked-companies"],
     queryFn: async () =>
@@ -118,9 +131,41 @@ export function TrackedCompanies() {
     onError: (error) => toast.error(error.message),
   });
 
+  const deletion = useMutation({
+    mutationFn: (ids: string[]) =>
+      apiClient<{ deleted: number }>(
+        "/api/company-discovery/companies/bulk-delete",
+        {
+          method: "POST",
+          body: JSON.stringify({ ids }),
+        },
+      ),
+    onSuccess: async ({ deleted }) => {
+      setDeleteIds([]);
+      setChecked(new Set());
+      if (selectedId && deleteIds.includes(selectedId))
+        patch({ company: null });
+      await client.invalidateQueries();
+      toast.success(
+        `Permanently deleted ${deleted} ${deleted === 1 ? "company" : "companies"}`,
+      );
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
   function patch(fields: Record<string, string | null>) {
     const next = new URLSearchParams(window.location.search);
-    if (["q", "status", "archive", "sort"].some((key) => key in fields))
+    if (
+      [
+        "q",
+        "status",
+        "archive",
+        "sort",
+        "roles",
+        "applications",
+        "website",
+      ].some((key) => key in fields)
+    )
       next.delete("page");
     for (const [key, value] of Object.entries(fields)) {
       if (value) next.set(key, value);
@@ -156,14 +201,53 @@ export function TrackedCompanies() {
       },
     );
   }
+  function countFor(key: string, value: string) {
+    const filters = {
+      status,
+      archive,
+      roles,
+      applications: apps,
+      website,
+      [key]: value,
+    };
+    return (list.data ?? [])
+      .filter(
+        (company) =>
+          (filters.archive === "all" ||
+            (filters.archive === "archived") === company.archived) &&
+          (filters.status === "all" ||
+            company.trackingStatus === filters.status) &&
+          (filters.roles === "all" ||
+            company.openRoles > 0 === (filters.roles === "yes")) &&
+          (filters.applications === "all" ||
+            company.applicationCount > 0 ===
+              (filters.applications === "yes")) &&
+          (filters.website === "all" ||
+            Boolean(company.website.trim()) === (filters.website === "yes")) &&
+          company.name.toLowerCase().includes(q.trim().toLowerCase()),
+      )
+      .length.toLocaleString();
+  }
   const rows = (list.data ?? [])
     .filter(
       (company) =>
         (archive === "all" || (archive === "archived") === company.archived) &&
         (status === "all" || company.trackingStatus === status) &&
+        (roles === "all" || company.openRoles > 0 === (roles === "yes")) &&
+        (apps === "all" || company.applicationCount > 0 === (apps === "yes")) &&
+        (website === "all" ||
+          Boolean(company.website.trim()) === (website === "yes")) &&
         company.name.toLowerCase().includes(q.trim().toLowerCase()),
     )
     .toSorted((a, b) => {
+      if (sort === "name_desc") return b.name.localeCompare(a.name);
+      if (sort === "roles")
+        return b.openRoles - a.openRoles || a.name.localeCompare(b.name);
+      if (sort === "applications")
+        return (
+          b.applicationCount - a.applicationCount ||
+          a.name.localeCompare(b.name)
+        );
       if (sort === "recent") return b.updatedAt.localeCompare(a.updatedAt);
       if (sort === "opening")
         return (b.newestOpening ?? "").localeCompare(a.newestOpening ?? "");
@@ -199,9 +283,6 @@ export function TrackedCompanies() {
             </span>
           </h1>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/settings?section=sources">Manage sources</Link>
-            </Button>
             <Dialog open={adding} onOpenChange={setAdding}>
               <DialogTrigger asChild>
                 <Button size="sm">
@@ -263,8 +344,14 @@ export function TrackedCompanies() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <CompanyStatusOptions />
+              <SelectItem value="all">
+                All statuses ({countFor("status", "all")})
+              </SelectItem>
+              {companyTrackingStatusSchema.options.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {statuses[option]} ({countFor("status", option)})
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select
@@ -280,9 +367,15 @@ export function TrackedCompanies() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="archived">Archived</SelectItem>
-              <SelectItem value="all">All companies</SelectItem>
+              <SelectItem value="active">
+                Active ({countFor("archive", "active")})
+              </SelectItem>
+              <SelectItem value="archived">
+                Archived ({countFor("archive", "archived")})
+              </SelectItem>
+              <SelectItem value="all">
+                All companies ({countFor("archive", "all")})
+              </SelectItem>
             </SelectContent>
           </Select>
           <Select
@@ -296,11 +389,137 @@ export function TrackedCompanies() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="name">Company name</SelectItem>
+              <SelectItem value="name_desc">Name Z–A</SelectItem>
+              <SelectItem value="roles">Most open roles</SelectItem>
+              <SelectItem value="applications">Most applications</SelectItem>
               <SelectItem value="recent">Recently updated</SelectItem>
               <SelectItem value="opening">Newest opening</SelectItem>
             </SelectContent>
           </Select>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {(
+            [
+              ["roles", roles, "Open roles"],
+              ["applications", apps, "Applications"],
+              ["website", website, "Website"],
+            ] as const
+          ).map(([key, value, label]) => (
+            <Select
+              key={key}
+              value={value}
+              onValueChange={(v) => patch({ [key]: v === "all" ? null : v })}
+            >
+              <SelectTrigger aria-label={`Filter by ${label}`} className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  Any {label.toLowerCase()} ({countFor(key, "all")})
+                </SelectItem>
+                <SelectItem value="yes">
+                  Has {label.toLowerCase()} ({countFor(key, "yes")})
+                </SelectItem>
+                <SelectItem value="no">
+                  No {label.toLowerCase()} ({countFor(key, "no")})
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          ))}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!visibleRows.length}
+            onClick={() =>
+              setChecked(new Set(visibleRows.map((row) => row.id)))
+            }
+          >
+            Select page
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!rows.length || rows.length > 10000}
+            onClick={() => setChecked(new Set(rows.map((row) => row.id)))}
+          >
+            Select all matching
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!list.data?.length || list.data.length > 10000}
+            onClick={() =>
+              setChecked(new Set((list.data ?? []).map((row) => row.id)))
+            }
+          >
+            Select every company
+          </Button>
+          {(list.data?.length ?? 0) > 10000 && (
+            <span className="text-xs text-muted-foreground">
+              Select up to 10,000 companies at a time using filters.
+            </span>
+          )}
+          {checked.size > 0 && (
+            <>
+              <span className="text-sm text-muted-foreground">
+                {checked.size.toLocaleString()} selected
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setChecked(new Set())}
+              >
+                Clear
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive"
+                disabled={checked.size > 10000}
+                onClick={() => setDeleteIds([...checked])}
+              >
+                Delete selected
+              </Button>
+            </>
+          )}
+        </div>
+        <Dialog
+          open={deleteIds.length > 0}
+          onOpenChange={(open) => {
+            if (!open && !deletion.isPending) setDeleteIds([]);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                Permanently delete {deleteIds.length.toLocaleString()}{" "}
+                {deleteIds.length === 1 ? "company" : "companies"}?
+              </DialogTitle>
+              <DialogDescription>
+                This permanently removes the companies and their linked jobs,
+                applications, contacts, and other related records. This cannot
+                be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                disabled={deletion.isPending}
+                onClick={() => setDeleteIds([])}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                className="text-destructive"
+                disabled={deletion.isPending}
+                onClick={() => deletion.mutate(deleteIds)}
+              >
+                {deletion.isPending ? "Deleting…" : "Permanently delete"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
         {list.isPending && <LoadingRows count={4} label="Loading companies" />}
         {list.error && (
           <div role="alert" className="mt-4 flex flex-wrap items-center gap-2">
@@ -312,7 +531,8 @@ export function TrackedCompanies() {
         )}
         {list.isSuccess && (
           <div className="mt-4 overflow-hidden rounded-md border border-border">
-            <div className="grid grid-cols-[minmax(0,1fr)_7rem_10rem_2rem] items-center gap-2 border-b bg-card px-3 py-2 text-xs text-muted-foreground max-sm:hidden">
+            <div className="grid grid-cols-[1rem_minmax(0,1fr)_7rem_10rem_2rem_2rem] items-center gap-2 border-b bg-card px-3 py-2 text-xs text-muted-foreground max-sm:hidden">
+              <span className="sr-only">Select</span>
               <span className="pl-9">Company</span>
               <span className="pl-3">Status</span>
               <span>Activity</span>
@@ -322,8 +542,20 @@ export function TrackedCompanies() {
               {visibleRows.map((company) => (
                 <li
                   key={company.id}
-                  className={`grid grid-cols-[minmax(0,1fr)_7rem_10rem_2rem] items-center gap-2 px-3 py-2 max-sm:grid-cols-[minmax(0,1fr)_7rem_2rem] ${selectedId === company.id ? "bg-accent" : "hover:bg-muted/50"}`}
+                  className={`grid grid-cols-[1rem_minmax(0,1fr)_7rem_10rem_2rem_2rem] items-center gap-2 px-3 py-2 max-sm:grid-cols-[1rem_minmax(0,1fr)_7rem_2rem_2rem] ${selectedId === company.id ? "bg-accent" : "hover:bg-muted/50"}`}
                 >
+                  <Checkbox
+                    aria-label={`Select ${company.name}`}
+                    checked={checked.has(company.id)}
+                    onCheckedChange={(value) =>
+                      setChecked((previous) => {
+                        const next = new Set(previous);
+                        if (value === true) next.add(company.id);
+                        else next.delete(company.id);
+                        return next;
+                      })
+                    }
+                  />
                   <button
                     data-tracked-company={company.id}
                     type="button"
@@ -368,6 +600,15 @@ export function TrackedCompanies() {
                     {company.openRoles} open · {company.applicationCount}{" "}
                     tracked
                   </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Permanently delete ${company.name}`}
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() => setDeleteIds([company.id])}
+                  >
+                    <Trash2 />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"

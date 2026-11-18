@@ -23,7 +23,6 @@ export {
   executorLease,
   runItems,
   runs,
-  savedSearches,
   workItems,
 } from "../../modules/work/work.tables";
 export {

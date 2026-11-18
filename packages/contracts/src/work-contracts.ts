@@ -52,18 +52,4 @@ export const runDetailSchema = runSchema.extend({
 });
 export type WorkItem = z.infer<typeof workItemSchema>;
 export const submissionSchema = z.object({ runId: z.string() });
-export const savedSearchInputSchema = z.object({
-  name: z.string().trim().min(1).max(200),
-  query: z.string().trim().max(100).default(""),
-  sourceIds: z.array(z.string()).min(1).max(100),
-  filters: z.record(z.string(), z.string()).default({}),
-  scheduleHours: scheduleHoursSchema.default(12),
-  paused: z.boolean().default(false),
-});
-export const savedSearchSchema = savedSearchInputSchema.extend({
-  id: z.string(),
-  nextDueAt: z.string().nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
-export type SavedSearch = z.infer<typeof savedSearchSchema>;
+

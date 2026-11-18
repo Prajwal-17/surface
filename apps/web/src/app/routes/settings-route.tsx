@@ -1,19 +1,16 @@
 import { GmailSettings } from "@/features/settings/gmail-settings";
 import { useSearchParams } from "react-router";
-import { CompanySourcesScreen } from "@/features/companies/components/company-sources-screen";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { AnalysisSettings } from "@/features/profile/components/analysis-settings";
 import { DesktopSettings } from "@/features/settings/desktop-settings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, Radio, ScanLine, Sun } from "lucide-react";
+import { Mail, ScanLine, Sun } from "lucide-react";
 
 export function Component() {
   const [params, setParams] = useSearchParams();
   const section = params.get("section");
   const value =
-    section === "analysis" || section === "sources" || section === "gmail"
-      ? section
-      : "appearance";
+    section === "analysis" || section === "gmail" ? section : "appearance";
   return (
     <>
       <h1 className="sr-only">Settings</h1>
@@ -35,9 +32,6 @@ export function Component() {
           <TabsTrigger value="analysis">
             <ScanLine className="size-4" />
             AI settings
-          </TabsTrigger>
-          <TabsTrigger value="sources">
-            <Radio className="size-4" /> Sources
           </TabsTrigger>
           <TabsTrigger value="gmail">
             <Mail className="size-4" /> Gmail
@@ -61,9 +55,6 @@ export function Component() {
         <TabsContent value="analysis" className="space-y-8">
           <DesktopSettings />
           <AnalysisSettings />
-        </TabsContent>
-        <TabsContent value="sources">
-          <CompanySourcesScreen sourcesOnly />
         </TabsContent>
         <TabsContent value="gmail">
           <GmailSettings />

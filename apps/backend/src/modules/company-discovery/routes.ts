@@ -37,7 +37,19 @@ import { companyFavicon } from "./favicon";
 import { readCompanyPage } from "./evidence";
 import { parseCompanyPage, type CompanyCandidate } from "./sources";
 import { HttpError } from "../../shared/errors/http-error";
+import { deleteCompanies } from "./delete-companies";
 export const companyDiscoveryRoutes = new Hono();
+companyDiscoveryRoutes.post(
+  "/companies/bulk-delete",
+  zValidator(
+    "json",
+    z.object({ ids: z.array(z.string().min(1).max(200)).min(1).max(10000) }),
+  ),
+  async (c) => {
+    const deleted = await deleteCompanies(c.req.valid("json").ids);
+    return c.json({ deleted });
+  },
+);
 companyDiscoveryRoutes.get("/searches", async (c) =>
   c.json(
     (
@@ -140,6 +152,10 @@ companyDiscoveryRoutes.get(
         .optional(),
       searchId: z.string().optional(),
       signal: z.enum(["funding", "yc", "manual"]).optional(),
+      sort: z.enum(["newest", "oldest", "name", "name_desc"]).optional(),
+      roles: z.enum(["yes", "no"]).optional(),
+      contacts: z.enum(["yes", "no"]).optional(),
+      website: z.enum(["yes", "no"]).optional(),
       watchlist: z.enum(["true", "false"]).optional(),
       archived: z.enum(["true", "false"]).optional(),
     }),

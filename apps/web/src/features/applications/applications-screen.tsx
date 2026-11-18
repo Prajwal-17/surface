@@ -37,9 +37,6 @@ import {
   useSaveApplication,
 } from "./application-api";
 
-const selectStyle =
-  "h-8 min-w-0 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-2 focus-visible:outline-ring";
-
 function dateLabel(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -442,6 +439,7 @@ function ApplicationForm({
     const text = (key: string) => String(data.get(key) ?? "").trim();
     const compensation = text("compensation");
     const previousCompensation = application?.compensation;
+    const workMode = text("workMode");
     const fields = {
       title: text("title"),
       companyName: text("companyName"),
@@ -452,9 +450,10 @@ function ApplicationForm({
       sourceUrl: text("sourceUrl") || null,
       location: text("location") || null,
       employmentType: text("employmentType") || null,
-      workMode: text("workMode")
-        ? applicationWorkModeSchema.parse(text("workMode"))
-        : null,
+      workMode:
+        workMode && workMode !== "unspecified"
+          ? applicationWorkModeSchema.parse(workMode)
+          : null,
       compensation: compensation
         ? previousCompensation &&
           compensation === formatCompensation(previousCompensation)
@@ -573,20 +572,24 @@ function ApplicationForm({
         </label>
         <label className="grid gap-1.5 text-sm">
           Work arrangement
-          <select
+          <Select
             name="workMode"
-            className={selectStyle}
             defaultValue={
-              application?.workMode === "unknown"
-                ? ""
-                : (application?.workMode ?? "")
+              application?.workMode && application.workMode !== "unknown"
+                ? application.workMode
+                : "unspecified"
             }
           >
-            <option value="">Not specified</option>
-            <option value="remote">Remote</option>
-            <option value="hybrid">Hybrid</option>
-            <option value="onsite">On-site</option>
-          </select>
+            <SelectTrigger aria-label="Work arrangement">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unspecified">Not specified</SelectItem>
+              <SelectItem value="remote">Remote</SelectItem>
+              <SelectItem value="hybrid">Hybrid</SelectItem>
+              <SelectItem value="onsite">On-site</SelectItem>
+            </SelectContent>
+          </Select>
         </label>
         <label className="col-span-2 grid gap-1.5 text-sm">
           Location
@@ -607,13 +610,17 @@ function ApplicationForm({
         </label>
         <label className="grid gap-1.5 text-sm">
           Status
-          <select
+          <Select
             name="status"
-            className={selectStyle}
             defaultValue={application?.status ?? "queued"}
           >
-            <StatusOptions />
-          </select>
+            <SelectTrigger aria-label="Status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <StatusOptions />
+            </SelectContent>
+          </Select>
         </label>
         <label className="grid gap-1.5 text-sm">
           Next follow-up

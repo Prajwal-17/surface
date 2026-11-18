@@ -5,6 +5,7 @@ import { jobs } from "./jobs.tables";
 import { assessJobNow } from "../analysis/analysis.service";
 import {
   descriptionSummarySchema,
+  jobFindInputSchema,
   jobsListQuerySchema,
   updateJobStatusSchema,
   type DescriptionSummary,
@@ -17,6 +18,7 @@ import {
   type UIMessage,
 } from "ai";
 import { getJob, getJobs, updateJobStatus } from "./jobs.service";
+import { findJobs } from "./find";
 import { summariseJob } from "./summary";
 
 type SummaryStreamData =
@@ -133,6 +135,12 @@ jobsRoutes.post("/:id/assess", async (context) => {
   await assessJobNow(id);
   return context.json(await getJob(id));
 });
+
+jobsRoutes.post(
+  "/find",
+  zValidator("json", jobFindInputSchema),
+  async (context) => context.json(await findJobs(context.req.valid("json"))),
+);
 
 jobsRoutes.get(
   "/",

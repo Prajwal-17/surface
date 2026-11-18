@@ -1,4 +1,3 @@
-import { Link } from "react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { configuredSourceSchema, runDetailSchema } from "@surface/contracts";
 import { ChevronDown, RefreshCw } from "lucide-react";
@@ -66,9 +65,6 @@ export function ActivityScreen() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/settings?section=sources">Manage sources</Link>
-          </Button>
           <Button
             size="sm"
             disabled={

@@ -49,35 +49,13 @@ import {
   Play,
   Search,
   Users,
-  Globe2,
   ExternalLink,
   RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
-import { CompanySourcesScreen } from "./company-sources-screen";
 import { CompanySearches } from "./company-searches";
 import { CompanyReader, type CompanyMutation } from "./company-reader";
 import { companyQueues, displayDate, signalLabel } from "../company-ui";
-const sourcesSchema = z.object({
-  sources: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      description: z.string(),
-      status: z.string(),
-    }),
-  ),
-  checks: z.array(
-    z.object({
-      kind: z.string(),
-      state: z.string(),
-      error: z.string().nullable(),
-      completedAt: z.string().nullable(),
-      createdAt: z.string(),
-      source: z.unknown(),
-    }),
-  ),
-});
 const unresolvedSchema = z.array(
   z.object({
     workId: z.string(),
@@ -87,16 +65,8 @@ const unresolvedSchema = z.array(
     website: z.string().optional(),
   }),
 );
-export function CompaniesScreen({
-  sourcesOnly = false,
-}: {
-  sourcesOnly?: boolean;
-}) {
-  return sourcesOnly ? (
-    <CompanySourcesScreen sourcesOnly />
-  ) : (
-    <CompanyDiscoveryScreen />
-  );
+export function CompaniesScreen() {
+  return <CompanyDiscoveryScreen />;
 }
 function CompanyDiscoveryScreen() {
   const client = useQueryClient(),
@@ -107,6 +77,9 @@ function CompanyDiscoveryScreen() {
     [intake, setIntake] = useState(false),
     [csv, setCsv] = useState(""),
     [ref, layout] = useReaderLayout();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [selectingAll, setSelectingAll] = useState(false);
   const titleRef = useRef<HTMLButtonElement | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const listScroll = useRef(0);
@@ -178,7 +151,16 @@ function CompanyDiscoveryScreen() {
     page: params.get("page") || "1",
     pageSize: "30",
   });
-  for (const key of ["q", "searchId", "signal", "archived"]) {
+  for (const key of [
+    "q",
+    "searchId",
+    "signal",
+    "archived",
+    "sort",
+    "roles",
+    "contacts",
+    "website",
+  ]) {
     const v = params.get(key);
     if (v) query.set(key, v);
   }
@@ -192,6 +174,48 @@ function CompanyDiscoveryScreen() {
       ),
     refetchInterval: 10000,
   });
+  const deleteSelected = useMutation({
+    mutationFn: () =>
+      apiClient<{ deleted: number }>(
+        "/api/company-discovery/companies/bulk-delete",
+        { method: "POST", body: JSON.stringify({ ids: [...selectedIds] }) },
+      ),
+    onSuccess: async (result) => {
+      setSelectedIds(new Set());
+      setConfirmDelete(false);
+      patch({ company: null, page: null });
+      await client.invalidateQueries();
+      toast.success(`Permanently deleted ${result.deleted} companies`);
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const selectAllMatching = async () => {
+    setSelectingAll(true);
+    try {
+      const all = new Set<string>();
+      const search = new URLSearchParams(query);
+      search.set("pageSize", "100");
+      let page = 1;
+      let total = 0;
+      do {
+        search.set("page", String(page++));
+        const result = companyListSchema.parse(
+          await apiClient(`/api/company-discovery/opportunities?${search}`),
+        );
+        total = result.total;
+        if (total > 10000) throw new Error("Please narrow your filters to select at most 10,000 companies.");
+        result.items.forEach((company) => all.add(company.id));
+        if (!result.items.length) break;
+      } while ((page - 1) * 100 < total);
+      setSelectedIds(all);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not select companies",
+      );
+    } finally {
+      setSelectingAll(false);
+    }
+  };
   const searches = useQuery({
     queryKey: ["company-searches"],
     queryFn: async () =>
@@ -208,13 +232,6 @@ function CompanyDiscoveryScreen() {
       ),
     enabled: Boolean(selected),
     refetchInterval: (q) => (q.state.data?.enrichmentPending ? 2000 : 10000),
-  });
-  const sources = useQuery({
-    queryKey: ["company-discovery-sources"],
-    queryFn: async () =>
-      sourcesSchema.parse(await apiClient("/api/company-discovery/sources")),
-    enabled: tab === "sources",
-    refetchInterval: 10000,
   });
   const unresolved = useQuery({
     queryKey: ["company-unresolved"],
@@ -381,7 +398,6 @@ function CompanyDiscoveryScreen() {
             { id: "discover", label: "Discover" },
             { id: "searches", label: "Searches" },
             { id: "watchlist", label: "Watchlist" },
-            { id: "sources", label: "Sources" },
           ].map((t) => (
             <button
               key={t.id}
@@ -517,6 +533,71 @@ function CompanyDiscoveryScreen() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="mb-3 flex flex-wrap gap-2">
+                {(
+                  [
+                    [
+                      "sort",
+                      "Sort companies",
+                      [
+                        ["newest", "Newest first"],
+                        ["oldest", "Oldest first"],
+                        ["name", "Name A–Z"],
+                        ["name_desc", "Name Z–A"],
+                      ],
+                    ],
+                    [
+                      "roles",
+                      "Filter by roles",
+                      [
+                        ["all", "Any roles"],
+                        ["yes", "Has roles"],
+                        ["no", "No roles"],
+                      ],
+                    ],
+                    [
+                      "contacts",
+                      "Filter by contacts",
+                      [
+                        ["all", "Any contacts"],
+                        ["yes", "Has contacts"],
+                        ["no", "No contacts"],
+                      ],
+                    ],
+                    [
+                      "website",
+                      "Filter by website",
+                      [
+                        ["all", "Any website"],
+                        ["yes", "Has website"],
+                        ["no", "No website"],
+                      ],
+                    ],
+                  ] as const
+                ).map(([key, label, options]) => (
+                  <Select
+                    key={key}
+                    value={params.get(key) || options[0][0]}
+                    onValueChange={(value) =>
+                      patch({
+                        [key]: value === options[0][0] ? null : value,
+                        page: null,
+                      })
+                    }
+                  >
+                    <SelectTrigger aria-label={label} className="min-w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {options.map(([value, title]) => (
+                        <SelectItem key={value} value={value}>
+                          {title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ))}
+              </div>
               <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1">
                 {tab === "discover" && (
                   <label className="mb-3 inline-flex min-h-11 items-center gap-2 text-xs text-muted-foreground md:min-h-8">
@@ -553,6 +634,90 @@ function CompanyDiscoveryScreen() {
                   ))}
                 </div>
               )}
+              <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!companies.data?.items.length}
+                  onClick={() => {
+                    const ids =
+                      companies.data?.items.map((company) => company.id) ?? [];
+                    setSelectedIds((previous) => {
+                      const next = new Set(previous);
+                      const remove = ids.every((id) => next.has(id));
+                      ids.forEach((id) =>
+                        remove ? next.delete(id) : next.add(id),
+                      );
+                      return next;
+                    });
+                  }}
+                >
+                  Select page
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!companies.data?.total || selectingAll}
+                  onClick={() => void selectAllMatching()}
+                >
+                  {selectingAll ? "Selecting…" : "Select all matching"}
+                </Button>
+                <span>{selectedIds.size.toLocaleString()} selected</span>
+                {selectedIds.size > 0 && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedIds(new Set())}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="text-destructive"
+                      size="sm"
+                      disabled={selectingAll || selectedIds.size > 10000}
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      Delete selected
+                    </Button>
+                  </>
+                )}
+              </div>
+              <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>
+                      Permanently delete {selectedIds.size.toLocaleString()}{" "}
+                      companies?
+                    </DialogTitle>
+                    <DialogDescription>
+                      This permanently removes the selected companies and their
+                      linked jobs, applications, contacts, signals, and other
+                      related records. This cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setConfirmDelete(false)}
+                      disabled={deleteSelected.isPending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="text-destructive"
+                      disabled={deleteSelected.isPending}
+                      onClick={() => deleteSelected.mutate()}
+                    >
+                      {deleteSelected.isPending
+                        ? "Deleting…"
+                        : "Permanently delete"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
               {companies.isPending && (
                 <LoadingRows label="Loading companies" count={6} />
               )}
@@ -587,6 +752,18 @@ function CompanyDiscoveryScreen() {
                         className={`company-opportunity-row ${c.id === selected ? "selected" : ""}`}
                       >
                         <div role="cell" className="company-identity">
+                          <Checkbox
+                            aria-label={`Select ${c.name}`}
+                            checked={selectedIds.has(c.id)}
+                            onCheckedChange={(checked) =>
+                              setSelectedIds((previous) => {
+                                const next = new Set(previous);
+                                if (checked === true) next.add(c.id);
+                                else next.delete(c.id);
+                                return next;
+                              })
+                            }
+                          />
                           <CompanyMark
                             name={c.name}
                             src={c.logoPath}
@@ -799,65 +976,6 @@ function CompanyDiscoveryScreen() {
             ) : (
               <CompanySearches searches={searches.data ?? []} onRun={run} />
             ))}
-          {tab === "sources" && (
-            <section className="space-y-5">
-              <div>
-                <h1 className="text-lg font-semibold">Discovery sources</h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Public evidence, collection status, and connected job sources.
-                </p>
-              </div>
-              {sources.isPending && (
-                <LoadingRows label="Loading discovery sources" count={3} />
-              )}{" "}
-              {sources.error && <p role="alert">{sources.error.message}</p>}
-              <div className="divide-y border-y">
-                {sources.data?.sources.map((s) => (
-                  <article className="flex items-start gap-3 py-4" key={s.id}>
-                    <Globe2 className="mt-1 size-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <h2 className="text-sm font-semibold">{s.name}</h2>
-                      <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                        {s.description}
-                      </p>
-                    </div>
-                    <span
-                      className={`status-pill ${s.status === "available" ? "tone-mint" : "tone-muted"}`}
-                    >
-                      {s.status === "available"
-                        ? "Available"
-                        : "Not configured"}
-                    </span>
-                  </article>
-                ))}
-              </div>
-              <h2 className="text-sm font-semibold">
-                Recent discovery & enrichment checks
-              </h2>
-              {!sources.data?.checks.length && (
-                <p className="text-sm text-muted-foreground">
-                  No collection checks yet.
-                </p>
-              )}
-              {sources.data?.checks.slice(0, 8).map((s, i) => (
-                <details
-                  key={`${s.createdAt}:${i}`}
-                  className="border-b pb-3 text-xs"
-                >
-                  <summary className="cursor-pointer">
-                    {s.kind.replaceAll("-", " ")} · {s.state} ·{" "}
-                    {displayDate(s.completedAt || s.createdAt)}
-                  </summary>
-                  {s.error && (
-                    <p className="mt-2 whitespace-pre-wrap break-words text-warning">
-                      {s.error}
-                    </p>
-                  )}
-                </details>
-              ))}
-              <CompanySourcesScreen sourcesOnly />
-            </section>
-          )}
         </div>
         {selected && layout.split && (
           <>
