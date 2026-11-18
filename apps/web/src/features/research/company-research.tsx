@@ -348,10 +348,12 @@ export function CompanyResearch({
               <span className="ai-stream-cursor inline-block h-4 w-0.5 bg-brand" />
             </div>
           ) : (
-            <div className="py-10">
-              <BookOpen className="mb-4 size-6 text-muted-foreground" />
-              <h3 className="text-base font-semibold">No report yet</h3>
-              <p className="mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
+            <div className="flex flex-col items-center px-5 py-16 text-center">
+              <div className="mb-5 grid size-16 place-items-center rounded-lg bg-secondary">
+                <BookOpen className="size-7 text-brand" />
+              </div>
+              <h3 className="text-lg font-semibold">No report yet</h3>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
                 Run research for a deeper look at {owner.name}’s products,
                 open-source work, and hiring, with citations to public evidence.
               </p>

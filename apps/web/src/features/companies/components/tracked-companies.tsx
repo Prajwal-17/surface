@@ -14,6 +14,13 @@ import { Button } from "@/components/ui/button";
 import { CompanyMark } from "@/components/ui/company-mark";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -36,14 +43,12 @@ const statuses: Record<CompanyTrackingStatus, string> = {
   contacted: "Contacted",
   ignored: "Ignored",
 };
-const selectClass =
-  "h-8 min-w-0 rounded-md border border-input bg-background px-2 text-sm";
 
 function CompanyStatusOptions() {
   return companyTrackingStatusSchema.options.map((status) => (
-    <option key={status} value={status}>
+    <SelectItem key={status} value={status}>
       {statuses[status]}
-    </option>
+    </SelectItem>
   ));
 }
 
@@ -230,49 +235,56 @@ export function TrackedCompanies() {
               onChange={(event) => patch({ q: event.target.value })}
             />
           </div>
-          <select
+          <Select
             value={status}
-            aria-label="Filter companies by status"
-            className={selectClass}
-            onChange={(event) =>
-              patch({
-                status:
-                  event.target.value === "all" ? null : event.target.value,
-              })
+            onValueChange={(value) =>
+              patch({ status: value === "all" ? null : value })
             }
           >
-            <option value="all">All statuses</option>
-            <CompanyStatusOptions />
-          </select>
-          <select
+            <SelectTrigger
+              aria-label="Filter companies by status"
+              className="min-w-32"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <CompanyStatusOptions />
+            </SelectContent>
+          </Select>
+          <Select
             value={archive}
-            aria-label="Filter companies by archive state"
-            className={selectClass}
-            onChange={(event) =>
-              patch({
-                archive:
-                  event.target.value === "active" ? null : event.target.value,
-              })
+            onValueChange={(value) =>
+              patch({ archive: value === "active" ? null : value })
             }
           >
-            <option value="active">Active</option>
-            <option value="archived">Archived</option>
-            <option value="all">All companies</option>
-          </select>
-          <select
+            <SelectTrigger
+              aria-label="Filter companies by archive state"
+              className="min-w-32"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+              <SelectItem value="all">All companies</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
             value={sort}
-            aria-label="Sort companies"
-            className={selectClass}
-            onChange={(event) =>
-              patch({
-                sort: event.target.value === "name" ? null : event.target.value,
-              })
+            onValueChange={(value) =>
+              patch({ sort: value === "name" ? null : value })
             }
           >
-            <option value="name">Company name</option>
-            <option value="recent">Recently updated</option>
-            <option value="opening">Newest opening</option>
-          </select>
+            <SelectTrigger aria-label="Sort companies" className="min-w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Company name</SelectItem>
+              <SelectItem value="recent">Recently updated</SelectItem>
+              <SelectItem value="opening">Newest opening</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         {list.isPending && <LoadingRows count={4} label="Loading companies" />}
         {list.error && (
@@ -316,21 +328,27 @@ export function TrackedCompanies() {
                       {company.name}
                     </span>
                   </button>
-                  <select
-                    aria-label={`Status for ${company.name}`}
-                    className={selectClass}
+                  <Select
                     value={company.trackingStatus}
-                    disabled={mutation.isPending}
-                    onChange={(event) =>
+                    onValueChange={(value) =>
                       mutation.mutate({
                         path: `/api/tracked-companies/${encodeURIComponent(company.id)}`,
                         method: "PATCH",
-                        body: { trackingStatus: event.target.value },
+                        body: { trackingStatus: value },
                       })
                     }
                   >
-                    <CompanyStatusOptions />
-                  </select>
+                    <SelectTrigger
+                      aria-label={`Status for ${company.name}`}
+                      disabled={mutation.isPending}
+                      className="min-w-0"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <CompanyStatusOptions />
+                    </SelectContent>
+                  </Select>
                   <span className="text-xs text-muted-foreground max-sm:hidden">
                     {company.openRoles} open · {company.applicationCount}{" "}
                     tracked
