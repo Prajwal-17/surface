@@ -25,10 +25,14 @@
   "devDependencies": {
     "@surface/typescript-config": "workspace:*",
     "@types/node": "26.3.0",
+    "@types/nodemailer": "^8.0.2",
     "electron": "latest",
     "electron-builder": "latest",
     "esbuild": "latest",
     "typescript": "npm:typescript@6.0.2"
   },
-  "homepage": "https://github.com/Prajwal-17/surface"
+  "homepage": "https://github.com/Prajwal-17/surface",
+  "dependencies": {
+    "nodemailer": "^10.6.0"
+  }
 }

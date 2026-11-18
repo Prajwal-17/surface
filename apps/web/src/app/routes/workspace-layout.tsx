@@ -7,9 +7,10 @@ export function WorkspaceLayout() {
     pathname === "/" ||
     pathname === "/applications" ||
     pathname === "/companies";
+  const isWriting = pathname === "/writing";
 
   return (
-    <AppShell fullBleed={fullBleed}>
+    <AppShell fullBleed={fullBleed || isWriting}>
       <Outlet />
     </AppShell>
   );

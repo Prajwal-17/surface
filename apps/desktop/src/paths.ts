@@ -6,6 +6,7 @@ export interface DesktopPaths {
   data: string;
   database: string;
   logs: string;
+  settings: string;
   web: string;
   backendEntry: string;
 }
@@ -20,6 +21,7 @@ export function desktopPaths(): DesktopPaths {
     data: join(userData, "data"),
     database: join(userData, "surface.sqlite3"),
     logs: join(userData, "logs"),
+    settings: join(userData, "settings.json"),
     web: join(resources, "web"),
     backendEntry: join(resources, "backend", "index.mjs"),
   };

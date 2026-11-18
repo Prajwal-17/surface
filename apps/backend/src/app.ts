@@ -12,6 +12,8 @@ import { requestLogger } from "./shared/http/request-logger";
 import { authRoutes } from "./modules/auth";
 import { readSession } from "./modules/auth/session";
 import { trackerRoutes } from "./modules/tracker/routes";
+import { desktopRoutes } from "./modules/desktop/routes";
+import { writingRoutes } from "./modules/writing";
 
 export const app = new Hono();
 
@@ -71,7 +73,8 @@ app.get("/api/health", async (context) => {
 app.route("/api/auth", authRoutes);
 app.route("/api/profile", profileRoutes);
 app.route("/api/tracker", trackerRoutes);
-
+app.route("/api/desktop", desktopRoutes);
+app.route("/api/writing", writingRoutes);
 
 if (env.WEB_DIST_DIR && existsSync(resolve(env.WEB_DIST_DIR, "index.html"))) {
   const root = resolve(env.WEB_DIST_DIR);

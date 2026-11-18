@@ -11,9 +11,11 @@
     "lint": "oxlint --config ../../.oxlintrc.json ."
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.93",
     "@hono/node-server": "^2.1.8",
     "@hono/zod-validator": "latest",
     "@surface/contracts": "workspace:*",
+    "ai": "^7.0.177",
     "drizzle-orm": "latest",
     "hono": "^4.13.5",
     "unpdf": "1.8.1",

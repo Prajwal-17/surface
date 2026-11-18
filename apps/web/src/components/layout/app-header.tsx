@@ -9,6 +9,7 @@ import {
   Settings2,
   PanelLeft,
   LogOut,
+  PenLine,
 } from "lucide-react";
 import {
   Sidebar,
@@ -31,6 +32,7 @@ import { useDesktopChannel } from "@/lib/desktop-channel";
 const destinations = [
   { href: "/applications", label: "Applications", icon: ClipboardList },
   { href: "/companies", label: "Companies", icon: Building2 },
+  { href: "/writing", label: "Writing assistant", icon: PenLine },
 ] as const;
 const referenceDestinations = [
   { href: "/settings", label: "Settings", icon: Settings2 },
@@ -69,7 +71,7 @@ export function AppHeader() {
     ...destinations,
     ...referenceDestinations,
     profileDestination,
-  ].find((d) => d.href === pathname);
+  ].find((d) => pathname === d.href || pathname.startsWith(`${d.href}/`));
   return (
     <>
       <a
@@ -158,7 +160,7 @@ export function AppHeader() {
                 tooltip="My profile"
               >
                 <Link
-                  to="/profile"
+                  to="/writing/profile"
                   onClick={() => setOpenMobile(false)}
                   aria-label="View your profile"
                   aria-current={pathname === "/profile" ? "page" : undefined}

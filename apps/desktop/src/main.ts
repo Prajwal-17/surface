@@ -12,10 +12,21 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { desktopIdentity } from "./channel";
+import {
+  GmailDeliveryUncertainError,
+  GmailConnection,
+  type GmailDraft,
+  type ScheduledGmailMessage,
+} from "./gmail";
 import { createLogSink, type LogSink } from "./logger";
 import { desktopPaths, type DesktopPaths } from "./paths";
 import { getFreePort } from "./ports";
 import { startAndWait, type ManagedProcess } from "./processes";
+import {
+  SettingsStore,
+  type DesktopSettingsInput,
+  type DesktopSettingsSnapshot,
+} from "./settings";
 
 const identity = desktopIdentity();
 
@@ -56,6 +67,7 @@ let mainLog: LogSink | null = null;
 let paths: DesktopPaths | null = null;
 let backendUrl = "";
 let desktopToken = "";
+let stopScheduleWorker: (() => void) | null = null;
 let shuttingDown = false;
 let shutdownComplete = false;
 let running = false;
@@ -77,6 +89,11 @@ async function bootstrap(): Promise<void> {
   startupLog.write(`userData=${paths.root}`);
   startupLog.write(`sqlite=${paths.database}`);
   try {
+    const settings = await SettingsStore.create(paths.settings);
+    const selected = settings.runtime();
+    startupLog.write(
+      `settings loaded secretStorage=${selected.secretStorage} aiConfigured=${Boolean(selected.aiApiKey)}`,
+    );
     const backendPort =
       Number(process.env.SURFACE_DESKTOP_BACKEND_PORT) || (await getFreePort());
     desktopToken = randomBytes(32).toString("base64url");
@@ -97,8 +114,14 @@ async function bootstrap(): Promise<void> {
           SQLITE_DATABASE_FILE: paths.database,
           DATA_DIR: paths.data,
           WEB_DIST_DIR: paths.web,
+          AI_PROVIDER: selected.aiProvider,
+          AI_BASE_URL: selected.aiBaseUrl,
+          AI_MODEL: selected.aiModel,
+          AI_REASONING: selected.aiReasoning,
+          OPENCODE_GO_API_KEY: selected.aiApiKey,
           LOCATIONS_DATA_FILE: join("..", "data", "locations.json.gz"),
           SURFACE_DESKTOP_TOKEN: desktopToken,
+          SURFACE_SECRET_STORAGE: selected.secretStorage,
         },
         onUnexpectedExit: (name, code) => {
           if (running) void childFailed(name, code);
@@ -109,7 +132,12 @@ async function bootstrap(): Promise<void> {
     );
 
     await setDesktopCookie();
-    registerIpc();
+    const gmail = new GmailConnection(
+      paths.root,
+      identity.channel === "development",
+    );
+    registerIpc(settings, gmail);
+    stopScheduleWorker = startScheduleWorker(gmail);
     createWindow();
     running = true;
     startupLog.write(
@@ -262,7 +290,6 @@ function createWindow(): void {
   void mainWindow.loadURL(`${rendererUrl}/`).catch(async (error) => {
     await fatal(`${identity.productName} could not open its interface`, error);
   });
-
 }
 
 async function setDesktopCookie(): Promise<void> {
@@ -282,7 +309,76 @@ async function setDesktopCookie(): Promise<void> {
   session.defaultSession.setPermissionCheckHandler(() => false);
 }
 
-function registerIpc(): void {
+function registerIpc(settings: SettingsStore, gmail: GmailConnection): void {
+  ipcMain.handle("desktop:gmail:status", (event) => {
+    assertTrustedSender(event);
+    return gmail.status();
+  });
+  ipcMain.handle("desktop:gmail:connect", (event) => {
+    assertTrustedSender(event);
+    return gmail.connect();
+  });
+  ipcMain.handle("desktop:gmail:connect-smtp", (event, input: unknown) => {
+    assertTrustedSender(event);
+    if (!input || typeof input !== "object") {
+      throw new Error("Enter your Gmail address and app password.");
+    }
+    const values = input as { email?: unknown; appPassword?: unknown };
+    if (
+      typeof values.email !== "string" ||
+      values.email.length > 254 ||
+      typeof values.appPassword !== "string" ||
+      values.appPassword.length > 64
+    ) {
+      throw new Error("Enter your Gmail address and app password.");
+    }
+    return gmail.connectSmtp(values.email, values.appPassword);
+  });
+  ipcMain.handle("desktop:gmail:disconnect", (event) => {
+    assertTrustedSender(event);
+    return gmail.disconnect();
+  });
+  ipcMain.handle(
+    "desktop:gmail:save-draft",
+    (event, input: unknown, confirmedEmail: unknown) => {
+      assertTrustedSender(event);
+      if (
+        !input ||
+        typeof input !== "object" ||
+        typeof confirmedEmail !== "string"
+      ) {
+        throw new Error("Review the recipient and message before saving.");
+      }
+      const draft = input as Partial<GmailDraft>;
+      if (
+        typeof draft.id !== "string" ||
+        typeof draft.to !== "string" ||
+        typeof draft.subject !== "string" ||
+        typeof draft.body !== "string" ||
+        typeof draft.updatedAt !== "string" ||
+        draft.id.length > 128 ||
+        draft.to.length > 254 ||
+        draft.subject.length > 500 ||
+        draft.body.length > 30000
+      ) {
+        throw new Error("Review the recipient and message before saving.");
+      }
+      return gmail.save(draft as GmailDraft, confirmedEmail, false, false);
+    },
+  );
+  ipcMain.handle("desktop:settings:get", (event) => {
+    assertTrustedSender(event);
+    return settings.snapshot();
+  });
+  ipcMain.handle(
+    "desktop:settings:save",
+    async (event, input: DesktopSettingsInput) => {
+      assertTrustedSender(event);
+      const snapshot = await settings.save(input);
+      const applied = await applyRuntimeSettings(settings.runtime());
+      return { settings: snapshot, applied };
+    },
+  );
   ipcMain.handle("desktop:app:info", (event) => {
     assertTrustedSender(event);
     return {
@@ -315,6 +411,75 @@ function registerIpc(): void {
     assertTrustedSender(event);
     mainWindow?.close();
   });
+}
+
+function startScheduleWorker(gmail: GmailConnection): () => void {
+  let stopped = false;
+  let polling = false;
+  const poll = async () => {
+    if (stopped || polling || !backendUrl || !desktopToken) return;
+    polling = true;
+    try {
+      const status = await gmail.status();
+      if (!status.email) return;
+      const response = await fetch(`${backendUrl}/api/writing/schedule/due`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${desktopToken}` },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) {
+        throw new Error(`Scheduler returned HTTP ${response.status}.`);
+      }
+      const jobs = (await response.json()) as ScheduledGmailMessage[];
+      for (const job of jobs) {
+        let result:
+          | { status: "sent" }
+          | { status: "failed"; error: string }
+          | { status: "uncertain"; error: string };
+        try {
+          await gmail.sendScheduled(job, status.email);
+          result = { status: "sent" };
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Gmail could not send this scheduled email.";
+          result =
+            error instanceof GmailDeliveryUncertainError
+              ? { status: "uncertain", error: message }
+              : { status: "failed", error: message };
+        }
+        const recorded = await fetch(
+          `${backendUrl}/api/writing/schedule/${encodeURIComponent(job.id)}/result`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${desktopToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(result),
+            signal: AbortSignal.timeout(10_000),
+          },
+        );
+        if (!recorded.ok) {
+          throw new Error(`Scheduler result returned HTTP ${recorded.status}.`);
+        }
+      }
+    } catch (error) {
+      mainLog?.write(
+        `[${new Date().toISOString()}] scheduled email worker: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      polling = false;
+    }
+  };
+  const timer = setInterval(() => void poll(), 15_000);
+  timer.unref();
+  void poll();
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
 }
 
 function windowState(): {
@@ -363,6 +528,44 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
   }
 }
 
+async function applyRuntimeSettings(
+  settings: DesktopSettingsSnapshot & { aiApiKey: string },
+): Promise<{ ok: boolean; error: string | null }> {
+  try {
+    const response = await fetch(`${backendUrl}/api/desktop/config`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "x-surface-desktop-token": desktopToken,
+      },
+      body: JSON.stringify({
+        aiProvider: settings.aiProvider,
+        aiBaseUrl: settings.aiBaseUrl,
+        aiApiKey: settings.aiApiKey,
+        aiModel: settings.aiModel,
+        aiReasoning: settings.aiReasoning,
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (response.ok) return { ok: true, error: null };
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    return {
+      ok: false,
+      error: body.error ?? `Backend returned HTTP ${response.status}.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "The running backend did not accept the settings.",
+    };
+  }
+}
+
 async function childFailed(name: string, code: number | null): Promise<void> {
   if (shuttingDown) return;
   const message = `${name} stopped unexpectedly (exit ${code ?? "unknown"}). See ${paths?.logs ?? "the log directory"}.`;
@@ -380,10 +583,6 @@ async function fatal(title: string, error: unknown): Promise<void> {
   await shutdown(1, true);
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((settle) => setTimeout(settle, ms));
-}
-
 async function shutdown(exitCode: number, force = false): Promise<void> {
   if (shuttingDown) {
     if (force) app.exit(exitCode);
@@ -391,6 +590,8 @@ async function shutdown(exitCode: number, force = false): Promise<void> {
   }
   shuttingDown = true;
   running = false;
+  stopScheduleWorker?.();
+  stopScheduleWorker = null;
   mainLog?.write(`[${new Date().toISOString()}] shutdown requested`);
   try {
     await backend?.stop();

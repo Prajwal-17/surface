@@ -1,6 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import { SUPPORTED_AI_PROVIDERS } from "../shared/ai/constants";
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 const workspaceDirectory = resolve(currentDirectory, "../../../..");
@@ -30,7 +31,18 @@ const envSchema = z.object({
   WEB_DIST_DIR: z.string().optional(),
   /** Set by the Electron launcher; protects local APIs for the desktop session. */
   SURFACE_DESKTOP_TOKEN: z.string().min(32).optional(),
-
+  AI_PROVIDER: z.enum(SUPPORTED_AI_PROVIDERS).default("opencode-go"),
+  AI_BASE_URL: z
+    .string()
+    .url()
+    .default("https://opencode.ai/inference/go/openai/v1"),
+  AI_MODEL: z.string().trim().min(1).default("deepseek-v4.1-flash"),
+  AI_REASONING: z.enum(["default", "low", "medium", "high"]).default("default"),
+  OPENCODE_GO_API_KEY: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => value || undefined),
 });
 
 const parsedEnvironment = envSchema.parse(process.env);

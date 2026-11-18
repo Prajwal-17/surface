@@ -17,6 +17,11 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
     "tracker_applications",
     "job_preferences",
     "profile_revisions",
+    "writing_preferences",
+    "writing_examples",
+    "writing_conversations",
+    "writing_messages",
+    "scheduled_emails",
   ]);
   database.exec("PRAGMA foreign_keys = OFF");
   for (const { name } of database
@@ -53,7 +58,54 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
     CREATE TABLE IF NOT EXISTS profile_revisions (
       revision INTEGER PRIMARY KEY NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS writing_preferences (
+      id TEXT PRIMARY KEY NOT NULL, guide TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS writing_examples (
+      id TEXT PRIMARY KEY NOT NULL, label TEXT NOT NULL, content TEXT NOT NULL,
+      notes TEXT NOT NULL DEFAULT '', sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS writing_conversations (
+      id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, company TEXT NOT NULL DEFAULT '',
+      recipient_name TEXT NOT NULL DEFAULT '', recipient_email TEXT NOT NULL DEFAULT '',
+      role TEXT NOT NULL DEFAULT '', why_now TEXT NOT NULL DEFAULT '', context_link TEXT NOT NULL DEFAULT '',
+      output_type TEXT NOT NULL DEFAULT 'cold-email', draft_subject TEXT NOT NULL DEFAULT '',
+      draft_body TEXT NOT NULL DEFAULT '', draft_updated_at TEXT, model TEXT, archived INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS writing_messages (
+      id TEXT PRIMARY KEY NOT NULL,
+      conversation_id TEXT NOT NULL REFERENCES writing_conversations(id) ON DELETE CASCADE,
+      role TEXT NOT NULL, content TEXT NOT NULL, model TEXT, created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS scheduled_emails (
+      id TEXT PRIMARY KEY NOT NULL,
+      conversation_id TEXT NOT NULL REFERENCES writing_conversations(id) ON DELETE CASCADE,
+      recipient TEXT NOT NULL, subject TEXT NOT NULL, body TEXT NOT NULL,
+      scheduled_at TEXT NOT NULL, timezone TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0,
+      error TEXT, sent_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
   `);
+  const writingConversationColumns = new Set(
+    (
+      database.prepare("PRAGMA table_info(writing_conversations)").all() as {
+        name: string;
+      }[]
+    ).map((column) => column.name),
+  );
+  for (const [name, definition] of [
+    ["draft_subject", "TEXT NOT NULL DEFAULT ''"],
+    ["draft_body", "TEXT NOT NULL DEFAULT ''"],
+    ["draft_updated_at", "TEXT"],
+  ] as const) {
+    if (!writingConversationColumns.has(name)) {
+      database.exec(
+        `ALTER TABLE writing_conversations ADD COLUMN ${name} ${definition}`,
+      );
+    }
+  }
   console.info("Database ready.");
 
   const server = serve({
