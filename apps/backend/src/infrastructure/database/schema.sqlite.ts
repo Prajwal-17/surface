@@ -50,3 +50,5 @@ export {
   sqliteCompanySearchMatches,
   sqliteCompanySignals,
 } from "../../modules/company-discovery/tables";
+
+export { sqliteApplications } from "../../modules/applications/applications.tables";

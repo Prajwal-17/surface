@@ -45,3 +45,5 @@ export {
   companySearchMatches,
   companySignals,
 } from "../../modules/company-discovery/tables";
+
+export { applications } from "../../modules/applications/applications.tables";
