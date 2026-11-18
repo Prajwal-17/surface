@@ -9,7 +9,7 @@ export interface UiPreferences {
 
 export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   version: UI_PREFERENCES_VERSION,
-  sidebarExpanded: true,
+  sidebarExpanded: false,
   readerWidth: null,
 };
 
@@ -31,7 +31,7 @@ export function parseUiPreferences(value: string | null): UiPreferences {
       sidebarExpanded:
         typeof record.sidebarExpanded === "boolean"
           ? record.sidebarExpanded
-          : true,
+          : DEFAULT_UI_PREFERENCES.sidebarExpanded,
       readerWidth:
         typeof record.readerWidth === "number" &&
         Number.isFinite(record.readerWidth) &&

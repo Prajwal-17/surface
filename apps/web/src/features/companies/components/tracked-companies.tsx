@@ -44,6 +44,13 @@ const statuses: Record<CompanyTrackingStatus, string> = {
   ignored: "Ignored",
 };
 
+const trackingTones: Record<CompanyTrackingStatus, string> = {
+  watching: "tone-blue",
+  queued: "tone-muted",
+  contacted: "tone-mint",
+  ignored: "tone-muted",
+};
+
 function CompanyStatusOptions() {
   return companyTrackingStatusSchema.options.map((status) => (
     <SelectItem key={status} value={status}>
@@ -182,6 +189,14 @@ export function TrackedCompanies() {
             className="text-xl font-semibold"
           >
             Companies
+            <span
+              className="ml-2 align-middle font-mono text-xs font-normal tabular-nums text-muted-foreground"
+              aria-live="polite"
+            >
+              {list.isPending
+                ? "…"
+                : `${rows.length.toLocaleString()} compan${rows.length === 1 ? "y" : "ies"}`}
+            </span>
           </h1>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="ghost" size="sm" asChild>
@@ -221,7 +236,7 @@ export function TrackedCompanies() {
             </Dialog>
           </div>
         </header>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="company-filters mt-3">
           <div className="relative min-w-44 flex-1">
             <Search
               className="pointer-events-none absolute left-2 top-2 size-4 text-muted-foreground"
@@ -298,8 +313,8 @@ export function TrackedCompanies() {
         {list.isSuccess && (
           <div className="mt-4 overflow-hidden rounded-md border border-border">
             <div className="grid grid-cols-[minmax(0,1fr)_7rem_10rem_2rem] items-center gap-2 border-b bg-card px-3 py-2 text-xs text-muted-foreground max-sm:hidden">
-              <span>Company</span>
-              <span>Status</span>
+              <span className="pl-9">Company</span>
+              <span className="pl-3">Status</span>
               <span>Activity</span>
               <span className="sr-only">Actions</span>
             </div>
@@ -341,7 +356,7 @@ export function TrackedCompanies() {
                     <SelectTrigger
                       aria-label={`Status for ${company.name}`}
                       disabled={mutation.isPending}
-                      className="min-w-0"
+                      className={`${trackingTones[company.trackingStatus]} min-w-0`}
                     >
                       <SelectValue />
                     </SelectTrigger>
@@ -358,6 +373,7 @@ export function TrackedCompanies() {
                     size="icon"
                     aria-label={`${company.archived ? "Restore" : "Archive"} ${company.name}`}
                     disabled={mutation.isPending}
+                    className={`text-muted-foreground ${company.archived ? "hover:text-brand" : "hover:text-destructive"}`}
                     onClick={() =>
                       mutation.mutate({
                         path: `/api/tracked-companies/${encodeURIComponent(company.id)}`,
@@ -426,32 +442,6 @@ export function TrackedCompanies() {
           )}
           {selected.data && (
             <>
-              <div className="flex flex-wrap items-center gap-1 border-b px-3 py-2">
-                <Button variant="secondary" size="sm" asChild>
-                  <Link
-                    to={`/applications?new=1&company=${encodeURIComponent(selectedId)}`}
-                  >
-                    <Plus /> Add application
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link
-                    to={`/applications?companyId=${encodeURIComponent(selectedId)}`}
-                  >
-                    Open roles <ArrowUpRight />
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link
-                    to={`/companies?company=${encodeURIComponent(selectedId)}&reader=research&expanded=1&queue=all`}
-                  >
-                    Saved research <ArrowUpRight />
-                  </Link>
-                </Button>
-              </div>
-              <div className="px-3 pt-2">
-                <OutreachComposer target="company" id={selectedId} />
-              </div>
               <CompanyReader
                 company={selected.data}
                 onClose={closeReader}
@@ -462,6 +452,36 @@ export function TrackedCompanies() {
                   if (tab === "research")
                     patch({ reader: "research", expanded: "1", queue: "all" });
                 }}
+                actions={
+                  <>
+                    <span className="flex items-center gap-2">
+                      <Button variant="secondary" size="sm" asChild>
+                        <Link
+                          to={`/applications?new=1&company=${encodeURIComponent(selectedId)}`}
+                        >
+                          <Plus /> Add application
+                        </Link>
+                      </Button>
+                      <OutreachComposer target="company" id={selectedId} />
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link
+                          to={`/applications?companyId=${encodeURIComponent(selectedId)}`}
+                        >
+                          Open roles <ArrowUpRight />
+                        </Link>
+                      </Button>
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link
+                          to={`/companies?company=${encodeURIComponent(selectedId)}&reader=research&expanded=1&queue=all`}
+                        >
+                          Saved research <ArrowUpRight />
+                        </Link>
+                      </Button>
+                    </span>
+                  </>
+                }
               />
               {applications.data?.some(
                 (row) => row.companyId === selectedId,

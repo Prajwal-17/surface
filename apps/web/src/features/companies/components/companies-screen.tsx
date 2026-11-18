@@ -464,6 +464,14 @@ function CompanyDiscoveryScreen() {
                     : tab === "watchlist"
                       ? "Companies you’re watching"
                       : "Discover companies"}
+                  <span
+                    className="ml-2 align-middle font-mono text-xs font-normal tabular-nums text-muted-foreground"
+                    aria-live="polite"
+                  >
+                    {companies.data
+                      ? `${companies.data.total.toLocaleString()} compan${companies.data.total === 1 ? "y" : "ies"}`
+                      : "…"}
+                  </span>
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {tab === "watchlist"
@@ -504,7 +512,7 @@ function CompanyDiscoveryScreen() {
                 >
                   <SelectTrigger
                     aria-label="Filter by saved company search"
-                    className="min-w-32 border-border bg-card"
+                    className="min-w-32"
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -528,7 +536,7 @@ function CompanyDiscoveryScreen() {
                 >
                   <SelectTrigger
                     aria-label="Discovery signal"
-                    className="min-w-32 border-border bg-card"
+                    className="min-w-32"
                   >
                     <SelectValue />
                   </SelectTrigger>

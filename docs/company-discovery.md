@@ -131,7 +131,7 @@ Captures and checks are under `/tmp/surface-merged-research-qa/`.
 ## Rollout and verification
 
 Rehearse SQLite upgrades on an isolated copy using the
-[backup and restore instructions](desktop-release-baseline.md).
+[backup and restore instructions](desktop.md#profile-backup-and-restore).
 
 ```sh
 bun run lint
@@ -146,7 +146,7 @@ Backend suites use separate processes and in-memory SQLite databases. Added cove
 deduplication, same-name companies, contact provenance/corrections, timezones/DST,
 paused rules, captured revisions, partial retries, restart recovery, and failed
 asset retention. Browser QA uses the isolated restore, both themes at 1440, 1000,
-and 390 pixels, and real APIs for notes/actions/reminders, searches, overlays,
+and 390 pixels, and real APIs for actions/reminders, searches, overlays,
 keyboard/focus, empty/error/partial states, and archive/restore. Session captures
 and logs are under `/tmp/surface-company-qa/`.
 

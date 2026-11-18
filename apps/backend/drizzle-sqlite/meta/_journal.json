@@ -36,6 +36,13 @@
       "when": 1794984746821,
       "tag": "0004_application_workspace",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794989893778,
+      "tag": "0005_long_stepford_cuckoos",
+      "breakpoints": true
     }
   ]
 }

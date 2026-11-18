@@ -88,7 +88,6 @@ describe("company discovery evidence and rules", () => {
         id: companyId,
         name: label,
         website: "https://legacy-research.example",
-        notes: "Keep my notes",
         watchReason: "Existing shortlist",
         reviewState: "will_apply",
         createdAt: date,
@@ -198,7 +197,6 @@ describe("company discovery evidence and rules", () => {
     });
     expect(withoutReport.items.map((c) => c.id)).toEqual([summaryCompanyId]);
     expect(withoutReport.items[0]!.research.state).toBe("none");
-    expect((await companyDetail(companyId)).notes).toBe("Keep my notes");
     expect(await details(companyId)).toEqual(before);
     const activeId = crypto.randomUUID();
     await db.insert(researchRuns).values({
@@ -334,7 +332,6 @@ describe("persistent company workflow", () => {
     await db
       .update(companies)
       .set({
-        notes: "Personal note",
         reviewState: "will_apply",
         deferredUntil: defer,
       })
@@ -344,7 +341,6 @@ describe("persistent company workflow", () => {
       description: "Changed scraped description",
     });
     const saved = await getCompany(id);
-    expect(saved.notes).toBe("Personal note");
     expect(saved.reviewState).toBe("will_apply");
     expect(saved.deferredUntil).toBe(defer);
     expect(
@@ -482,7 +478,6 @@ describe("persistent company workflow", () => {
       .update(companies)
       .set({
         logoPath: "/api/company-discovery/logos/previous.png",
-        notes: "keep",
       })
       .where(eq(companies.id, company.id));
     await enrichCompany(
@@ -498,7 +493,6 @@ describe("persistent company workflow", () => {
     );
     const saved = await getCompany(company.id);
     expect(saved.logoPath).toBe("/api/company-discovery/logos/previous.png");
-    expect(saved.notes).toBe("keep");
     expect(saved.enrichmentError).toContain("offline");
     expect((await companyDetail(company.id)).contacts).toHaveLength(1);
   });

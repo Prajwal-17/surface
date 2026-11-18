@@ -38,16 +38,14 @@ Environment variables:
 - `SQLITE_DATABASE_FILE` — SQLite path, defaults to `surface.sqlite3` inside `DATA_DIR`
 - `SQLITE_MIGRATIONS_DIR` — SQLite migration folder; the desktop launcher points at the packaged `drizzle-sqlite/`
 - `DATA_DIR` — filesystem snapshots and signing key; defaults to `data/` in production, `data/development/` in development
-- `AUTH_EMAIL` — optional allowed login email; otherwise the saved profile email is used
 - `AUTH_SECRET` — optional session signing key; when omitted, a private key is saved in `DATA_DIR`
 - `AUTH_COOKIE_SECURE` — set to `true` when serving over HTTPS
 - `SOURCE_TIMEOUT_MS` — timeout per upstream feed, defaults to `12000`
 
 `bun run dev` explicitly starts with `APP_ENV=development`; `bun run start` uses
 `APP_ENV=production`. This keeps local development records, backups, snapshots and
-session keys in separate directories by default. In development, any valid email is
-accepted only when no `AUTH_EMAIL` or profile email is configured. Production
-requires one of those owner email values before it can issue a login session.
+session keys in separate directories by default. Any valid email opens the
+workspace; there is no owner-email allowlist.
 
 Routes:
 

@@ -186,7 +186,7 @@ export function ApplicationsScreen() {
               patch({ status: value === "all" ? null : value })
             }
           >
-            <SelectTrigger aria-label="Filter by status" className="min-w-32">
+            <SelectTrigger aria-label="Filter by status" className="w-auto min-w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -202,7 +202,7 @@ export function ApplicationsScreen() {
           >
             <SelectTrigger
               aria-label="Filter by company"
-              className="max-w-40 min-w-32"
+              className="w-auto max-w-40 min-w-32"
             >
               <SelectValue />
             </SelectTrigger>
@@ -228,7 +228,7 @@ export function ApplicationsScreen() {
           >
             <SelectTrigger
               aria-label="Filter by archive state"
-              className="min-w-32"
+              className="w-auto min-w-32"
             >
               <SelectValue />
             </SelectTrigger>
@@ -244,7 +244,7 @@ export function ApplicationsScreen() {
               patch({ sort: value === "recent" ? null : value })
             }
           >
-            <SelectTrigger aria-label="Sort applications" className="min-w-32">
+            <SelectTrigger aria-label="Sort applications" className="w-auto min-w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

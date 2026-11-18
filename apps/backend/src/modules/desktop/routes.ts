@@ -13,6 +13,7 @@ export const desktopRoutes = new Hono();
 const configSchema = z
   .object({
     searxngUrl: z.string().url().max(2048).optional(),
+    crawlerUrl: z.string().url().max(2048).optional(),
     aiProvider: z.string().trim().min(1).max(64).optional(),
     aiBaseUrl: z.string().url().max(2048).optional(),
     aiApiKey: z.string().max(4096).optional(),
@@ -50,6 +51,7 @@ desktopRoutes.put("/config", async (context) => {
   try {
     updateRuntimeSettings({
       searxngBaseUrl: parsed.data.searxngUrl,
+      crawlerBaseUrl: parsed.data.crawlerUrl,
       provider: parsed.data.aiProvider,
       baseUrl: parsed.data.aiBaseUrl,
       apiKey: parsed.data.aiApiKey,
@@ -70,13 +72,13 @@ desktopRoutes.put("/config", async (context) => {
 desktopRoutes.get("/diagnostics", async (context) => {
   const settings = getRuntimeSettings();
   const [crawler, searxng, ai] = await Promise.all([
-    process.env.SURFACE_CRAWLER_DISABLED === "1"
-      ? {
+    settings.crawlerEnabled
+      ? probe(`${settings.crawlerBaseUrl.replace(/\/$/, "")}/health`)
+      : {
           ok: false,
           status: null,
           error: "Browser research is disabled for this launch.",
-        }
-      : probe(`${env.CRAWLER_BASE_URL.replace(/\/$/, "")}/health`),
+        },
     probeSearxng(settings.searxngBaseUrl),
     probeAi(settings.baseUrl, settings.apiKey),
   ]);
@@ -98,6 +100,7 @@ function statusPayload() {
     databaseFile: env.SQLITE_DATABASE_FILE ?? null,
     dataDir: env.DATA_DIR,
     searxngUrl: settings.searxngBaseUrl,
+    crawlerUrl: settings.crawlerBaseUrl,
     aiProvider: settings.provider,
     aiBaseUrl: settings.baseUrl,
     aiModel: settings.model,

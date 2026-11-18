@@ -129,12 +129,27 @@ development channel:
 `SURFACE_DESKTOP_USER_DATA=/path` overrides the user-data directory for testing
 or an isolated profile. It is not needed for normal use.
 
-### Existing and isolated profiles
+### Profile backup and restore
 
-Surface opens the SQLite file already in the selected profile and applies
-pending migrations. Set `SURFACE_DESKTOP_USER_DATA` to an existing empty
-directory for a fresh profile. See the
-[backup and restore instructions](desktop-release-baseline.md) for rehearsals.
+Quit Surface before taking a backup so no process holds the database or assets.
+Copy the whole profile directory (`~/.config/Surface Dev`):
+
+```sh
+profile="${XDG_CONFIG_HOME:-$HOME/.config}/Surface Dev"
+backup="$(mktemp -d)"
+cp -a "$profile/." "$backup/"
+```
+
+The copy contains `surface.sqlite3` with committed WAL data, `data/`, and
+`settings.json`; keep it private because it includes local settings and
+authentication data. To restore, copy the backup into a new directory and open
+it as the user-data directory:
+
+```sh
+restore="$(mktemp -d)"
+cp -a "$backup/." "$restore/"
+SURFACE_DESKTOP_USER_DATA="$restore" apps/desktop/release/dev/linux-unpacked/surface-dev
+```
 
 ### Settings and credentials
 
@@ -234,6 +249,4 @@ bun run verify:sqlite
 The smoke test used during implementation sets `SURFACE_DESKTOP_SMOKE_TEST=1`.
 The app starts both workers, checks `/api/health`, authenticated `/api/jobs`,
 `/api/research`, `/api/schema` and `/api/desktop/status`, saves a test key
-through the preload/IPC bridge, and exits. See
-[desktop verification](desktop-migration.md) for recorded results and artifact
-paths.
+through the preload/IPC bridge, and exits.

@@ -31,8 +31,8 @@ bun run desktop:smoke:dev
 
 The Ubuntu x64 installers are written to `apps/desktop/release/dev/`. Start
 optional web search with `docker compose -f compose.searxng.yaml up -d`. See
-[desktop setup](docs/desktop.md) and
-[backup and restore](docs/desktop-release-baseline.md).
+[desktop setup](docs/desktop.md), including profile
+[backup and restore](docs/desktop.md#profile-backup-and-restore).
 
 ## Collect and review
 
@@ -85,13 +85,15 @@ Changed descriptions mark old summaries as outdated. Summaries never include you
 ## AI assessment
 
 AI features use the Vercel AI SDK through the user's OpenCode Go subscription.
-Configure `apps/backend/.env`, which [Bun loads automatically](https://bun.sh/docs/runtime/environment-variables):
+In the desktop app, open **Settings → AI** and save your provider model and
+OpenCode Go API key there; the app stores the key with OS encryption and applies
+it to the running backend. Transport, service URLs, and the crawler URL live on
+the same Settings page. No `.env` file is read anywhere; standalone server runs
+receive configuration through process environment variables.
 
-```dotenv
-AI_PROVIDER=opencode-go
-AI_BASE_URL=https://opencode.ai/inference/go/openai/v1
-AI_MODEL=deepseek-v4.1-flash
-OPENCODE_GO_API_KEY=your-key
+```sh
+AI_PROVIDER=opencode-go AI_BASE_URL=https://opencode.ai/inference/go/openai/v1 \
+AI_MODEL=deepseek-v4.1-flash OPENCODE_GO_API_KEY=your-key bun --cwd apps/backend start
 ```
 
 `OMNIROUTE_*` variables are no longer used. If they remain set, Surface warns at
@@ -126,22 +128,22 @@ request; API keys are never sent to the browser.
 ## Docker
 
 ```sh
-# Set these in a root .env first if you want AI assessments.
-# AI_PROVIDER=opencode-go
-# AI_BASE_URL=https://opencode.ai/inference/go/openai/v1
-# AI_MODEL=deepseek-v4.1-flash
-# OPENCODE_GO_API_KEY=your-key
+# Pass AI settings inline when you want AI assessments; no .env file is read.
+AI_PROVIDER=opencode-go \
+AI_BASE_URL=https://opencode.ai/inference/go/openai/v1 \
+AI_MODEL=deepseek-v4.1-flash \
+OPENCODE_GO_API_KEY=your-key \
 bun run prod
 ```
 
 `bun run prod` builds and starts the production Compose services, waits for the
 web app, and opens http://localhost:17000 in the default browser. For a headless
 start, use `docker compose up --build -d`. Set `FIELDWORK_PROD_WEB_PORT` in the
-root `.env` to use a different production port.
+shell to use a different production port.
 
 Compose builds `apps/backend/Dockerfile` and `apps/web/Dockerfile` separately.
 The backend calls the hosted OpenCode Go API directly. Keep
-`OPENCODE_GO_API_KEY` in the root `.env`; it stays server-side.
+`OPENCODE_GO_API_KEY` in the shell environment; it stays server-side.
 
 Compose keeps SQLite, snapshots, and the session signing key in the mounted data
 directory. Set `FIELDWORK_DATA_DIR` to change the mount or
@@ -209,7 +211,7 @@ ODbL 1.0. The derived snapshot, checksum, attribution and license are in
 
 Open **Companies**, select a company, and switch its reader from **Overview** to
 **Research**. Choose **Run research** to generate a deeper cited report. Overview
-keeps company facts, funding, contacts, jobs, notes, decisions, and the optional
+keeps company facts, funding, contacts, jobs, decisions, and the optional
 short AI summary together. **Refresh details** checks public company information
 without generating a research report.
 
@@ -218,7 +220,7 @@ List indicators distinguish saved reports, active research, and unfinished runs.
 **Expand** opens the company across the workspace; **Back to companies** restores
 the list, filters, scroll position, and any Q&A draft.
 
-Reports, source snapshots, questions, answers, and company notes keep their existing
+Reports, source snapshots, questions, and answers keep their existing
 company IDs and storage. No data migration or deletion is needed for this navigation
 change. Old `/research` links redirect into Companies, and `/research/:companyId`
 opens the same saved research in the expanded company reader.
@@ -268,9 +270,10 @@ Playwright when rendering is needed. A local egress proxy validates and pins pub
 addresses for HTTP and browser traffic; standard HTTP(S) ports only. Browser requests
 block downloads, WebSockets, non-read methods, and private-network destinations.
 
-Backend configuration defaults:
+Backend configuration defaults (process environment for non-desktop runs; the
+desktop Settings page supplies service URLs and AI credentials):
 
-```dotenv
+```
 SEARXNG_BASE_URL=http://127.0.0.1:8080
 CRAWLER_BASE_URL=http://127.0.0.1:4100
 RESEARCH_MAX_ROUNDS=30

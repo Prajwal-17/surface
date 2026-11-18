@@ -87,7 +87,6 @@ export type CompanyTrackingStatus = z.infer<typeof companyTrackingStatusSchema>;
 export const companyInputSchema = z.object({
   name: z.string().trim().min(1).max(200),
   website: z.union([publicUrlSchema, z.literal("")]).default(""),
-  notes: text.default(""),
   watchReason: text.default(""),
   archived: z.boolean().default(false),
 });

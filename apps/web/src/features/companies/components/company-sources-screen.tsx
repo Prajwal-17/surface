@@ -400,14 +400,6 @@ export function CompanySourcesScreen({
                             {company.watchReason ||
                               "Add a reason for watching this company."}
                           </p>
-                          {company.notes && (
-                            <p className="max-w-[76ch] whitespace-pre-wrap text-sm leading-relaxed">
-                              <span className="mb-1 block text-xs text-muted-foreground">
-                                Notes
-                              </span>
-                              {company.notes}
-                            </p>
-                          )}
                           <div className="flex items-center gap-2">
                             <Button
                               variant="outline"
@@ -508,7 +500,6 @@ export function CompanySourcesScreen({
                   body: {
                     name: data.get("name"),
                     website: data.get("website"),
-                    notes: data.get("notes"),
                     watchReason: data.get("watchReason"),
                     archived: editing?.archived ?? false,
                   },
@@ -547,14 +538,6 @@ export function CompanySourcesScreen({
                 name="watchReason"
                 defaultValue={editing?.watchReason}
                 placeholder="The product, the team, the problem they're solving…"
-              />
-            </label>
-            <label className="grid gap-2 text-xs font-medium">
-              Notes
-              <Textarea
-                name="notes"
-                defaultValue={editing?.notes}
-                placeholder="Anything you want to remember"
               />
             </label>
             <div className="flex justify-end gap-2 border-t pt-4">

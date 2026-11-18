@@ -211,7 +211,6 @@ export async function confirmCompany(
     id: newId(),
     name: input.name,
     website: input.website,
-    notes: "",
     watchReason: "",
     archived: false,
     createdAt: now(),

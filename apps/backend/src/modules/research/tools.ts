@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { tool } from "ai";
 import { HttpError } from "../../shared/errors/http-error";
-import { env } from "../../config/env";
 import { getRuntimeSettings } from "../../config/runtime";
 import { publicUrlSchema, crawlMetadataSchema } from "@surface/contracts";
 export const searchInput = z
@@ -114,14 +113,15 @@ export async function crawlPage(
   input: z.infer<typeof crawlInput>,
   signal: AbortSignal,
 ) {
-  if (process.env.SURFACE_CRAWLER_DISABLED === "1") {
+  if (!getRuntimeSettings().crawlerEnabled) {
     throw new Error(
       "Browser research is unavailable in this session. Start Surface with browser research enabled to collect new pages.",
     );
   }
   const id = crypto.randomUUID();
+  const crawlerBaseUrl = getRuntimeSettings().crawlerBaseUrl;
   const cancel = () => {
-    void fetch(`${env.CRAWLER_BASE_URL}/crawl/${id}/cancel`, {
+    void fetch(`${crawlerBaseUrl}/crawl/${id}/cancel`, {
       method: "POST",
       signal: AbortSignal.timeout(3000),
     }).catch(() => {});
@@ -129,7 +129,7 @@ export async function crawlPage(
   signal.throwIfAborted();
   signal.addEventListener("abort", cancel, { once: true });
   try {
-    const response = await fetch(`${env.CRAWLER_BASE_URL}/crawl`, {
+    const response = await fetch(`${crawlerBaseUrl}/crawl`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...input, id }),

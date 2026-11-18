@@ -1776,11 +1776,6 @@ body:has(.job-filters-sheet) .environment-tag {
   }
 }
 
-/* A modal owns the top corner; keep the environment label clear of Close. */
-body:has([role="dialog"][data-state="open"]) .environment-tag {
-  top: auto;
-  bottom: 8px;
-}
 [data-sidebar="sidebar"][data-mobile="true"] > button {
   top: 0;
   right: 4px;
@@ -2038,6 +2033,14 @@ body:has([role="dialog"][data-state="open"]) .environment-tag {
   gap: 10px;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.company-reader-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px 12px;
   flex-shrink: 0;
 }
 .company-reader-body {
@@ -2312,8 +2315,4 @@ html[data-desktop="true"]
   .desktop-window-controls {
     transition: none;
   }
-}
-html[data-desktop="true"] .environment-tag {
-  top: 48px;
-  right: 10px;
 }

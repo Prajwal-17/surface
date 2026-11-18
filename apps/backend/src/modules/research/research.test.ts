@@ -5,7 +5,6 @@ import { join } from "node:path";
 import { z } from "zod";
 const directory = mkdtempSync(join(tmpdir(), "surface-research-test-"));
 process.env.APP_ENV = "test";
-process.env.AUTH_EMAIL = "research-test@example.com";
 process.env.SQLITE_DATABASE_FILE = ":memory:";
 process.env.DATA_DIR = directory;
 delete process.env.OMNIROUTE_API_KEY;

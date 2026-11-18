@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import type { CompanyDetail, CompanyContact } from "@surface/contracts";
 import { Button } from "@/components/ui/button";
@@ -20,11 +20,6 @@ import {
 import { CompanySummary } from "./company-summary";
 import { CompanyResearch } from "@/features/research/company-research";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
 import { SiteLink } from "./site-link";
 import {
   Dialog,
@@ -46,7 +41,6 @@ import {
   ChevronDown,
   ArrowLeft,
   Expand,
-  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { displayDate, signalLabel, contactStatus } from "../company-ui";
@@ -119,6 +113,7 @@ export function CompanyReader({
   onReaderTabChange,
   expanded = false,
   onExpand,
+  actions,
 }: {
   company: CompanyDetail;
   onClose: () => void;
@@ -128,6 +123,7 @@ export function CompanyReader({
   onReaderTabChange: (tab: "overview" | "research") => void;
   expanded?: boolean;
   onExpand?: () => void;
+  actions?: ReactNode;
 }) {
   const [later, setLater] = useState(false),
     [contact, setContact] = useState<CompanyContact | "new" | null>(null);
@@ -192,7 +188,7 @@ export function CompanyReader({
               <ArrowUpRight className="size-3" />
             </a>
           ) : (
-            <p className="text-xs text-muted-foreground">Website unconfirmed</p>
+            <span className="status-pill tone-muted">Website unconfirmed</span>
           )}
         </div>
         {readerTab === "research" && !expanded && onExpand && (
@@ -217,6 +213,7 @@ export function CompanyReader({
           </Button>
         )}
       </header>
+      {actions ? <div className="company-reader-actions">{actions}</div> : null}
       <TabsList aria-label="Company reader" className="shrink-0 px-5">
         <TabsTrigger value="overview" className="min-h-11 md:min-h-8">
           Overview
@@ -234,28 +231,6 @@ export function CompanyReader({
           <p className="company-description">
             {c.description ||
               "A company description hasn’t been collected yet."}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={pending || c.enrichmentPending || !c.website}
-                  onClick={() => void perform("/refresh")}
-                >
-                  <RefreshCw />
-                  Refresh details
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                Check public company information. This does not generate an AI
-                report.
-              </TooltipContent>
-            </Tooltip>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Last checked {displayDate(c.enrichedAt)}
           </p>
           {c.deferredUntil && Date.parse(c.deferredUntil) > clock && (
             <div className="mt-4 flex items-center justify-between gap-2 rounded-md border p-3 text-sm">
@@ -446,33 +421,6 @@ export function CompanyReader({
               </p>
             </section>
           )}
-          <section className="company-reader-section">
-            <h3>Your notes</h3>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const d = new FormData(e.currentTarget);
-                void perform("", { notes: d.get("notes") }, "PATCH");
-              }}
-            >
-              <Textarea
-                aria-label="Your company notes"
-                name="notes"
-                rows={4}
-                defaultValue={c.notes}
-                maxLength={20000}
-                placeholder="What interests you? What should you prepare?"
-              />
-              <Button
-                className="mt-2"
-                size="sm"
-                variant="outline"
-                disabled={pending}
-              >
-                Save notes
-              </Button>
-            </form>
-          </section>
           {later && (
             <section ref={reminderSection} className="company-reader-section">
               <h3>When should this return?</h3>

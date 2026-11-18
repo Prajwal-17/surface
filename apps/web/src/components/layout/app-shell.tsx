@@ -11,7 +11,7 @@ export function AppShell({
   return (
     <Suspense>
       <SidebarProvider
-        defaultOpen={true}
+        defaultOpen={false}
         style={{ "--sidebar-width": "208px" } as React.CSSProperties}
         className="h-svh min-h-0 overflow-hidden"
       >

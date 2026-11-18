@@ -3,6 +3,7 @@ export {};
 
 interface DesktopSettingsSnapshot {
   searxngUrl: string;
+  crawlerUrl: string;
   aiProvider: string;
   aiBaseUrl: string;
   aiModel: string;
@@ -14,6 +15,7 @@ interface DesktopSettingsSnapshot {
 
 interface DesktopSettingsInput {
   searxngUrl: string;
+  crawlerUrl: string;
   aiProvider: string;
   aiBaseUrl: string;
   aiModel: string;

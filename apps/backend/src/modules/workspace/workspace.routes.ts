@@ -23,7 +23,6 @@ workspaceRoutes.get("/tracked-companies", async (c) =>
       .select({
         id: companies.id,
         name: companies.name,
-        notes: companies.notes,
         website: companies.website,
         watchReason: companies.watchReason,
         archived: companies.archived,

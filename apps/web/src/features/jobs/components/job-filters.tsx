@@ -46,7 +46,7 @@ export function JobFilters({
       >
         <SelectTrigger
           aria-label="Filter by source"
-          className="w-auto min-w-32 border-border bg-card"
+          className="w-auto min-w-32"
         >
           <SelectValue />
         </SelectTrigger>

@@ -216,7 +216,7 @@ export function CompanyResearch({
       className="flex h-full min-h-0 flex-col"
       aria-label="Company research"
     >
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-3">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-5 py-3">
         <Button
           size="sm"
           disabled={busy}
@@ -248,14 +248,14 @@ export function CompanyResearch({
           />
         </div>
       </div>
-      <TabsList aria-label="Research content" className="shrink-0 gap-4 px-4">
-        <TabsTrigger value="report" className="min-h-11 md:min-h-8">
+      <TabsList aria-label="Research content" className="shrink-0 gap-4 px-5">
+        <TabsTrigger value="report" className="min-h-11 text-xs md:min-h-8">
           Report
         </TabsTrigger>
-        <TabsTrigger value="chat" className="min-h-11 md:min-h-8">
+        <TabsTrigger value="chat" className="min-h-11 text-xs md:min-h-8">
           Company Q&A
         </TabsTrigger>
-        <TabsTrigger value="sources" className="min-h-11 md:min-h-8">
+        <TabsTrigger value="sources" className="min-h-11 text-xs md:min-h-8">
           Sources · {reportSources.length}
         </TabsTrigger>
       </TabsList>

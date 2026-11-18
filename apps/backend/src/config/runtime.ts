@@ -16,10 +16,14 @@ export interface AiRuntimeSettings {
 
 export interface RuntimeSettings extends AiRuntimeSettings {
   searxngBaseUrl: string;
+  crawlerBaseUrl: string;
+  crawlerEnabled: boolean;
 }
 
 const runtime: RuntimeSettings = {
   searxngBaseUrl: env.SEARXNG_BASE_URL,
+  crawlerBaseUrl: env.CRAWLER_BASE_URL,
+  crawlerEnabled: process.env.SURFACE_CRAWLER_DISABLED !== "1",
   provider: env.AI_PROVIDER,
   baseUrl: env.AI_BASE_URL,
   apiKey: env.OPENCODE_GO_API_KEY ?? "",
@@ -53,6 +57,10 @@ export function updateRuntimeSettings(
 ): Readonly<RuntimeSettings> {
   if (input.searxngBaseUrl !== undefined) {
     runtime.searxngBaseUrl = normalizeUrl(input.searxngBaseUrl, "SearXNG URL");
+  }
+  if (input.crawlerBaseUrl !== undefined) {
+    runtime.crawlerBaseUrl = normalizeUrl(input.crawlerBaseUrl, "Crawler URL");
+    runtime.crawlerEnabled = true;
   }
   if (input.provider !== undefined) {
     runtime.provider = normalizeProvider(input.provider);

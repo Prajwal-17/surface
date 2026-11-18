@@ -1,5 +1,4 @@
-// oxlint-disable-next-line import/no-unassigned-import -- load .env before configuration is evaluated
-import "dotenv/config";
+// oxlint-disable-next-line import/no-unassigned-import -- start Surface's HTTP server
 import { startSurfaceServer } from "./server";
 
 const server = await startSurfaceServer();

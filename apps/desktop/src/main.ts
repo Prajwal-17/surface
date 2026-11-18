@@ -104,7 +104,7 @@ async function bootstrap(): Promise<void> {
       `settings loaded secretStorage=${selected.secretStorage} aiConfigured=${Boolean(selected.aiApiKey)}`,
     );
 
-    let crawlerUrl = process.env.CRAWLER_BASE_URL;
+    let crawlerUrl = selected.crawlerUrl || process.env.CRAWLER_BASE_URL;
     const backendPort =
       Number(process.env.SURFACE_DESKTOP_BACKEND_PORT) || (await getFreePort());
     desktopToken = randomBytes(32).toString("base64url");
@@ -598,6 +598,7 @@ async function applyRuntimeSettings(
       },
       body: JSON.stringify({
         searxngUrl: settings.searxngUrl,
+        crawlerUrl: settings.crawlerUrl || undefined,
         aiProvider: settings.aiProvider,
         aiBaseUrl: settings.aiBaseUrl,
         aiApiKey: settings.aiApiKey,

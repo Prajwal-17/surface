@@ -9,7 +9,6 @@ services:
       HOST: 0.0.0.0
       DATA_DIR: /data
       PORT: "4000"
-      AUTH_EMAIL: ${AUTH_EMAIL:-}
       AUTH_SECRET: ${AUTH_SECRET:-}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
       SEARXNG_BASE_URL: http://searxng:8080

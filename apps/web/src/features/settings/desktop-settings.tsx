@@ -14,6 +14,13 @@ import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Diagnostics {
   crawler: { ok: boolean; status: number | null; error: string | null };
@@ -46,6 +53,7 @@ export function DesktopSettings() {
     null,
   );
   const [searxngUrl, setSearxngUrl] = useState("");
+  const [crawlerUrl, setCrawlerUrl] = useState("");
   const [aiProvider, setAiProvider] = useState("opencode-go");
   const [aiBaseUrl, setAiBaseUrl] = useState("");
   const [aiModel, setAiModel] = useState("");
@@ -75,6 +83,7 @@ export function DesktopSettings() {
       .then((value) => {
         setSettings(value);
         setSearxngUrl(value.searxngUrl);
+        setCrawlerUrl(value.crawlerUrl);
         setAiProvider(value.aiProvider);
         setAiBaseUrl(value.aiBaseUrl);
         setAiModel(value.aiModel);
@@ -121,6 +130,7 @@ export function DesktopSettings() {
     try {
       const result = await desktop.saveSettings({
         searxngUrl,
+        crawlerUrl,
         aiProvider,
         aiBaseUrl,
         aiModel,
@@ -190,6 +200,19 @@ export function DesktopSettings() {
               </span>
             </label>
             <label className="space-y-1.5 text-sm">
+              <span className="font-medium">Crawler URL</span>
+              <Input
+                type="url"
+                value={crawlerUrl}
+                onChange={(event) => setCrawlerUrl(event.target.value)}
+                placeholder="http://127.0.0.1:4100"
+              />
+              <span className="block text-xs text-muted-foreground">
+                Optional. Leave blank to use the bundled crawler. Browser
+                research is unavailable without a reachable crawler.
+              </span>
+            </label>
+            <label className="space-y-1.5 text-sm">
               <span className="font-medium">AI provider</span>
               <Input required value={aiProvider} readOnly />
               <span className="block text-xs text-muted-foreground">
@@ -217,28 +240,31 @@ export function DesktopSettings() {
                 Choose a suggested model or enter another OpenCode Go model ID.
               </span>
             </label>
-            <label className="space-y-1.5 text-sm">
+            <div className="space-y-1.5 text-sm">
               <span className="font-medium">Reasoning effort</span>
-              <select
-                className="flex h-9 w-full rounded-md border bg-background px-3 text-sm"
+              <Select
                 value={aiReasoning}
-                onChange={(event) =>
+                onValueChange={(value) =>
                   setAiReasoning(
-                    event.target
-                      .value as DesktopSettingsSnapshot["aiReasoning"],
+                    value as DesktopSettingsSnapshot["aiReasoning"],
                   )
                 }
               >
-                <option value="default">Model default</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
+                <SelectTrigger aria-label="Reasoning effort" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Model default</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
               <span className="block text-xs text-muted-foreground">
                 Effort support depends on the selected model. Use model default
                 if unsupported.
               </span>
-            </label>
+            </div>
             <label className="space-y-1.5 text-sm sm:col-span-2">
               <span className="font-medium">AI base URL</span>
               <Input

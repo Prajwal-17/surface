@@ -8,7 +8,6 @@ export const companies = sqliteTable(
     id: text("id").primaryKey(),
     name: text("name").notNull(),
     website: text("website").notNull().default(""),
-    notes: text("notes").notNull().default(""),
     watchReason: text("watch_reason").notNull().default(""),
     archived: integer("archived", { mode: "boolean" }).notNull().default(false),
     trackingStatus: text("tracking_status")

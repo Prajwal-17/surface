@@ -94,10 +94,10 @@ export function CompanyLinks({
         <TooltipTrigger asChild>
           <Button
             size="sm"
-            variant="ghost"
+            variant="outline"
             disabled={busy}
             onClick={onVerify}
-            className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
+            className="h-7 gap-1.5 px-2 text-xs"
             aria-label={
               checkedAt ? "Recheck company links" : "Verify company links"
             }

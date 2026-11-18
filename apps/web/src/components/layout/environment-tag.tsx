@@ -25,7 +25,7 @@ export function EnvironmentTag() {
 
   return createPortal(
     <span
-      className="environment-tag pointer-events-none fixed right-3 top-3 rounded-md border border-warning/30 bg-background/95 px-1.5 py-0.5 text-caption font-mono font-medium uppercase text-warning"
+      className="environment-tag pointer-events-none fixed left-1/2 top-[11px] hidden -translate-x-1/2 rounded-md border border-warning/30 bg-background/95 px-1.5 py-0.5 text-caption font-mono font-medium uppercase text-warning md:inline-block"
       style={{ zIndex: 2_147_483_647 }}
       title="Development environment with isolated development data"
       aria-label="Development mode"

@@ -15,6 +15,7 @@ export const DEFAULT_AI_MODEL = "deepseek-v4.1-flash";
 
 export interface DesktopSettingsInput {
   searxngUrl: string;
+  crawlerUrl: string;
   aiProvider: string;
   aiBaseUrl: string;
   aiModel: string;
@@ -25,6 +26,7 @@ export interface DesktopSettingsInput {
 
 export interface DesktopSettingsSnapshot {
   searxngUrl: string;
+  crawlerUrl: string;
   aiProvider: string;
   aiBaseUrl: string;
   aiModel: string;
@@ -44,6 +46,7 @@ type StoredKey =
 interface StoredSettingsV2 {
   version: 2;
   searxngUrl: string;
+  crawlerUrl?: string;
   aiProvider: string;
   aiBaseUrl: string;
   aiModel: string;
@@ -91,6 +94,7 @@ export class SettingsStore {
   snapshot(): DesktopSettingsSnapshot {
     return {
       searxngUrl: this.stored.searxngUrl,
+      crawlerUrl: this.stored.crawlerUrl ?? "",
       aiProvider: this.stored.aiProvider,
       aiBaseUrl: this.stored.aiBaseUrl,
       aiModel: this.stored.aiModel,
@@ -110,6 +114,8 @@ export class SettingsStore {
 
   async save(input: DesktopSettingsInput): Promise<DesktopSettingsSnapshot> {
     validateUrl(input.searxngUrl, "SearXNG URL");
+    const crawlerUrl = input.crawlerUrl?.trim() || "";
+    if (crawlerUrl) validateUrl(crawlerUrl, "Crawler URL");
     validateUrl(input.aiBaseUrl, "AI base URL");
     const provider = input.aiProvider.trim().toLowerCase();
     if (!provider) throw new Error("AI provider is required.");
@@ -128,6 +134,7 @@ export class SettingsStore {
       ...this.stored,
       version: 2,
       searxngUrl: normalizeUrl(input.searxngUrl),
+      crawlerUrl: crawlerUrl ? normalizeUrl(crawlerUrl) : "",
       aiProvider: provider,
       aiBaseUrl: normalizeUrl(input.aiBaseUrl),
       aiModel: model,
@@ -188,6 +195,7 @@ function readStored(file: string): StoredSettingsV2 {
       throw new Error("unsupported settings format");
     }
     validateUrl(parsed.searxngUrl, "SearXNG URL");
+    if (parsed.crawlerUrl) validateUrl(parsed.crawlerUrl, "Crawler URL");
     validateUrl(parsed.aiBaseUrl, "AI base URL");
     if (parsed.aiProvider !== DEFAULT_AI_PROVIDER)
       throw new Error(

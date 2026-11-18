@@ -172,7 +172,6 @@ export const companyUpdateSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   website: z.union([publicUrlSchema, z.literal("")]).optional(),
   description: z.string().max(10000).optional(),
-  notes: z.string().max(20000).optional(),
   watchReason: z.string().max(20000).optional(),
   deferredUntil: z.iso.datetime().nullable().optional(),
   archived: z.boolean().optional(),

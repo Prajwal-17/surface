@@ -16,13 +16,6 @@ const envSchema = z.object({
   APP_ENV: z
     .enum(["development", "production", "test"])
     .default(defaultAppEnvironment),
-  AUTH_EMAIL: z.preprocess(
-    (value) =>
-      typeof value === "string"
-        ? value.trim().toLowerCase() || undefined
-        : value,
-    z.email().max(254).optional(),
-  ),
   AUTH_SECRET: z.preprocess(
     (value) => (typeof value === "string" ? value.trim() || undefined : value),
     z.string().min(32).optional(),
