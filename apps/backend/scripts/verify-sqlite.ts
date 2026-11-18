@@ -275,6 +275,16 @@ async function mainCheck(): Promise<void> {
     search: "typescript",
   });
   assert.equal(listed.total, 1);
+  const pendingMatches = await listJobs({
+    page: 1,
+    limit: 10,
+    status: "inbox",
+    relevance: "all",
+    sort: "best-fit",
+    search: "",
+    view: "review",
+  });
+  assert.equal(pendingMatches.jobs[0]?.id, listed.jobs[0]?.id);
   assert.equal(listed.jobs[0]?.company, "Acme Robotics");
   assert.deepEqual(listed.jobs[0]?.countries, ["India"]);
   assert.equal(listed.jobs[0]?.compensation?.min, 2000000);
@@ -729,6 +739,20 @@ async function mainCheck(): Promise<void> {
   check("assessment/observation rows", "foreign-key linked rows inserted");
 
   await setJobStatus(listed.jobs[0]!.id, "inbox");
+  const ranked = await listJobs({
+    page: 1,
+    limit: 10,
+    status: "inbox",
+    relevance: "all",
+    sort: "best-fit",
+    search: "",
+    view: "matches",
+  });
+  assert.equal(ranked.jobs[0]?.id, listed.jobs[0]?.id);
+  check(
+    "match views",
+    "unassessed role appears in Needs review and moves to Best matches after a supported assessment",
+  );
   await db
     .update(researchRuns)
     .set({ state: "completed", completedAt: now })

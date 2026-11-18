@@ -20,8 +20,11 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
   const migrationsFolder = resolveMigrationsFolder();
   await runMigrations();
   console.info(`Database ready (${migrationsFolder}).`);
-  await recoverResearch();
-  const stopExecutor = await startExecutor();
+  const smokeTest =
+    Boolean(env.SURFACE_DESKTOP_TOKEN) &&
+    process.env.SURFACE_DESKTOP_SMOKE_TEST === "1";
+  if (!smokeTest) await recoverResearch();
+  const stopExecutor = smokeTest ? async () => {} : await startExecutor();
 
   const server = serve({
     fetch: app.fetch,

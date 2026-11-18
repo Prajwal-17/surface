@@ -11,7 +11,9 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
+  cpSync,
   createReadStream,
+  mkdirSync,
   existsSync,
   mkdtempSync,
   readFileSync,
@@ -442,12 +444,33 @@ async function smokeTest(channel) {
   );
   const temporaryRoot = mkdtempSync(join(tmpdir(), "surface-desktop-smoke-"));
   const profile = join(temporaryRoot, "profile");
+  const backup = process.env.SURFACE_DESKTOP_SMOKE_BACKUP;
+  if (backup) {
+    if (channel.name !== "development")
+      throw new Error(
+        "Backup smoke rehearsals require the development channel.",
+      );
+    const source = resolve(backup);
+    const database = join(source, "surface.sqlite3");
+    const wal = `${database}-wal`;
+    if (!existsSync(database) || (existsSync(wal) && statSync(wal).size > 0)) {
+      throw new Error(
+        "Point SURFACE_DESKTOP_SMOKE_BACKUP at a closed SQLite backup made with the SQLite backup API.",
+      );
+    }
+    mkdirSync(profile, { mode: 0o700 });
+    cpSync(database, join(profile, "surface.sqlite3"));
+    const assets = join(source, "data");
+    if (existsSync(assets))
+      cpSync(assets, join(profile, "data"), { recursive: true });
+  }
   console.log(`Smoke-testing ${appImage.name} with profile ${profile}`);
 
   const env = {
     ...process.env,
     APPIMAGE_EXTRACT_AND_RUN: "1",
     SURFACE_DESKTOP_SMOKE_TEST: "1",
+    SURFACE_DESKTOP_ENABLE_CRAWLER: "0",
     SURFACE_DESKTOP_USER_DATA: profile,
   };
   // A developer shell opened from another Electron app can inherit its
@@ -522,6 +545,17 @@ async function smokeTest(channel) {
       `AppImage smoke test printed an unreadable SMOKE_READY payload: ${error.message}`,
     );
   }
+  if (existsSync(join(profile, "logs/crawler.log"))) {
+    throw new Error("Smoke test unexpectedly started the optional crawler.");
+  }
+  if (
+    !Number.isInteger(ready?.result?.applications) ||
+    typeof ready?.result?.refreshAvailable !== "boolean"
+  ) {
+    throw new Error(
+      "Smoke test did not reach the Applications or portal refresh APIs.",
+    );
+  }
   const reportedChannel = ready?.result?.appInfo?.channel;
   if (reportedChannel !== channel.name) {
     throw new Error(
@@ -543,7 +577,7 @@ async function smokeTest(channel) {
   }
   console.log(readyLine.trim());
   console.log(
-    `Packaged backend created a fresh SQLite database, reported the ${channel.name} channel, and ${hasEnvironmentTag ? "showed" : "hid"} the development tag.`,
+    `Packaged ${channel.name} backend ${backup ? "upgraded the isolated backup" : "created a fresh SQLite database"} and opened the workspace without a crawler process.`,
   );
   rmSync(temporaryRoot, { recursive: true, force: true });
 }

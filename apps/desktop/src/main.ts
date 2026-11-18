@@ -354,7 +354,7 @@ function createWindow(): void {
               const header = await waitFor(
                 ".workspace-header, .onboarding-top",
               );
-              const [health, auth, status, jobs, research, schema] =
+              const [health, auth, status, jobs, research, schema, applications, refresh] =
                 await Promise.all([
                   fetch("/api/health").then((response) => response.json()),
                   fetch("/api/auth/session").then((response) => response.json()),
@@ -366,6 +366,8 @@ function createWindow(): void {
                     response.json(),
                   ),
                   fetch("/api/schema").then((response) => response.json()),
+                  fetch("/api/applications").then((response) => response.json()),
+                  fetch("/api/refresh").then((response) => response.json()),
                 ]);
               const appInfo = await window.surfaceDesktop.appInfo();
               if (appInfo.channel === "development") {
@@ -396,6 +398,8 @@ function createWindow(): void {
                 status,
                 jobs: { total: jobs.total, collectedTotal: jobs.collectedTotal },
                 researchCompanies: Array.isArray(research) ? research.length : null,
+                applications: Array.isArray(applications) ? applications.length : null,
+                refreshAvailable: refresh.available,
                 tables: Array.isArray(schema.tables) ? schema.tables.length : null,
                 saved,
                 after,

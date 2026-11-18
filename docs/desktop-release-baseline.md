@@ -55,3 +55,48 @@ The full aggregate inventory is in the backup's parent directory as
 Personal résumé and preferences, priority portal validation, outreach examples,
 and the designated Gmail client and test account are pending for release
 verification. Use fixture inputs for implementation.
+
+## Surface Dev rehearsal
+
+The Ubuntu AppImage and Debian package are in `apps/desktop/release/dev/`.
+Launch from the repository root.
+
+```sh
+env -u ELECTRON_RUN_AS_NODE APPIMAGE_EXTRACT_AND_RUN=1 \
+  ./apps/desktop/release/dev/Surface-Dev-0.1.0-x86_64.AppImage
+```
+
+The packaging smoke check covers a fresh profile and an isolated upgrade
+from the baseline. Backup mode copies the closed SQLite database and assets
+into a temporary profile. It uses fixture service settings.
+
+```sh
+bun run desktop:smoke:dev
+SURFACE_DESKTOP_SMOKE_BACKUP="${XDG_STATE_HOME:-$HOME/.local/state}/surface-dev/baseline-wgbp84eg/backup" \
+  bun run desktop:smoke:dev
+```
+
+- The AppImage started in both rehearsals with browser research disabled. The
+  upgrade exposed all 11,404 jobs, five companies with research history, and
+  14 linked applications. The checked SQLite upgrade retained the existing
+  table counts and foreign-key integrity. A deliberately interrupted migration
+  rolled back and succeeded on retry.
+- All six configured portals returned parseable listings in live checks. A
+  fixture refresh confirmed that a failed portal leaves the healthy result
+  usable and that repeated collection creates no duplicate jobs.
+- SQLite fixtures covered assessment transitions into Best matches and
+  single-column, two-column, and low-text PDF extraction. The renderer saved
+  a local outreach draft and reloaded it. The Gmail simulator exercised
+  recovery after a timed-out first save and required account confirmation.
+- The configured OpenCode Go credential reached the model catalog. Live
+  generation for the role, company, and missing-contact examples was rejected
+  by the provider. Personal ranking and draft-quality review require an
+  endpoint that supports Surface's workload and the user's labeled examples.
+  [OpenCode Go client guidance](https://opencode.ai/docs/console/go/#where-can-i-use-it)
+- Live Gmail consent, draft creation and update, and schedule-and-cancel
+  verification require a Google Desktop OAuth client and the designated test
+  Gmail account. Settings opens a native file picker for the Desktop client
+  JSON. Gmail OAuth uses protected OS storage. External clients in Testing
+  can require reconnection after seven days.
+  [Google desktop OAuth](https://developers.google.com/identity/protocols/oauth2/native-app)
+  [Google token expiration](https://developers.google.com/identity/protocols/oauth2#expiration)
