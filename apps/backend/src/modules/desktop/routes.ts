@@ -70,7 +70,13 @@ desktopRoutes.put("/config", async (context) => {
 desktopRoutes.get("/diagnostics", async (context) => {
   const settings = getRuntimeSettings();
   const [crawler, searxng, ai] = await Promise.all([
-    probe(`${env.CRAWLER_BASE_URL.replace(/\/$/, "")}/health`),
+    process.env.SURFACE_CRAWLER_DISABLED === "1"
+      ? {
+          ok: false,
+          status: null,
+          error: "Browser research is disabled for this launch.",
+        }
+      : probe(`${env.CRAWLER_BASE_URL.replace(/\/$/, "")}/health`),
     probeSearxng(settings.searxngBaseUrl),
     probeAi(settings.baseUrl, settings.apiKey),
   ]);

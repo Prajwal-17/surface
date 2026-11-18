@@ -108,35 +108,39 @@ async function bootstrap(): Promise<void> {
       `settings loaded secretStorage=${selected.secretStorage} aiConfigured=${Boolean(selected.aiApiKey)}`,
     );
 
-    const crawlerPort =
-      Number(process.env.SURFACE_DESKTOP_CRAWLER_PORT) || (await getFreePort());
-    let backendPort =
+    let crawlerUrl = process.env.CRAWLER_BASE_URL;
+    const backendPort =
       Number(process.env.SURFACE_DESKTOP_BACKEND_PORT) || (await getFreePort());
-    while (backendPort === crawlerPort) backendPort = await getFreePort();
     desktopToken = randomBytes(32).toString("base64url");
-    const crawlerUrl = `http://127.0.0.1:${crawlerPort}`;
     backendUrl = `http://127.0.0.1:${backendPort}`;
 
-    const crawlerLog = createLogSink(paths.logs, "crawler.log");
-    crawler = await startAndWait(
-      {
-        name: "crawler",
-        entry: paths.crawlerEntry,
-        log: crawlerLog,
-        env: {
-          ...process.env,
-          NODE_ENV: "production",
-          CRAWLER_HOST: "127.0.0.1",
-          CRAWLER_PORT: String(crawlerPort),
-          PLAYWRIGHT_BROWSERS_PATH: paths.playwrightBrowsers,
+    if (process.env.SURFACE_DESKTOP_ENABLE_CRAWLER === "1") {
+      let crawlerPort =
+        Number(process.env.SURFACE_DESKTOP_CRAWLER_PORT) ||
+        (await getFreePort());
+      while (crawlerPort === backendPort) crawlerPort = await getFreePort();
+      crawlerUrl = `http://127.0.0.1:${crawlerPort}`;
+      const crawlerLog = createLogSink(paths.logs, "crawler.log");
+      crawler = await startAndWait(
+        {
+          name: "crawler",
+          entry: paths.crawlerEntry,
+          log: crawlerLog,
+          env: {
+            ...process.env,
+            NODE_ENV: "production",
+            CRAWLER_HOST: "127.0.0.1",
+            CRAWLER_PORT: String(crawlerPort),
+            PLAYWRIGHT_BROWSERS_PATH: paths.playwrightBrowsers,
+          },
+          onUnexpectedExit: (name, code) => {
+            if (running) void childFailed(name, code);
+          },
         },
-        onUnexpectedExit: (name, code) => {
-          if (running) void childFailed(name, code);
-        },
-      },
-      `${crawlerUrl}/health`,
-      45_000,
-    );
+        `${crawlerUrl}/health`,
+        45_000,
+      );
+    }
 
     const backendLog = createLogSink(paths.logs, "backend.log");
     backend = await startAndWait(
@@ -161,6 +165,7 @@ async function bootstrap(): Promise<void> {
             "locations.json.gz",
           ),
           CRAWLER_BASE_URL: crawlerUrl,
+          SURFACE_CRAWLER_DISABLED: crawlerUrl ? "0" : "1",
           SEARXNG_BASE_URL: selected.searxngUrl,
           AI_PROVIDER: selected.aiProvider,
           AI_BASE_URL: selected.aiBaseUrl,

@@ -1,8 +1,20 @@
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  sql,
+} from "drizzle-orm";
 import { db, transaction } from "../../infrastructure/database/client";
 import { lockCoordination } from "../../infrastructure/database/locks";
 import { aiConfigured } from "../../config/runtime";
-import { jobs } from "../jobs/jobs.tables";
+import { jobSources, jobs } from "../jobs/jobs.tables";
+import { roleMatcher } from "../jobs/relevance";
+import { checkEligibility } from "./eligibility";
 import { findProfile } from "../profile/profile.repository";
 import { workItems, runs, runItems } from "../work/work.tables";
 import { assessments } from "./analysis.tables";
@@ -226,6 +238,63 @@ export async function enqueueAnalysis(onlyIds: string[]) {
     return runId ? { runId } : null;
   });
 }
+export async function queueRecentAssessments(now = new Date()) {
+  const settings = await getSettings();
+  if (
+    !settings.enabled ||
+    !settings.configured ||
+    settings.paused ||
+    settings.queued > 12
+  )
+    return;
+  const profile = await findProfile();
+  if (!profile) return;
+
+  const dayAgo = new Date(now.getTime() - 86400000).toISOString();
+  const [recent] = await db
+    .select({ total: count() })
+    .from(workItems)
+    .where(
+      and(eq(workItems.kind, "analysis"), gte(workItems.createdAt, dayAgo)),
+    );
+  const slots = Math.min(8, 32 - (recent?.total ?? 0));
+  if (slots <= 0) return;
+
+  const candidates = await db
+    .select({
+      id: jobs.id,
+      title: jobs.title,
+      workMode: jobs.workMode,
+      countries: jobs.countries,
+      employmentType: jobs.employmentType,
+      compensation: jobs.compensation,
+    })
+    .from(jobs)
+    .where(
+      and(
+        eq(jobs.status, "inbox"),
+        isNotNull(jobs.currentVersionId),
+        isNull(jobs.mergedInto),
+        sql`EXISTS (SELECT 1 FROM ${jobSources} s WHERE s.job_id = jobs.id AND s.availability IN ('observed', 'open', 'active'))`,
+        sql`NOT EXISTS (SELECT 1 FROM ${assessments} a WHERE a.job_id = jobs.id AND a.job_version_id = jobs.current_version_id AND a.profile_revision = ${profile.revision} AND a.format_version = ${assessmentFormatVersion})`,
+        sql`NOT EXISTS (SELECT 1 FROM ${workItems} w WHERE w.identity = 'analysis:' || jobs.id || ':' || jobs.current_version_id || ':' || ${String(profile.revision)} || ':' || ${String(assessmentFormatVersion)})`,
+      ),
+    )
+    .orderBy(desc(jobs.lastSeenAt), desc(jobs.createdAt))
+    .limit(500);
+
+  const targets = roleMatcher(profile);
+  const ids = candidates
+    .filter(
+      (job) =>
+        targets(job) &&
+        checkEligibility(job, profile.context).state !== "conflicts",
+    )
+    .slice(0, slots)
+    .map((job) => job.id);
+  if (ids.length) await enqueueAnalysis(ids);
+}
+
 export async function executeAnalysis(
   item: WorkItem,
   analyzer = requestAssessment,

@@ -2,7 +2,10 @@ import {
   executeCompanyWork,
   enqueueCompanySchedules,
 } from "../company-discovery/service";
-import { executeAnalysis } from "../analysis/analysis.service";
+import {
+  executeAnalysis,
+  queueRecentAssessments,
+} from "../analysis/analysis.service";
 import { getSettings } from "../analysis/settings";
 import { and, eq, lte, sql } from "drizzle-orm";
 import {
@@ -12,7 +15,7 @@ import {
   type Database,
   type Transaction,
 } from "../../infrastructure/database/client";
-import { configuredSources, companies } from "../workspace/workspace.tables";
+import { configuredSources } from "../workspace/workspace.tables";
 import { jobSources } from "../jobs/jobs.tables";
 import { upsertCandidates } from "../jobs/jobs.repository";
 import {
@@ -69,7 +72,7 @@ export async function recoverInterruptedWork() {
     .where(
       and(
         eq(workItems.state, "interrupted"),
-        sql`${workItems.kind} IN ('company-discovery','company-enrichment')`,
+        sql`${workItems.kind} IN ('collection','analysis','company-discovery','company-enrichment')`,
         sql`${workItems.attempts}<3`,
         eq(
           workItems.error,
@@ -91,28 +94,12 @@ export async function executeCollection(
       .limit(1)
   )[0];
   const now = new Date().toISOString();
-  if (
-    !source ||
-    source.paused ||
-    (source.companyId &&
-      (
-        await db
-          .select()
-          .from(companies)
-          .where(
-            and(
-              eq(companies.id, source.companyId),
-              eq(companies.archived, true),
-            ),
-          )
-          .limit(1)
-      )[0])
-  ) {
+  if (!source || source.paused || source.support === "unsupported") {
     await db
       .update(workItems)
       .set({
         state: "interrupted",
-        error: "Source paused, removed, or company archived.",
+        error: "Source paused, removed, or unsupported.",
         completedAt: now,
       })
       .where(eq(workItems.id, item.id));
@@ -256,6 +243,7 @@ export async function startExecutor() {
     )[0];
     return lease?.owner === owner;
   };
+  let nextRankingTick = 0;
   const tick = async () => {
     if (!(await heartbeat())) return;
     if (!acquired) {
@@ -268,6 +256,10 @@ export async function startExecutor() {
         try {
           const settings = await getSettings();
           if (settings.configured && !settings.paused) {
+            if (Date.now() >= nextRankingTick) {
+              nextRankingTick = Date.now() + 60_000;
+              await queueRecentAssessments();
+            }
             const pending = await db
               .select()
               .from(workItems)

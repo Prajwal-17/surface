@@ -3,9 +3,9 @@ import { enqueueAnalysis } from "../analysis/analysis.service";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull, lte, or } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
-import { runs, savedSearches } from "./work.tables";
+import { runs, savedSearches, workItems } from "./work.tables";
 import { configuredSources } from "../workspace/workspace.tables";
 import { enqueueCollection, getRun, syncRuns } from "./work.service";
 import { savedSearchInputSchema } from "@surface/contracts";
@@ -45,6 +45,70 @@ workRoutes.post("/runs/:id/retry", async (c) => {
       failed.map((i) => i.sourceId!).filter(Boolean),
       `Retry · ${run.label}`,
     ),
+    202,
+  );
+});
+workRoutes.get("/refresh", async (c) => {
+  const [[latest], [active], [available]] = await Promise.all([
+    db
+      .select({ date: configuredSources.lastSuccessAt })
+      .from(configuredSources)
+      .where(
+        and(
+          eq(configuredSources.paused, false),
+          eq(configuredSources.support, "supported"),
+          isNotNull(configuredSources.lastSuccessAt),
+        ),
+      )
+      .orderBy(desc(configuredSources.lastSuccessAt))
+      .limit(1),
+    db
+      .select({ id: workItems.id })
+      .from(workItems)
+      .where(
+        and(
+          eq(workItems.kind, "collection"),
+          or(
+            eq(workItems.state, "running"),
+            and(
+              eq(workItems.state, "queued"),
+              lte(workItems.retryAt, new Date().toISOString()),
+            ),
+          ),
+        ),
+      )
+      .limit(1),
+    db
+      .select({ id: configuredSources.id })
+      .from(configuredSources)
+      .where(
+        and(
+          eq(configuredSources.paused, false),
+          eq(configuredSources.support, "supported"),
+        ),
+      )
+      .limit(1),
+  ]);
+  return c.json({
+    lastSuccessAt: latest?.date ?? null,
+    active: Boolean(active),
+    available: Boolean(available),
+  });
+});
+workRoutes.post("/refresh", async (c) => {
+  const sources = await db
+    .select({ id: configuredSources.id })
+    .from(configuredSources)
+    .where(
+      and(
+        eq(configuredSources.paused, false),
+        eq(configuredSources.support, "supported"),
+      ),
+    );
+  if (!sources.length)
+    throw new HttpError(409, "Enable a supported portal in Settings first.");
+  return c.json(
+    await enqueueCollection(sources.map((source) => source.id)),
     202,
   );
 });

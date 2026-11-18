@@ -28,6 +28,7 @@ import {
 } from "@/lib/workspace-keyboard";
 import { HeaderActions } from "@/components/layout/header-actions";
 import { useJobFilterOptions } from "@/features/jobs/hooks/use-job-filter-options";
+import { useRefreshPortals, useRefreshStatus } from "../refresh-query";
 import { describeJobFilter } from "@/features/jobs/filter-options";
 export function DiscoveryScreen({
   filters,
@@ -49,6 +50,8 @@ export function DiscoveryScreen({
     return () => events.close();
   }, []);
   const jobsQuery = useJobs(filters);
+  const refresh = useRefreshPortals();
+  const refreshStatus = useRefreshStatus();
   const filterOptions = useJobFilterOptions();
   const mutation = useTrackJob();
   const selected = useQuery({
@@ -143,7 +146,7 @@ export function DiscoveryScreen({
               value={filters.status}
               count={jobsQuery.data?.total}
               onChange={(status) =>
-                change({ status, page: "1", job: undefined })
+                change({ status, page: "1", job: undefined, view: undefined })
               }
             />
           </div>
@@ -168,6 +171,29 @@ export function DiscoveryScreen({
             </Button>
           </HeaderActions>
         </div>
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
+          <p role="status" className="text-xs text-muted-foreground">
+            {refreshStatus.data?.active
+              ? "Portal refresh in progress"
+              : refreshStatus.data?.lastSuccessAt
+                ? `Last refreshed ${new Date(refreshStatus.data.lastSuccessAt).toLocaleString()}`
+                : refreshStatus.error
+                  ? "Refresh status unavailable"
+                  : "Portals refresh while Surface is running"}
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={
+              !refreshStatus.data?.available ||
+              refreshStatus.data.active ||
+              refresh.isPending
+            }
+            onClick={() => refresh.mutate()}
+          >
+            <RefreshCw /> Refresh now
+          </Button>
+        </div>
         {revision && jobsQuery.data && revision !== jobsQuery.data.revision && (
           <div
             role="status"
@@ -185,6 +211,30 @@ export function DiscoveryScreen({
             >
               Refresh results
             </Button>
+          </div>
+        )}
+        {filters.status === "inbox" && (
+          <div
+            className="flex flex-wrap gap-1 border-b border-border px-4 py-1.5"
+            aria-label="Job views"
+          >
+            {(
+              [
+                ["matches", "Best matches"],
+                ["review", "Needs review"],
+                ["all", "All jobs"],
+              ] as const
+            ).map(([view, label]) => (
+              <Button
+                key={view}
+                size="sm"
+                variant={filters.view === view ? "secondary" : "ghost"}
+                aria-pressed={filters.view === view}
+                onClick={() => change({ view, page: "1" })}
+              >
+                {label}
+              </Button>
+            ))}
           </div>
         )}
         <div className="inbox-toolbar">

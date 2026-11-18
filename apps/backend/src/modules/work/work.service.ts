@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, lte, or, sql } from "drizzle-orm";
 import { db, transaction } from "../../infrastructure/database/client";
 import { lockCoordination } from "../../infrastructure/database/locks";
-import { configuredSources, companies } from "../workspace/workspace.tables";
+import { configuredSources } from "../workspace/workspace.tables";
 import { runs, workItems, runItems, savedSearches } from "./work.tables";
 import { HttpError } from "../../shared/errors/http-error";
 export const minimumFetchHours = (_provider: string) => 6;
@@ -49,6 +49,31 @@ export async function enqueueCollection(
       .where(inArray(configuredSources.id, [...new Set(sourceIds)]));
     if (!sources.length || sources.length !== new Set(sourceIds).size)
       throw new HttpError(400, "Choose valid configured sources.");
+    const activeRuns = await tx
+      .select({ id: runs.id })
+      .from(runs)
+      .where(
+        and(
+          eq(runs.kind, "collection"),
+          eq(runs.label, label),
+          inArray(runs.state, ["queued", "running"]),
+        ),
+      )
+      .orderBy(desc(runs.createdAt));
+    const requested = new Set(sourceIds);
+    for (const active of activeRuns) {
+      const attached = await tx
+        .select({ sourceId: workItems.sourceId })
+        .from(runItems)
+        .innerJoin(workItems, eq(runItems.workId, workItems.id))
+        .where(eq(runItems.runId, active.id));
+      if (
+        attached.length === requested.size &&
+        attached.every((item) => item.sourceId && requested.has(item.sourceId))
+      ) {
+        return { runId: active.id };
+      }
+    }
     await tx.insert(runs).values({
       id,
       kind: "collection",
@@ -57,25 +82,12 @@ export async function enqueueCollection(
       createdAt: now,
     });
     for (const source of sources) {
-      const company = source.companyId
-        ? (
-            await tx
-              .select()
-              .from(companies)
-              .where(eq(companies.id, source.companyId))
-              .limit(1)
-          )[0]
-        : null;
-      if (
-        source.paused ||
-        company?.archived ||
-        source.support === "unsupported"
-      )
+      if (source.paused || source.support === "unsupported")
         throw new HttpError(
           409,
           source.support === "unsupported"
             ? source.reason
-            : "Resume the source and restore its company before collecting.",
+            : "Resume the source before collecting.",
         );
       const identity = `source:${source.id}`;
       let work = (
@@ -148,24 +160,31 @@ export async function getRun(id: string) {
 }
 export async function enqueueDueSchedules(now = new Date()) {
   const stamp = now.toISOString();
-  for (const source of await db
+  const dueSources = await db
     .select()
     .from(configuredSources)
     .where(
       and(
         eq(configuredSources.paused, false),
+        eq(configuredSources.support, "supported"),
         sql`${configuredSources.scheduleHours} > 0`,
         or(
           lte(configuredSources.nextDueAt, stamp),
           sql`${configuredSources.nextDueAt} IS NULL`,
         ),
       ),
-    )) {
+    );
+  if (dueSources.length) {
     try {
-      await enqueueCollection([source.id], `Monitoring · ${source.label}`);
+      await enqueueCollection(
+        dueSources.map((source) => source.id),
+        "Scheduled portal refresh",
+      );
     } catch (error) {
       if (!(error instanceof HttpError)) throw error;
     }
+  }
+  for (const source of dueSources) {
     await db
       .update(configuredSources)
       .set({

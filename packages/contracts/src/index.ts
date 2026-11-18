@@ -131,6 +131,7 @@ export type Job = z.infer<typeof jobSchema>;
 
 export const jobsListQuerySchema = z.object({
   status: jobStatusSchema.default("inbox"),
+  view: z.enum(["matches", "review", "all"]).optional(),
   search: z.string().trim().max(100).optional().default(""),
   relevance: z.enum(["target", "all"]).optional(),
   source: sourceKeySchema.optional(),

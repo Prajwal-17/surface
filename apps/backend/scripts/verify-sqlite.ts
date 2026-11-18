@@ -59,7 +59,7 @@ async function mainCheck(): Promise<void> {
     await import("../src/modules/collection/snapshots.ts");
   const { enqueueCollection, syncRuns } =
     await import("../src/modules/work/work.service.ts");
-  const { recoverInterruptedWork } =
+  const { executeCollection, recoverInterruptedWork } =
     await import("../src/modules/work/executor.ts");
   const { details, library, recoverResearch } =
     await import("../src/modules/research/research.service.ts");
@@ -223,49 +223,48 @@ async function mainCheck(): Promise<void> {
   assert.equal(existsSync(snapshotFile), true);
   check("snapshot persistence", snapshotFile);
 
-  const upsert = await upsertCandidates([
-    {
-      source: "public-page",
-      configuredSourceId: sourceId,
-      companyId,
-      externalId: "job-1",
-      title: "Senior TypeScript Engineer",
-      company: "Acme Robotics",
-      location: "Remote, India",
-      isRemote: true,
-      employmentType: "full-time",
-      description:
-        "Build local-first desktop software with TypeScript, React and SQLite. ".repeat(
-          4,
-        ),
-      descriptionHtml:
-        "<p>Build local-first desktop software with TypeScript.</p>",
-      applyUrl: "https://acme.example/jobs/1",
-      sourceUrl: "https://acme.example/jobs/1",
-      postedAt: "2026-11-01",
-      tags: ["typescript", "sqlite"],
-      workMode: "remote",
-      countries: ["India"],
-      compensation: {
-        currency: "INR",
-        min: 2000000,
-        max: 3000000,
-        period: "year",
-        original: "INR 20-30L per year",
-      },
-      evidence: [
-        {
-          field: "title",
-          value: "Senior TypeScript Engineer",
-          reference: "https://acme.example/jobs/1",
-        },
-      ],
-      method: "verification",
-      incomplete: false,
-      snapshotId: snapshotPayload.snapshotId,
-      resourceId: snapshotPayload.resourceId,
+  const candidate = {
+    source: "public-page",
+    configuredSourceId: sourceId,
+    companyId,
+    externalId: "job-1",
+    title: "Senior TypeScript Engineer",
+    company: "Acme Robotics",
+    location: "Remote, India",
+    isRemote: true,
+    employmentType: "full-time",
+    description:
+      "Build local-first desktop software with TypeScript, React and SQLite. ".repeat(
+        4,
+      ),
+    descriptionHtml:
+      "<p>Build local-first desktop software with TypeScript.</p>",
+    applyUrl: "https://acme.example/jobs/1",
+    sourceUrl: "https://acme.example/jobs/1",
+    postedAt: "2026-11-01",
+    tags: ["typescript", "sqlite"],
+    workMode: "remote",
+    countries: ["India"],
+    compensation: {
+      currency: "INR",
+      min: 2000000,
+      max: 3000000,
+      period: "year",
+      original: "INR 20-30L per year",
     },
-  ]);
+    evidence: [
+      {
+        field: "title",
+        value: "Senior TypeScript Engineer",
+        reference: "https://acme.example/jobs/1",
+      },
+    ],
+    method: "verification",
+    incomplete: false,
+    snapshotId: snapshotPayload.snapshotId,
+    resourceId: snapshotPayload.resourceId,
+  } satisfies import("../src/shared/normalization/job-normalization.ts").JobCandidate;
+  const upsert = await upsertCandidates([candidate]);
   assert.equal(upsert.insertedCount, 1);
   const listed = await listJobs({
     page: 1,
@@ -290,6 +289,10 @@ async function mainCheck(): Promise<void> {
 
   const enqueued = await enqueueCollection([sourceId], "Verification refresh");
   assert.ok(enqueued.runId);
+  assert.equal(
+    (await enqueueCollection([sourceId], "Verification refresh")).runId,
+    enqueued.runId,
+  );
   const runItem = (
     await db
       .select()
@@ -318,12 +321,59 @@ async function mainCheck(): Promise<void> {
         .where(eq(workItems.id, runItem.workId))
         .limit(1)
     )[0]?.state,
-    "interrupted",
+    "queued",
   );
   await syncRuns();
   check(
     "monitoring queue and recovery",
     "collection enqueued, run linked, interrupted work recovered",
+  );
+  const failedSourceId = crypto.randomUUID();
+  await db.insert(configuredSources).values({
+    id: failedSourceId,
+    label: "Fixture failed portal",
+    url: "https://example.test/failed",
+    endpoint: "https://example.test/failed",
+    provider: "public-page",
+    support: "supported",
+    reason: "Fixture",
+    scheduleHours: 0,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const refresh = await enqueueCollection(
+    [sourceId, failedSourceId],
+    "Partial refresh fixture",
+  );
+  const { getRun } = await import("../src/modules/work/work.service.ts");
+  const refreshRun = await getRun(refresh.runId);
+  const [healthy, failed] = [sourceId, failedSourceId].map((id) =>
+    refreshRun.items.find((item) => item.sourceId === id)!,
+  );
+  await db
+    .update(workItems)
+    .set({ attempts: 2 })
+    .where(eq(workItems.id, failed!.id));
+  await Promise.all([
+    executeCollection(healthy!, async () => ({
+      candidates: [candidate],
+      complete: true,
+      error: null,
+    })),
+    executeCollection(failed!, async () => {
+      throw new Error("Fixture portal unavailable");
+    }),
+  ]);
+  const outcomes = await getRun(refresh.runId);
+  assert.equal(outcomes.state, "partial");
+  assert.equal(
+    outcomes.items.find(({ id }) => id === healthy!.id)?.result?.insertedCount,
+    0,
+  );
+  assert.equal((await findJobById(listed.jobs[0]!.id))?.availability, "open");
+  check(
+    "partial refresh",
+    "healthy source preserved its listing and repeated collection created no duplicate",
   );
   await db.insert(executorLease).values({
     id: "backend",

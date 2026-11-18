@@ -16,8 +16,8 @@ export function JobStatusTabs({
         {(
           [
             { value: "inbox", label: "Inbox", icon: Inbox },
-            { value: "saved", label: "Saved", icon: Bookmark },
-            { value: "dismissed", label: "Dismissed", icon: ArchiveX },
+            { value: "saved", label: "Tracked", icon: Bookmark },
+            { value: "dismissed", label: "Ignored", icon: ArchiveX },
           ] as const
         ).map(({ value: status, label, icon: Icon }) => (
           <TabsTrigger key={status} value={status} className="gap-2">

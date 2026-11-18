@@ -591,8 +591,11 @@ export async function listJobs(
     rows
       .filter(
         (row) =>
-          (input.relevance ?? (input.status === "inbox" ? "target" : "all")) ===
-            "all" || matchesRole(row),
+          (input.relevance ??
+            (input.status === "inbox" &&
+            (!input.view || input.view === "matches")
+              ? "target"
+              : "all")) === "all" || matchesRole(row),
       )
       .map((row) => mapJob(row, false, context)),
   );
@@ -603,7 +606,20 @@ export async function listJobs(
       (!input.assessment || job.assessmentState === input.assessment) &&
       (!input.availability || job.availability === input.availability),
   );
-  if (input.sort === "best-fit") {
+  const strongMatch = (job: Job) =>
+    job.eligibility.state === "meets" &&
+    job.availability === "open" &&
+    job.assessmentState === "current" &&
+    (job.assessment?.output.score ?? 0) >= 75;
+  if (input.view === "matches") mapped = mapped.filter(strongMatch);
+  if (input.view === "review")
+    mapped = mapped.filter(
+      (job) =>
+        job.availability !== "closed" &&
+        job.eligibility.state !== "conflicts" &&
+        !strongMatch(job),
+    );
+  if (input.sort === "best-fit" || input.view === "matches") {
     const priority = (job: Job) =>
       job.eligibility.state === "conflicts"
         ? 4

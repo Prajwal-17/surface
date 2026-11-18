@@ -149,15 +149,16 @@ export function JobCard({
         )}
       </div>
       <div className="job-assessment">
-        <span className={`status-pill ${tone}`}>
-          {score !== null && (
-            <span className="font-mono tabular-nums">
-              {score}
-              <span className="font-sans font-normal">/100</span>
+        <span className={`status-pill ${tone}`}>{label}</span>
+        {job.assessmentState === "current" &&
+          job.assessment?.output.strengths[0] && (
+            <span
+              className="max-w-full truncate text-caption text-muted-foreground"
+              title={job.assessment.output.strengths[0].text}
+            >
+              {job.assessment.output.strengths[0].text}
             </span>
           )}
-          {label}
-        </span>
         <span
           className={`job-eligibility ${job.eligibility.state === "conflicts" ? "text-destructive" : job.eligibility.state === "meets" ? "text-success" : "text-muted-foreground"}`}
           title={job.eligibility.reasons.join(" · ")}

@@ -114,6 +114,11 @@ export async function crawlPage(
   input: z.infer<typeof crawlInput>,
   signal: AbortSignal,
 ) {
+  if (process.env.SURFACE_CRAWLER_DISABLED === "1") {
+    throw new Error(
+      "Browser research is unavailable in this session. Start Surface with browser research enabled to collect new pages.",
+    );
+  }
   const id = crypto.randomUUID();
   const cancel = () => {
     void fetch(`${env.CRAWLER_BASE_URL}/crawl/${id}/cancel`, {
