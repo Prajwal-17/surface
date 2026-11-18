@@ -77,6 +77,13 @@ export const profileSchema = profileInputSchema.extend({
   updatedAt: z.string(),
 });
 export type Profile = z.infer<typeof profileSchema>;
+export const companyTrackingStatusSchema = z.enum([
+  "watching",
+  "queued",
+  "contacted",
+  "ignored",
+]);
+export type CompanyTrackingStatus = z.infer<typeof companyTrackingStatusSchema>;
 export const companyInputSchema = z.object({
   name: z.string().trim().min(1).max(200),
   website: z.union([publicUrlSchema, z.literal("")]).default(""),
@@ -90,6 +97,14 @@ export const companySchema = companyInputSchema.extend({
   updatedAt: z.string(),
 });
 export type Company = z.infer<typeof companySchema>;
+export const trackedCompanySchema = companySchema.extend({
+  trackingStatus: companyTrackingStatusSchema,
+  logoPath: z.string().nullable(),
+  openRoles: z.number(),
+  applicationCount: z.number(),
+  newestOpening: z.string().nullable(),
+});
+export type TrackedCompany = z.infer<typeof trackedCompanySchema>;
 export const providerSchema = z.enum([
   "greenhouse",
   "lever",

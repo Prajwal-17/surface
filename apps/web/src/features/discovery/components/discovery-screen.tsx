@@ -162,7 +162,7 @@ export function DiscoveryScreen({
               }
             />
             <Button asChild size="sm">
-              <Link to="/companies">
+              <Link to="/settings?section=sources">
                 <Plus /> <span className="max-sm:sr-only">Add sources</span>
               </Link>
             </Button>

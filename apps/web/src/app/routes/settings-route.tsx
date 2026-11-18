@@ -1,15 +1,26 @@
+import { useSearchParams } from "react-router";
+import { CompanySourcesScreen } from "@/features/companies/components/company-sources-screen";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { AnalysisSettings } from "@/features/profile/components/analysis-settings";
 import { DesktopSettings } from "@/features/settings/desktop-settings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScanLine, Sun } from "lucide-react";
+import { Radio, ScanLine, Sun } from "lucide-react";
 
 export function Component() {
+  const [params, setParams] = useSearchParams();
+  const section = params.get("section");
+  const value =
+    section === "analysis" || section === "sources" ? section : "appearance";
   return (
     <>
       <h1 className="sr-only">Settings</h1>
       <Tabs
-        defaultValue="appearance"
+        value={value}
+        onValueChange={(next) =>
+          setParams(next === "appearance" ? {} : { section: next }, {
+            replace: true,
+          })
+        }
         orientation="vertical"
         className="settings-layout mx-auto max-w-6xl"
       >
@@ -21,6 +32,9 @@ export function Component() {
           <TabsTrigger value="analysis">
             <ScanLine className="size-4" />
             AI settings
+          </TabsTrigger>
+          <TabsTrigger value="sources">
+            <Radio className="size-4" /> Sources
           </TabsTrigger>
         </TabsList>
         <TabsContent value="appearance">
@@ -41,6 +55,9 @@ export function Component() {
         <TabsContent value="analysis" className="space-y-8">
           <DesktopSettings />
           <AnalysisSettings />
+        </TabsContent>
+        <TabsContent value="sources">
+          <CompanySourcesScreen sourcesOnly />
         </TabsContent>
       </Tabs>
     </>

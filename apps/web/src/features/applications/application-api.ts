@@ -52,6 +52,7 @@ export function useSaveApplication() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: applicationKeys }),
         queryClient.invalidateQueries({ queryKey: ["jobs"] }),
+        queryClient.invalidateQueries({ queryKey: ["tracked-companies"] }),
       ]);
     },
     onError: (error) => toast.error(error.message),
@@ -93,6 +94,7 @@ export function useTrackJob() {
       await Promise.all([
         client.invalidateQueries({ queryKey: applicationKeys }),
         client.invalidateQueries({ queryKey: ["jobs"] }),
+        client.invalidateQueries({ queryKey: ["tracked-companies"] }),
       ]);
     },
     onError: (error) => toast.error(error.message),

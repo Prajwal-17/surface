@@ -1,3 +1,4 @@
+import type { CompanyTrackingStatus } from "@surface/contracts";
 import {
   boolean,
   integer,
@@ -23,6 +24,10 @@ const pgCompanies = pgTable(
     notes: text("notes").notNull().default(""),
     watchReason: text("watch_reason").notNull().default(""),
     archived: boolean("archived").notNull().default(false),
+    trackingStatus: text("tracking_status")
+      .$type<CompanyTrackingStatus>()
+      .notNull()
+      .default("watching"),
     description: text("description").notNull().default(""),
     normalizedWebsite: text("normalized_website"),
     reviewState: text("review_state")
@@ -59,6 +64,10 @@ const sqliteCompanies = sqliteTable(
     archived: sqliteInteger("archived", { mode: "boolean" })
       .notNull()
       .default(false),
+    trackingStatus: sqliteText("tracking_status")
+      .$type<CompanyTrackingStatus>()
+      .notNull()
+      .default("watching"),
     description: sqliteText("description").notNull().default(""),
     normalizedWebsite: sqliteText("normalized_website"),
     reviewState: sqliteText("review_state")

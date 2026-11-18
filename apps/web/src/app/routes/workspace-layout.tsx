@@ -6,6 +6,7 @@ export function WorkspaceLayout() {
   const fullBleed =
     pathname === "/" ||
     pathname === "/applications" ||
+    pathname === "/companies" ||
     pathname === "/schema" ||
     /^\/research\/[^/]+\/?$/.test(pathname);
 

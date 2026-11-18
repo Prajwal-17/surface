@@ -1,9 +1,11 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { eq, or } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "../../infrastructure/database/client";
 import {
   companyInputSchema,
+  companyTrackingStatusSchema,
   inspectUrlsSchema,
   sourceInputSchema,
 } from "@surface/contracts";
@@ -14,6 +16,52 @@ import { inspectSource } from "./source-inspection";
 export const workspaceRoutes = new Hono();
 workspaceRoutes.get("/companies", async (c) =>
   c.json(await db.select().from(companies)),
+);
+workspaceRoutes.get("/tracked-companies", async (c) =>
+  c.json(
+    await db
+      .select({
+        id: companies.id,
+        name: companies.name,
+        notes: companies.notes,
+        website: companies.website,
+        watchReason: companies.watchReason,
+        archived: companies.archived,
+        trackingStatus: companies.trackingStatus,
+        logoPath: companies.logoPath,
+        createdAt: companies.createdAt,
+        updatedAt: companies.updatedAt,
+        openRoles: sql<number>`(SELECT CAST(count(*) AS INTEGER) FROM jobs j WHERE j.company_id = companies.id AND j.merged_into IS NULL AND EXISTS (
+      SELECT 1 FROM job_sources s WHERE s.job_id = j.id AND s.availability IN ('observed', 'open', 'active')
+    ))`,
+        applicationCount: sql<number>`(SELECT CAST(count(*) AS INTEGER) FROM applications a WHERE a.company_id = companies.id AND a.archived_at IS NULL)`,
+        newestOpening: sql<
+          string | null
+        >`(SELECT max(coalesce(j.posted_at, j.first_seen_at)) FROM jobs j WHERE j.company_id = companies.id AND j.merged_into IS NULL AND EXISTS (
+      SELECT 1 FROM job_sources s WHERE s.job_id = j.id AND s.availability IN ('observed', 'open', 'active')
+    ))`,
+      })
+      .from(companies),
+  ),
+);
+workspaceRoutes.patch(
+  "/tracked-companies/:id",
+  zValidator(
+    "json",
+    z.object({
+      trackingStatus: companyTrackingStatusSchema.optional(),
+      archived: z.boolean().optional(),
+    }),
+  ),
+  async (c) => {
+    const [row] = await db
+      .update(companies)
+      .set({ ...c.req.valid("json"), updatedAt: new Date().toISOString() })
+      .where(eq(companies.id, c.req.param("id")))
+      .returning();
+    if (!row) throw new HttpError(404, "Company not found.");
+    return c.json(row);
+  },
 );
 workspaceRoutes.post(
   "/companies",
