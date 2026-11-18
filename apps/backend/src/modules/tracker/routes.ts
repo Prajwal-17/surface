@@ -10,12 +10,7 @@ const applicationStatuses = [
   "In conversation",
   "Closed",
 ] as const;
-const companyStatuses = [
-  "Listed",
-  "To research",
-  "Outreach",
-  "Archived",
-] as const;
+const companyStatuses = ["Listed", "Archived"] as const;
 const optionalText = z.string().trim().max(4000).optional().default("");
 const optionalDescription = z
   .string()

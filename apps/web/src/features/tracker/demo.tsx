@@ -117,7 +117,7 @@ type StatusTarget = {
   label: string;
   status: string;
 };
-const companyStatuses = ["Listed", "To research", "Outreach", "Archived"];
+const companyStatuses = ["Listed", "Archived"];
 const applicationStatuses = [
   "To apply",
   "Applied",
@@ -173,20 +173,6 @@ const companyViews: TrackerView[] = [
     id: "all-companies",
     label: "All companies",
     status: "All statuses",
-    sortKey: "recent",
-    direction: "desc",
-  },
-  {
-    id: "to-research",
-    label: "To research",
-    status: "To research",
-    sortKey: "recent",
-    direction: "desc",
-  },
-  {
-    id: "outreach",
-    label: "Outreach",
-    status: "Outreach",
     sortKey: "recent",
     direction: "desc",
   },
@@ -272,9 +258,9 @@ function getPageTokens(currentPage: number, totalPages: number): PageToken[] {
   ];
 }
 function statusTone(status: string) {
-  if (["Applied", "In conversation", "Outreach"].includes(status))
+  if (["Applied", "In conversation"].includes(status))
     return "tone-mint";
-  if (["To apply", "To research"].includes(status)) return "tone-blue";
+  if (status === "To apply") return "tone-blue";
   return "tone-muted";
 }
 function dateLabel(value: string | null) {
@@ -2408,7 +2394,7 @@ function CompanyEditorSheet({
             {item ? "Edit company" : "Add company"}
           </SheetTitle>
           <SheetDescription className="mt-1 max-w-[48ch] leading-relaxed">
-            Keep company details and research notes together.
+            Keep company details and notes together.
           </SheetDescription>
         </SheetHeader>
         <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
@@ -2458,13 +2444,13 @@ function CompanyEditorSheet({
                   />
                 </label>
                 <label className="grid gap-2 text-sm font-medium">
-                  Research status
+                  Company status
                   <Select
                     value={form.status}
                     onValueChange={(status) => setForm({ ...form, status })}
                   >
                     <SelectTrigger
-                      aria-label="Research status"
+                      aria-label="Company status"
                       className={touchInputClass}
                     >
                       <SelectValue />
@@ -2484,7 +2470,7 @@ function CompanyEditorSheet({
                 </label>
               </div>
               <div className="border-b border-border/70 pb-3 pt-2">
-                <h3 className="text-sm font-semibold">Research notes</h3>
+                <h3 className="text-sm font-semibold">Notes</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Add a status and anything you want to remember.
                 </p>

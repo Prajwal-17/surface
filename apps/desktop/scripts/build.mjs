@@ -43,27 +43,12 @@ await step("backend", async () => {
     [],
     "esm",
   );
-  cpSync(join(backendDir, "drizzle-sqlite"), join(outdir, "drizzle-sqlite"), {
-    recursive: true,
-  });
   mkdirSync(join(outdir, "data"), { recursive: true });
   copyFileSync(
     join(backendDir, "src/modules/profile/data/locations.json.gz"),
     join(outdir, "data/locations.json.gz"),
   );
-  const developmentSeed = process.env.SURFACE_DEV_SEED_DIR;
-  if (developmentSeed) {
-    if (channel !== "development")
-      throw new Error(
-        "SURFACE_DEV_SEED_DIR is only allowed for development builds.",
-      );
-    if (!existsSync(join(developmentSeed, "surface.sqlite3")))
-      throw new Error(
-        `Development seed directory ${developmentSeed} has no surface.sqlite3.`,
-      );
-    cpSync(developmentSeed, join(outdir, "dev-seed"), { recursive: true });
-    console.info(`Staged development seed from ${developmentSeed}`);
-  }
+
 });
 
 await step("desktop shell", async () => {
@@ -85,16 +70,10 @@ await step("verify build layout", async () => {
   const required = [
     "web/index.html",
     "backend/index.mjs",
-    "backend/drizzle-sqlite/meta/_journal.json",
-    "backend/drizzle-sqlite/0000_wide_wither.sql",
     "backend/data/locations.json.gz",
   ];
   const missing = required.filter((file) => !existsSync(join(buildDir, file)));
-  if (
-    process.env.SURFACE_DEV_SEED_DIR &&
-    !existsSync(join(buildDir, "backend/dev-seed/surface.sqlite3"))
-  )
-    missing.push("backend/dev-seed/surface.sqlite3");
+
   if (!existsSync(join(desktopDir, "resources/icon.png"))) {
     missing.push("resources/icon.png");
   }

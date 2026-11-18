@@ -20,9 +20,6 @@ await build({
     js: "import { createRequire as __surfaceCreateRequire } from 'node:module'; var require = __surfaceCreateRequire(import.meta.url);",
   },
 });
-cpSync(join(appDir, "drizzle-sqlite"), join(outdir, "drizzle-sqlite"), {
-  recursive: true,
-});
 mkdirSync(join(outdir, "data"), { recursive: true });
 cpSync(
   join(appDir, "src/modules/profile/data/locations.json.gz"),

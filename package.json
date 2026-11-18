@@ -5,8 +5,6 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "bun --cwd apps/desktop dev",
-    "prod": "bun run scripts/start-production.ts",
-    "start": "bun run prod",
     "lint": "turbo run lint",
     "lint:fix": "oxlint --fix .",
     "format": "prettier --write .",
@@ -14,19 +12,9 @@
     "check-types": "turbo run check-types",
     "desktop:build": "bun --cwd apps/desktop build",
     "desktop:build:dev": "bun --cwd apps/desktop build:dev",
-    "desktop:package": "node scripts/desktop-release.mjs package",
-    "desktop:package:dev": "node scripts/desktop-release.mjs package --channel development",
-    "desktop:smoke": "node scripts/desktop-release.mjs smoke",
-    "desktop:smoke:dev": "node scripts/desktop-release.mjs smoke --channel development",
-    "release:notes": "node scripts/release-notes.mjs",
     "changelog": "node scripts/changelog.mjs",
-    "db:generate": "bun --cwd apps/backend db:generate",
-    "db:migrate": "bun --cwd apps/backend db:migrate",
-    "db:studio": "bun --cwd apps/backend db:studio",
-    "db:studio:prod": "bun --cwd apps/backend db:studio:prod",
-    "db:reset-dev": "bun --cwd apps/backend db:reset-dev",
-    "db:import-notion": "bun --cwd apps/backend db:import-notion",
-    "verify:sqlite": "bun --cwd apps/backend verify:sqlite"
+    "desktop:package": "bun --cwd apps/desktop package",
+    "desktop:package:dev": "bun --cwd apps/desktop package:dev"
   },
   "devDependencies": {
     "oxlint": "1.89.0",

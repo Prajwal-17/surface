@@ -5,23 +5,12 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { env } from "./config/env";
 import { rawQuery } from "./infrastructure/database/client";
-import { companyDiscoveryRoutes } from "./modules/company-discovery/routes";
-import { applicationRoutes } from "./modules/applications/applications.routes";
-import { jobsRoutes } from "./modules/jobs";
-import { jobSearchRoutes } from "./modules/jobs/job-search.routes";
-import { outreachRoutes } from "./modules/outreach/outreach.routes";
 import { profileRoutes } from "./modules/profile";
-import { eventsRoutes } from "./modules/work/events.routes";
-import { analysisRoutes } from "./modules/analysis/analysis.routes";
-import { workRoutes } from "./modules/work/work.routes";
-import { collectionRoutes } from "./modules/collection/collection.routes";
-import { workspaceRoutes } from "./modules/workspace/workspace.routes";
 import { handleError } from "./shared/http/error-handler";
 import { requestLogger } from "./shared/http/request-logger";
 
 import { authRoutes } from "./modules/auth";
 import { readSession } from "./modules/auth/session";
-import { desktopRoutes } from "./modules/desktop/routes";
 import { trackerRoutes } from "./modules/tracker/routes";
 
 export const app = new Hono();
@@ -80,20 +69,9 @@ app.get("/api/health", async (context) => {
 });
 
 app.route("/api/auth", authRoutes);
-app.route("/api/tracker", trackerRoutes);
-app.route("/api/company-discovery", companyDiscoveryRoutes);
-app.route("/api/jobs", jobsRoutes);
-app.route("/api/job-search", jobSearchRoutes);
-app.route("/api", applicationRoutes);
-app.route("/api", outreachRoutes);
 app.route("/api/profile", profileRoutes);
-app.route("/api", workspaceRoutes);
-app.route("/api", collectionRoutes);
-app.route("/api", workRoutes);
-app.route("/api/analysis", analysisRoutes);
-app.route("/api", eventsRoutes);
+app.route("/api/tracker", trackerRoutes);
 
-app.route("/api/desktop", desktopRoutes);
 
 if (env.WEB_DIST_DIR && existsSync(resolve(env.WEB_DIST_DIR, "index.html"))) {
   const root = resolve(env.WEB_DIST_DIR);

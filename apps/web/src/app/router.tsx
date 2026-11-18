@@ -21,11 +21,6 @@ export const router = createBrowserRouter([
         loader: ({ request }) =>
           redirect(`/applications${new URL(request.url).search}`),
       },
-      { path: "activity", lazy: () => import("@/app/routes/activity-route") },
-      {
-        path: "job-search",
-        lazy: () => import("@/app/routes/job-search-route"),
-      },
       { path: "companies", lazy: () => import("@/app/routes/companies-route") },
       {
         path: "applications",

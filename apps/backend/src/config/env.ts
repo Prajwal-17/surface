@@ -1,7 +1,6 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { SUPPORTED_AI_PROVIDERS } from "../shared/ai/constants";
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 const workspaceDirectory = resolve(currentDirectory, "../../../..");
@@ -29,31 +28,9 @@ const envSchema = z.object({
   SQLITE_DATABASE_FILE: z.string().min(1).optional(),
   DATA_DIR: z.string().optional(),
   WEB_DIST_DIR: z.string().optional(),
-  /** Folder containing the generated SQLite migrations. */
-  SQLITE_MIGRATIONS_DIR: z.string().optional(),
   /** Set by the Electron launcher; protects local APIs for the desktop session. */
   SURFACE_DESKTOP_TOKEN: z.string().min(32).optional(),
-  SOURCE_TIMEOUT_MS: z.coerce.number().int().min(1_000).default(12_000),
-  AI_PROVIDER: z.enum(SUPPORTED_AI_PROVIDERS).default("opencode-go"),
-  AI_BASE_URL: z
-    .string()
-    .url()
-    .default("https://opencode.ai/inference/go/openai/v1"),
-  AI_MODEL: z.string().trim().min(1).default("deepseek-v4.1-flash"),
-  AI_REASONING: z.enum(["default", "low", "medium", "high"]).default("default"),
-  OPENCODE_GO_API_KEY: z
-    .string()
-    .trim()
-    .optional()
-    .transform((value) => value || undefined),
-  /** Retained only to detect and explain old configuration. Never used for calls. */
-  OMNIROUTE_BASE_URL: z.string().url().optional(),
-  OMNIROUTE_API_KEY: z
-    .string()
-    .trim()
-    .optional()
-    .transform((value) => value || undefined),
-  OMNIROUTE_MODEL: z.string().trim().optional(),
+
 });
 
 const parsedEnvironment = envSchema.parse(process.env);
@@ -65,20 +42,9 @@ const dataDirectory =
     "data",
     ...(appEnvironment === "production" ? [] : [appEnvironment]),
   );
-const legacyOmniRouteConfigured = Boolean(
-  parsedEnvironment.OMNIROUTE_BASE_URL ||
-  parsedEnvironment.OMNIROUTE_API_KEY ||
-  parsedEnvironment.OMNIROUTE_MODEL,
-);
-if (legacyOmniRouteConfigured) {
-  console.warn(
-    "OMNIROUTE_* settings are no longer used. Surface does not send that key to OpenCode. Configure AI_PROVIDER, AI_BASE_URL, AI_MODEL and OPENCODE_GO_API_KEY instead.",
-  );
-}
 
 export const env = {
   ...parsedEnvironment,
-  LEGACY_OMNIROUTE_CONFIGURED: legacyOmniRouteConfigured,
   SQLITE_DATABASE_FILE:
     parsedEnvironment.SQLITE_DATABASE_FILE?.trim() ||
     resolve(dataDirectory, "surface.sqlite3"),

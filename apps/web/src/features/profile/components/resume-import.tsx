@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FileText, Upload, ArrowRight } from "lucide-react";
-import { AiLoadingState } from "@/components/ai/loading-state";
+import { LoadingStatus } from "@/components/feedback/loading-state";
 import {
   resumeImportResponseSchema,
   type ResumeDraft,
@@ -225,7 +225,7 @@ export function ResumeImport({
         )}
         {mutation.isPending && (
           <div className="flex flex-col items-center rounded-lg border bg-card px-6 py-10 text-center">
-            <AiLoadingState label="Preparing your profile draft" />
+            <LoadingStatus>Preparing your profile draft…</LoadingStatus>
             <p className="mt-2 max-w-sm text-sm text-muted-foreground">
               Your AI provider is arranging the résumé details. This can take a
               moment. You’ll review everything before saving.

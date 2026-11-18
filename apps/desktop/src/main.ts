@@ -11,18 +11,11 @@ import {
 import { randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { GmailConnection } from "./gmail";
 import { desktopIdentity } from "./channel";
-import { applyDevelopmentSeed } from "./dev-seed";
 import { createLogSink, type LogSink } from "./logger";
 import { desktopPaths, type DesktopPaths } from "./paths";
 import { getFreePort } from "./ports";
 import { startAndWait, type ManagedProcess } from "./processes";
-import {
-  SettingsStore,
-  type DesktopSettingsInput,
-  type DesktopSettingsSnapshot,
-} from "./settings";
 
 const identity = desktopIdentity();
 
@@ -83,26 +76,7 @@ async function bootstrap(): Promise<void> {
   );
   startupLog.write(`userData=${paths.root}`);
   startupLog.write(`sqlite=${paths.database}`);
-  if (identity.channel === "development") {
-    const seeded = applyDevelopmentSeed({
-      seedDirectory: paths.devSeed,
-      database: paths.database,
-      data: paths.data,
-    });
-    startupLog.write(
-      seeded.applied
-        ? "development seed applied to a new profile"
-        : `development seed skipped: ${seeded.reason}`,
-    );
-  }
-
   try {
-    const settings = await SettingsStore.create(paths.settings);
-    const selected = settings.runtime();
-    startupLog.write(
-      `settings loaded secretStorage=${selected.secretStorage} aiConfigured=${Boolean(selected.aiApiKey)}`,
-    );
-
     const backendPort =
       Number(process.env.SURFACE_DESKTOP_BACKEND_PORT) || (await getFreePort());
     desktopToken = randomBytes(32).toString("base64url");
@@ -121,22 +95,10 @@ async function bootstrap(): Promise<void> {
           HOST: "127.0.0.1",
           PORT: String(backendPort),
           SQLITE_DATABASE_FILE: paths.database,
-          SQLITE_MIGRATIONS_DIR: paths.backendMigrations,
           DATA_DIR: paths.data,
           WEB_DIST_DIR: paths.web,
-          LOCATIONS_DATA_FILE: join(
-            paths.backendMigrations,
-            "..",
-            "data",
-            "locations.json.gz",
-          ),
-          AI_PROVIDER: selected.aiProvider,
-          AI_BASE_URL: selected.aiBaseUrl,
-          AI_MODEL: selected.aiModel,
-          AI_REASONING: selected.aiReasoning,
-          OPENCODE_GO_API_KEY: selected.aiApiKey,
+          LOCATIONS_DATA_FILE: join("..", "data", "locations.json.gz"),
           SURFACE_DESKTOP_TOKEN: desktopToken,
-          SURFACE_SECRET_STORAGE: selected.secretStorage,
         },
         onUnexpectedExit: (name, code) => {
           if (running) void childFailed(name, code);
@@ -147,7 +109,7 @@ async function bootstrap(): Promise<void> {
     );
 
     await setDesktopCookie();
-    registerIpc(settings, new GmailConnection(paths.root));
+    registerIpc();
     createWindow();
     running = true;
     startupLog.write(
@@ -300,92 +262,7 @@ function createWindow(): void {
   void mainWindow.loadURL(`${rendererUrl}/`).catch(async (error) => {
     await fatal(`${identity.productName} could not open its interface`, error);
   });
-  if (process.env.SURFACE_DESKTOP_SMOKE_TEST === "1") {
-    mainWindow.webContents.once("did-finish-load", () => {
-      void (async () => {
-        try {
-          const result = (await mainWindow?.webContents.executeJavaScript(
-            `(async () => {
-              const waitFor = async (selector, timeout = 10000) => {
-                const started = Date.now();
-                while (Date.now() - started < timeout) {
-                  const element = document.querySelector(selector);
-                  if (element) return element;
-                  await new Promise((resolve) => setTimeout(resolve, 100));
-                }
-                throw new Error("Timed out waiting for " + selector);
-              };
-              // A fresh profile opens onboarding, while an onboarded profile
-              // opens the workspace. Both routes render the frameless window
-              // controls, so wait for those and then pick whichever drag
-              // header the current route rendered.
-              await waitFor(".desktop-window-controls");
-              const header = await waitFor(
-                ".workspace-header, .onboarding-top",
-              );
-              const [health, auth, status, applications, jobSearch] =
-                await Promise.all([
-                  fetch("/api/health").then((response) => response.json()),
-                  fetch("/api/auth/session").then((response) => response.json()),
-                  fetch("/api/desktop/status").then((response) => response.json()),
-                  fetch("/api/applications").then((response) => response.json()),
-                  fetch("/api/job-search/settings").then((response) =>
-                    response.json(),
-                  ),
-                ]);
-              const appInfo = await window.surfaceDesktop.appInfo();
-              const before = await window.surfaceDesktop.getSettings();
-              const saved = await window.surfaceDesktop.saveSettings({
-                aiProvider: before.aiProvider,
-                aiBaseUrl: before.aiBaseUrl,
-                aiModel: before.aiModel,
-                aiReasoning: before.aiReasoning,
-                aiApiKey: "smoke-test-key",
-              });
-              const after = await window.surfaceDesktop.getSettings();
-              const windowBefore = await window.surfaceDesktop.getWindowState();
-              const maximized = await window.surfaceDesktop.toggleMaximize();
-              await new Promise((resolve) => setTimeout(resolve, 250));
-              const windowAfter = await window.surfaceDesktop.getWindowState();
-              await window.surfaceDesktop.toggleMaximize();
-              await new Promise((resolve) => setTimeout(resolve, 250));
-              const windowRestored = await window.surfaceDesktop.getWindowState();
-              return {
-                appInfo,
-                documentTitle: document.title,
-                health,
-                auth,
-                status,
-                applications: Array.isArray(applications) ? applications.length : null,
-                jobSearchAvailable: typeof jobSearch.query === "string",
-                saved,
-                after,
-                chrome: {
-                  controls: document.querySelectorAll(
-                    ".desktop-window-controls button",
-                  ).length,
-                  drag: getComputedStyle(header).getPropertyValue(
-                    "-webkit-app-region",
-                  ),
-                  windowBefore,
-                  maximized,
-                  windowAfter,
-                  windowRestored,
-                },
-              };
-            })()`,
-          )) as unknown;
-          mainLog?.write(
-            `SMOKE_READY ${JSON.stringify({ result, url: backendUrl })}`,
-          );
-          await delay(500);
-          await shutdown(0);
-        } catch (error) {
-          await fatal(`${identity.productName} smoke test failed`, error);
-        }
-      })();
-    });
-  }
+
 }
 
 async function setDesktopCookie(): Promise<void> {
@@ -405,73 +282,7 @@ async function setDesktopCookie(): Promise<void> {
   session.defaultSession.setPermissionCheckHandler(() => false);
 }
 
-function localDraftId(input: unknown): string {
-  if (
-    typeof input !== "string" ||
-    !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(input)
-  ) {
-    throw new Error("Invalid local draft ID.");
-  }
-  return input;
-}
-
-function registerIpc(settings: SettingsStore, gmail: GmailConnection): void {
-  ipcMain.handle("desktop:gmail:status", (event) => {
-    assertTrustedSender(event);
-    return gmail.status();
-  });
-  ipcMain.handle("desktop:gmail:connect", (event) => {
-    assertTrustedSender(event);
-    return gmail.connect();
-  });
-  ipcMain.handle("desktop:gmail:disconnect", (event) => {
-    assertTrustedSender(event);
-    return gmail.disconnect();
-  });
-  ipcMain.handle("desktop:gmail:draft-status", (event, id: unknown) => {
-    assertTrustedSender(event);
-    return gmail.draftStatus(localDraftId(id));
-  });
-  ipcMain.handle(
-    "desktop:gmail:save-draft",
-    async (
-      event,
-      id: unknown,
-      email: unknown,
-      open: unknown,
-      replace: unknown,
-    ) => {
-      assertTrustedSender(event);
-      const draftId = localDraftId(id);
-      if (typeof email !== "string")
-        throw new Error("Confirm the connected Gmail account before saving.");
-      const response = await fetch(
-        `${backendUrl}/api/outreach-drafts/${draftId}`,
-        {
-          headers: { "x-surface-desktop-token": desktopToken },
-          signal: AbortSignal.timeout(5000),
-        },
-      );
-      if (!response.ok) throw new Error("Save this draft locally first.");
-      const draft = (await response.json()) as Parameters<
-        GmailConnection["save"]
-      >[0];
-      return gmail.save(draft, email, open === true, replace === true);
-    },
-  );
-  ipcMain.handle("desktop:settings:get", (event) => {
-    assertTrustedSender(event);
-    return settings.snapshot();
-  });
-  ipcMain.handle(
-    "desktop:settings:save",
-    async (event, input: DesktopSettingsInput) => {
-      assertTrustedSender(event);
-      const snapshot = await settings.save(input);
-      const applied = await applyRuntimeSettings(settings.runtime());
-      return { settings: snapshot, applied };
-    },
-  );
+function registerIpc(): void {
   ipcMain.handle("desktop:app:info", (event) => {
     assertTrustedSender(event);
     return {
@@ -552,46 +363,6 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
   }
 }
 
-async function applyRuntimeSettings(
-  settings: DesktopSettingsSnapshot & { aiApiKey: string },
-): Promise<{ ok: boolean; error: string | null }> {
-  try {
-    const response = await fetch(`${backendUrl}/api/desktop/config`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "x-surface-desktop-token": desktopToken,
-      },
-      body: JSON.stringify({
-        aiProvider: settings.aiProvider,
-        aiBaseUrl: settings.aiBaseUrl,
-        aiApiKey: settings.aiApiKey,
-        aiModel: settings.aiModel,
-        aiReasoning: settings.aiReasoning,
-      }),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as {
-        error?: string;
-      };
-      return {
-        ok: false,
-        error: body.error ?? `Backend returned HTTP ${response.status}.`,
-      };
-    }
-    return { ok: true, error: null };
-  } catch (error) {
-    return {
-      ok: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "The running backend did not accept the settings.",
-    };
-  }
-}
-
 async function childFailed(name: string, code: number | null): Promise<void> {
   if (shuttingDown) return;
   const message = `${name} stopped unexpectedly (exit ${code ?? "unknown"}). See ${paths?.logs ?? "the log directory"}.`;
@@ -603,7 +374,7 @@ async function fatal(title: string, error: unknown): Promise<void> {
   if (shuttingDown) return;
   const message = error instanceof Error ? error.message : String(error);
   mainLog?.write(`[${new Date().toISOString()}] FATAL ${title}: ${message}`);
-  if (app.isReady() && process.env.SURFACE_DESKTOP_SMOKE_TEST !== "1") {
+  if (app.isReady()) {
     dialog.showErrorBox(title, `${message}\n\nLogs: ${paths?.logs ?? ""}`);
   }
   await shutdown(1, true);

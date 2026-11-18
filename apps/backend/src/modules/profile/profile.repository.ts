@@ -1,4 +1,3 @@
-import { enableAnalysis } from "../analysis/settings";
 import {
   personalContextSchema,
   type ProfileInput,
@@ -72,8 +71,5 @@ export async function saveProfile(
       createdAt: row.updatedAt,
     });
     return row;
-  }).then(async (profile) => {
-    await enableAnalysis();
-    return profile;
   });
 }

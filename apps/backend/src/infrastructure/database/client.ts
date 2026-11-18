@@ -1,7 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { existsSync, mkdirSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { sql, type SQL } from "drizzle-orm";
 import { SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
@@ -136,29 +135,6 @@ export async function executeStatement<T = Record<string, unknown>>(
 
 export async function closeDatabase(): Promise<void> {
   await runSqliteExclusive(() => sqliteClient.close());
-}
-
-export function resolveMigrationsFolder(): string {
-  const folderName = "drizzle-sqlite";
-  const sourceDirectory = dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    env.SQLITE_MIGRATIONS_DIR,
-    join(sourceDirectory, "../../../", folderName),
-    join(sourceDirectory, "../../", folderName),
-    join(dirname(process.execPath), "resources", "backend", folderName),
-    join(process.execPath, "..", folderName),
-    resolve(process.cwd(), "apps/backend", folderName),
-    resolve(process.cwd(), folderName),
-  ].filter((value): value is string => Boolean(value));
-  const folder = candidates.find((candidate) =>
-    existsSync(join(candidate, "meta", "_journal.json")),
-  );
-  if (!folder) {
-    throw new Error(
-      `Surface SQLite migrations were not found. Checked: ${candidates.join(", ")}. Set SQLITE_MIGRATIONS_DIR to the packaged migrations directory.`,
-    );
-  }
-  return folder;
 }
 
 function openSqlite(file: string): DatabaseSync {
