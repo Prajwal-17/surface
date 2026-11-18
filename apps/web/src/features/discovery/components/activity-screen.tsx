@@ -1,12 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { configuredSourceSchema, runDetailSchema } from "@surface/contracts";
-import { ChevronDown, RefreshCw } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
 import { LoadingRows } from "@/components/feedback/loading-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useRefreshPortals, useRefreshStatus } from "../refresh-query";
 
 const states: Record<string, string> = {
   queued: "Waiting",
@@ -19,8 +18,6 @@ const states: Record<string, string> = {
 
 export function ActivityScreen() {
   const client = useQueryClient();
-  const refresh = useRefreshPortals();
-  const status = useRefreshStatus();
   const runs = useQuery({
     queryKey: ["runs"],
     queryFn: async () =>
@@ -44,11 +41,7 @@ export function ActivityScreen() {
         body: "{}",
       }),
     onSuccess: async () => {
-      await Promise.all(
-        ["refresh", "runs"].map((queryKey) =>
-          client.invalidateQueries({ queryKey: [queryKey] }),
-        ),
-      );
+      await client.invalidateQueries({ queryKey: ["runs"] });
     },
     onError: (error) => toast.error(error.message),
   });
@@ -61,19 +54,8 @@ export function ActivityScreen() {
         <div>
           <h1 className="text-xl font-semibold">Activity</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Portals refresh while Surface is running.
+            Company research and analysis that ran in the background.
           </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            disabled={
-              !status.data?.available || status.data.active || refresh.isPending
-            }
-            onClick={() => refresh.mutate()}
-          >
-            <RefreshCw /> Refresh now
-          </Button>
         </div>
       </header>
       {runs.isPending && <LoadingRows count={4} label="Loading activity" />}
@@ -96,7 +78,7 @@ export function ActivityScreen() {
         >
           {runs.data.length === 0 && (
             <p className="p-6 text-sm text-muted-foreground">
-              Refresh your sources to see results here.
+              No background activity yet.
             </p>
           )}
           {runs.data.map((run) => {
@@ -119,9 +101,11 @@ export function ActivityScreen() {
                 : failed.length
                   ? "tone-amber"
                   : "tone-blue";
-            const canRetry = failed.some((item) =>
-              ["failed", "partial", "interrupted"].includes(item.state),
-            );
+            const canRetry =
+              run.kind !== "collection" &&
+              failed.some((item) =>
+                ["failed", "partial", "interrupted"].includes(item.state),
+              );
             return (
               <article key={run.id} className="p-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -139,9 +123,11 @@ export function ActivityScreen() {
                     </p>
                   </div>
                   <Badge className={tone}>
-                    {run.state === "partial" && run.kind !== "collection"
-                      ? "Partial"
-                      : (states[run.state] ?? run.state)}
+                    {run.kind === "collection"
+                      ? "Legacy collection disabled"
+                      : run.state === "partial"
+                        ? "Partial"
+                        : (states[run.state] ?? run.state)}
                   </Badge>
                 </div>
                 {failed.length > 0 && (

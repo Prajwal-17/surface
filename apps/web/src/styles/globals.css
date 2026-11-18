@@ -1,4 +1,3 @@
-@import "@xyflow/react/dist/style.css" layer(base);
 @import "tailwindcss";
 @import "tw-animate-css";
 @custom-variant dark (&:is(.dark *));
@@ -62,7 +61,6 @@
   --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
-  --diagram-edge: #737373;
   --overlay: rgb(0 0 0 / 70%);
   --radius: 0.5rem;
   --control-radius: 6px;
@@ -96,7 +94,6 @@
   --warning: #92400e;
   --warning-background: rgb(146 64 14 / 8%);
   --info-background: rgb(29 78 216 / 8%);
-  --diagram-edge: #71717a;
   --overlay: rgb(0 0 0 / 40%);
 }
 @theme inline {
@@ -1733,31 +1730,6 @@
   font-size: var(--text-prose);
   line-height: 1.65;
 }
-.schema-flow {
-  --xy-background-color: var(--background);
-  --xy-controls-button-background-color: var(--card);
-  --xy-controls-button-background-color-hover: var(--hover);
-  --xy-controls-button-color: var(--foreground);
-  --xy-controls-button-border-color: var(--border);
-  --xy-minimap-background-color: var(--card);
-  --xy-edge-stroke-selected: var(--link);
-  --xy-selection-background-color: var(--info-background);
-  --xy-selection-border: 1px solid var(--link);
-}
-.schema-flow .react-flow__controls {
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: none;
-}
-.schema-flow .react-flow__controls-button {
-  width: 28px;
-  height: 28px;
-}
-.schema-flow .react-flow__node:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 4px;
-}
 @media (max-width: 1023px) {
   .source-row-main {
     flex-wrap: wrap;
@@ -1823,8 +1795,7 @@
   .source-details-toggle,
   [data-slot="sheet-content"] > button,
   [role="dialog"] > button,
-  .profile-chip button,
-  .schema-flow .react-flow__controls-button {
+  .profile-chip button {
     min-width: 44px;
     min-height: 44px;
   }

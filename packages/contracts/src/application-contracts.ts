@@ -24,6 +24,8 @@ const applicationFields = z.object({
   companyName: z.string().trim().min(1).max(300),
   companyId: z.string().min(1).nullable(),
   sourceUrl: z.url({ protocol: /^https?$/ }).nullable(),
+  description: z.string().nullable(),
+  publishedAt: z.string().nullable(),
   location: z.string().trim().max(400).nullable(),
   employmentType: z.string().trim().max(200).nullable(),
   workMode: applicationWorkModeSchema.nullable(),

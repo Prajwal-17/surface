@@ -2,7 +2,7 @@
 
 Surface runs as one personal **Ubuntu Linux** desktop app. Electron starts a
 local Node backend with SQLite. Hono serves the React renderer on a loopback
-port. Browser-based company discovery and SearXNG are optional.
+port. Browser-based research and SearXNG search are disconnected for now.
 
 Open the development app with `bun dev` from the repository root. The launcher
 builds the renderer and backend before opening the Surface Dev window. Re-run
@@ -19,7 +19,6 @@ root-owned with mode `4755`.
   not supported.
 - Electron 45 bundles Node 24 with `node:sqlite`; there is no native SQLite
   addon to rebuild or stage.
-- Optional: Docker for SearXNG.
 - Optional: an OpenCode Go API key for AI summaries, assessments and
   company discovery.
 
@@ -34,14 +33,10 @@ bun --cwd apps/desktop package:dir   # unpacked only
 ```
 
 `apps/desktop/scripts/build.mjs` builds the web app, bundles the backend for
-Node, runs the crawler TypeScript build, installs crawler production
-dependencies, stages Playwright Chromium, and compiles the Electron
-main/preload scripts. electron-builder packages:
+Node, and compiles the Electron main/preload scripts. electron-builder packages:
 
 - `web/` built assets,
 - `backend/` bundle, SQLite migrations and bundled locations data,
-- `crawler/` build and production dependencies,
-- `playwright/` Chromium and headless shell,
 - `app.asar` containing the Electron main/preload scripts,
 - `resources/icon.png` for the AppImage, `.deb` desktop entry and window icon.
 
@@ -52,7 +47,7 @@ Artifacts:
 - `apps/desktop/release/linux-unpacked/surface`
 
 The packaged application does not need Bun, a Vite dev server or
-the backend/web/crawler Compose services at runtime.
+the backend/web Compose services at runtime.
 
 ## Run
 
@@ -67,8 +62,8 @@ test process:
 xvfb-run -a ./Surface-0.1.0-x86_64.AppImage --no-sandbox
 ```
 
-The app binds backend, crawler and its internal egress proxy to `127.0.0.1`
-with OS-allocated ports. It uses a single-instance lock. A second launch focuses
+The app binds its backend to `127.0.0.1` with an OS-allocated port. It uses a
+single-instance lock. A second launch focuses
 the existing window instead of starting another backend.
 
 ### Custom Ubuntu title bar
@@ -101,11 +96,10 @@ install:
 
 - development: product `Surface Dev`, executable `surface-dev`, app id
   `dev.surface.desktop.dev`, desktop file `surface-dev.desktop`, Debian package
-  `surface-dev`, child process names `surface-dev-backend` and
-  `surface-dev-crawler`;
+  `surface-dev`, child process name `surface-dev-backend`;
 - production: product `Surface`, executable `surface`, app id
   `dev.surface.desktop`, desktop file `surface.desktop`, Debian package
-  `surface`, child process names `surface-backend` and `surface-crawler`.
+  `surface`, child process name `surface-backend`.
 
 They use different `userData` directories, databases, settings, logs, session
 cookies, keyring entries, desktop entries, and Installer identities, so both can
@@ -122,9 +116,9 @@ development channel:
 - `data/snapshots/` — raw evidence,
 - `data/company-logos/` — cached company symbols,
 - `data/.surface-auth-secret` — local session signing key,
-- `settings.json` — version-2 SearXNG/OpenCode Go settings (with a
+- `settings.json` — AI settings (with a
   `settings.json.v1.backup.json` copy when upgrading version 1),
-- `logs/desktop.log`, `logs/backend.log`, `logs/crawler.log`.
+- `logs/desktop.log`, `logs/backend.log`.
 
 `SURFACE_DESKTOP_USER_DATA=/path` overrides the user-data directory for testing
 or an isolated profile. It is not needed for normal use.
@@ -155,7 +149,6 @@ SURFACE_DESKTOP_USER_DATA="$restore" apps/desktop/release/dev/linux-unpacked/sur
 
 Settings → AI settings → Services and AI lets you set:
 
-- SearXNG URL,
 - AI provider (`opencode-go`), base URL, model and OpenCode Go API key.
 
 The API key is encrypted with Electron `safeStorage` when an OS keychain is
@@ -174,35 +167,20 @@ is never used for AI calls, and starts with the OpenCode Go defaults and no key.
 Enter a separate OpenCode Go key in Settings. The old encrypted value remains in
 `settings.json` only as legacy data.
 
-### SearXNG
+### Research integrations
 
-Start only SearXNG:
-
-```sh
-docker compose -f compose.searxng.yaml up -d
-```
-
-Verify the optional search service with:
-
-```sh
-curl 'http://127.0.0.1:8080/search?q=surface&format=json'
-```
-
-Without SearXNG, jobs, monitoring, snapshots, company discovery from saved
-sources, and AI operations that do not request web search continue to work.
-`search_web` returns:
-
-> Cannot reach SearXNG. Start the search service and check SEARXNG_BASE_URL.
-
-The desktop diagnostics panel shows the same service error. With SearXNG
-running, the same search tool returns JSON results.
+Browser research and SearXNG search are disconnected for now. The crawler
+source and standalone SearXNG compose file remain in the repository for a later
+reconnection. The app does not launch, package, configure or probe either
+service. Company page reading uses static HTTP responses and does not execute
+page scripts.
 
 ### Quitting
 
 Closing the window quits the app. The backend stops accepting requests, stops
-the executor after its current tick (bounded wait), removes its lease, closes
-SQLite cleanly (checkpointing WAL), and the crawler is terminated. Monitoring
-therefore stops while Surface is closed; it resumes on the next launch. A tray
+the executor after its current tick (bounded wait), removes its lease and
+closes SQLite cleanly (checkpointing WAL). Monitoring therefore stops while
+Surface is closed; it resumes on the next launch. A tray
 icon, close-to-tray, and autostart are intentionally not included in this
 version.
 
@@ -248,5 +226,5 @@ bun run verify:sqlite
 
 The smoke test used during implementation sets `SURFACE_DESKTOP_SMOKE_TEST=1`.
 The app starts both workers, checks `/api/health`, authenticated `/api/jobs`,
-`/api/companies`, `/api/schema` and `/api/desktop/status`, saves a test key
-through the preload/IPC bridge, and exits.
+`/api/companies` and `/api/desktop/status`, saves a test key through the
+preload/IPC bridge, and exits.

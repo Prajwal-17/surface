@@ -4,11 +4,11 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { env } from "./config/env";
-import { executeStatement, rawQuery } from "./infrastructure/database/client";
+import { rawQuery } from "./infrastructure/database/client";
 import { companyDiscoveryRoutes } from "./modules/company-discovery/routes";
-import { discoveryRoutes } from "./modules/discovery";
 import { applicationRoutes } from "./modules/applications/applications.routes";
 import { jobsRoutes } from "./modules/jobs";
+import { jobSearchRoutes } from "./modules/jobs/job-search.routes";
 import { outreachRoutes } from "./modules/outreach/outreach.routes";
 import { profileRoutes } from "./modules/profile";
 import { eventsRoutes } from "./modules/work/events.routes";
@@ -82,8 +82,8 @@ app.get("/api/health", async (context) => {
 app.route("/api/auth", authRoutes);
 app.route("/api/tracker", trackerRoutes);
 app.route("/api/company-discovery", companyDiscoveryRoutes);
-app.route("/api/discovery", discoveryRoutes);
 app.route("/api/jobs", jobsRoutes);
+app.route("/api/job-search", jobSearchRoutes);
 app.route("/api", applicationRoutes);
 app.route("/api", outreachRoutes);
 app.route("/api/profile", profileRoutes);
@@ -92,37 +92,6 @@ app.route("/api", collectionRoutes);
 app.route("/api", workRoutes);
 app.route("/api/analysis", analysisRoutes);
 app.route("/api", eventsRoutes);
-
-app.get("/api/schema", async (context) =>
-  context.json({ tables: await sqliteSchema() }),
-);
-
-async function sqliteSchema() {
-  const tables = await executeStatement<{ name: string }>(
-    `SELECT name FROM sqlite_master
-     WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
-       AND name <> '__surface_sqlite_migrations'
-     ORDER BY name`,
-  );
-  return Promise.all(
-    tables.map(async ({ name }) => ({
-      name,
-      columns: await executeStatement(
-        `PRAGMA table_info(${quoteIdentifier(name)})`,
-      ),
-      foreignKeys: await executeStatement(
-        `PRAGMA foreign_key_list(${quoteIdentifier(name)})`,
-      ),
-    })),
-  );
-}
-
-function quoteIdentifier(name: string): string {
-  if (!/^[a-z_][a-z0-9_]*$/i.test(name)) {
-    throw new Error(`Unsafe SQL identifier: ${name}`);
-  }
-  return `"${name.replaceAll('"', '""')}"`;
-}
 
 app.route("/api/desktop", desktopRoutes);
 

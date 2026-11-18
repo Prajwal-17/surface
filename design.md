@@ -12,7 +12,7 @@ Geist Sans and Geist Mono are bundled locally. No runtime font service is used. 
 
 ## Theme
 
-Semantic variables in `apps/web/src/styles/globals.css` own both themes. Feature code uses these variables rather than independent palettes, including Schema, notifications, loaders, and diagrams.
+Semantic variables in `apps/web/src/styles/globals.css` own both themes. Feature code uses these variables rather than independent palettes, including notifications and loaders.
 
 Dark mode uses:
 
@@ -33,7 +33,7 @@ Desktop chrome has a 44px header, 208px sidebar, and 48px collapsed rail. Naviga
 
 Button, Input, Textarea, Select, Checkbox, Tabs, Dialog, Sheet, Popover, Tooltip, Sidebar, Badge, and Sonner remain shared components. Touch controls retain a minimum 44px target. Tooltips use neutral popovers. Focus is visible, statuses have labels, and Radix retains focus trapping, selection, and dismissal behavior. Form field hints are descriptions rather than part of their accessible names.
 
-Applications and Companies are primary navigation. Schema, Settings, and Profile occupy the secondary area. Active rows have neutral selection with a blue icon. Collapsed links retain accessible names and tooltips. The workspace header holds breadcrumbs and page actions. The existing authentication flow and the sidebar DEV badge remain.
+Applications and Companies are primary navigation. Settings, Activity, and Profile occupy the secondary area. Active rows have neutral selection with a blue icon. Collapsed links retain accessible names and tooltips. The workspace header holds breadcrumbs and page actions. The existing authentication flow and the sidebar DEV badge remain.
 
 ## Jobs and reader
 
@@ -61,8 +61,6 @@ Activity uses a compact strip of existing run counts, readable run history, expa
 
 Profile retains section navigation, editing, Markdown answers and previews, searchable catalogs, validation, résumé import, review, discard, and explicit save. Replacements from a résumé remain unselected; accepting suggestions still requires a separate final profile save. The review sheet keeps a fixed action bar and scrolling body. Onboarding retains its five steps, résumé/manual choice, validation, and explicit final save. Residence and preferred locations never establish work authorization.
 
-Schema uses the shared surfaces, semantic domain colors, edge/selection variables, and compact themed controls. Search, graph direction, minimap, and diagram navigation remain available in both themes.
-
 ## Keyboard and motion
 
 - `/` focuses job search only outside editable controls and open overlays.
@@ -79,7 +77,7 @@ Never alter Radix positioning-wrapper transforms. All floating motion belongs to
 - `bun run lint`, `bun run check-types`, and `bun run build` pass using Vite.
 - `bun run --cwd apps/web test`: 36 focused tests for preference recovery, persistence, resize boundaries, keyboard movement, editable targets, overlays, mutation-shortcut exclusion, and filter counting, reset scope, labels, and state semantics.
 - Before/after captures use the same local dataset. Initial Jobs/reader captures preceded editing; remaining baseline captures were recovered from the preserved source and original tracked patch. At 1440×900, with the increased typography, both themes show **11 complete job rows versus 7 before**, approximately **57% more**.
-- The browser matrix covers Jobs, reader, Companies, Sources, Activity, Profile, Settings, Schema, and onboarding at 1440×900, 1280×800, and 390×844, in both themes. The updated app has no page or main-content horizontal overflow and no browser errors in these 66 combinations.
+- The browser matrix covers Jobs, reader, Companies, Sources, Activity, Profile, Settings, and onboarding at 1440×900, 1280×800, and 390×844, in both themes. The updated app has no page or main-content horizontal overflow and no browser errors in these 66 combinations.
 - Native browser checks cover `/`, title arrows/Enter, modal focus trapping, overlay-first Escape, reader-close focus restoration, pointer clamping, keyboard resizing, reload persistence, the 48px rail, the split threshold, and reduced motion.
 - Browser regression checks exercise profile editing/review/discard, source editing, saved-search requests, job mutations, and résumé review. Mutating requests and AI results use isolated response fixtures so stored profile data is preserved. Empty, failed, stale, queued, running, current, and unassessed jobs are verified without treating missing results as zero.
 - Sampled normal text on Jobs, Companies, Profile, and Activity passes AA on actual composited backgrounds in both themes: 636 text samples, minimum 4.65:1. Visible focus and labeled semantic states are retained. Mobile Close is 44px and clear of the environment indicator.

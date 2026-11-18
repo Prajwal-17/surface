@@ -2,13 +2,11 @@ import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import sanitizeHtml from "sanitize-html";
-import { eq, or, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "../../infrastructure/database/client";
 import { env } from "../../config/env";
-import { companies, configuredSources } from "../workspace/workspace.tables";
+import { companies } from "../workspace/workspace.tables";
 import { fetchPublic } from "../collection/public-http";
-import { inspectSource } from "../workspace/source-inspection";
-import { enqueueCollection } from "../work/work.service";
 import { readCompanyPage } from "./evidence";
 import { getCompany } from "./repository";
 import { pageEvidence, type DiscoveryPage } from "./sources";
@@ -212,58 +210,6 @@ export async function enrichCompany(
       }
     if (!selected.logoPath)
       errors.push("Logo refresh failed; previous image retained.");
-  }
-  if (level !== "light") {
-    const jobLinks = pages
-      .flatMap((p) => p.links)
-      .filter((l) => /greenhouse\.io|lever\.co|ashbyhq\.com/.test(l.url));
-    const publicJobs = official
-      .filter((p) =>
-        p.metadata.structuredData.some((d) =>
-          JSON.stringify(d).includes("JobPosting"),
-        ),
-      )
-      .map((p) => ({ url: p.url, title: p.title }));
-    for (const link of [...jobLinks, ...publicJobs].slice(0, 5))
-      try {
-        const inspection = inspectSource(link.url);
-        if (inspection.support === "unsupported") continue;
-        const [existing] = await db
-          .select()
-          .from(configuredSources)
-          .where(
-            or(
-              eq(configuredSources.url, inspection.url),
-              eq(configuredSources.endpoint, inspection.endpoint),
-            ),
-          );
-        if (existing && existing.companyId !== id) continue;
-        const now = new Date().toISOString();
-        const source =
-          existing ??
-          (
-            await db
-              .insert(configuredSources)
-              .values({
-                ...inspection,
-                id: crypto.randomUUID(),
-                companyId: id,
-                label: `${company.name} · ${inspection.provider}`,
-                scheduleHours: 0,
-                createdAt: now,
-                updatedAt: now,
-              })
-              .onConflictDoNothing()
-              .returning()
-          )[0];
-        if (source && !source.paused)
-          await enqueueCollection(
-            [source.id],
-            `Company roles · ${company.name}`,
-          );
-      } catch (e) {
-        errors.push(`Jobs: ${String(e)}`);
-      }
   }
   const now = new Date().toISOString();
   const evidence = [...company.enrichmentEvidence];

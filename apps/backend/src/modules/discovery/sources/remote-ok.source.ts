@@ -31,6 +31,7 @@ export const remoteOkSource: SourceAdapter = {
           externalId: toStringValue(item.id) || null,
           title,
           company: toStringValue(item.company, "Company not listed"),
+          companyWebsite: toStringValue(item.company_url) || null,
           location: toStringValue(item.location, "Remote"),
           isRemote: true,
           employmentType: null,

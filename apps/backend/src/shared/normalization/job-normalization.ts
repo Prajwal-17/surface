@@ -5,6 +5,8 @@ export interface JobCandidate {
   source: SourceKey;
   boardIdentity?: string | null;
   companyId?: string | null;
+  companyWebsite?: string | null;
+  originalPostingUrl?: string;
   configuredSourceId?: string | null;
   descriptionHtml?: string | null;
   workMode?: "remote" | "hybrid" | "onsite" | "unknown";
@@ -130,12 +132,15 @@ export function createSourceRecordKey(candidate: JobCandidate): string {
 }
 
 export function normalizeCandidate(candidate: JobCandidate): JobCandidate {
+  const originalPostingUrl =
+    candidate.originalPostingUrl ?? candidate.sourceUrl;
   const applyUrl = canonicalizeUrl(candidate.applyUrl);
   const sourceUrl = canonicalizeUrl(candidate.sourceUrl || candidate.applyUrl);
   const location = cleanText(candidate.location) || "Location not listed";
 
   return {
     ...candidate,
+    originalPostingUrl,
     title: cleanText(candidate.title) || "Untitled role",
     company: cleanText(candidate.company) || "Company not listed",
     location,

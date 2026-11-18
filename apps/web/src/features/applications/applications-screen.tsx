@@ -183,7 +183,10 @@ export function ApplicationsScreen() {
               patch({ status: value === "all" ? null : value })
             }
           >
-            <SelectTrigger aria-label="Filter by status" className="w-auto min-w-32">
+            <SelectTrigger
+              aria-label="Filter by status"
+              className="w-auto min-w-32"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -241,7 +244,10 @@ export function ApplicationsScreen() {
               patch({ sort: value === "recent" ? null : value })
             }
           >
-            <SelectTrigger aria-label="Sort applications" className="w-auto min-w-32">
+            <SelectTrigger
+              aria-label="Sort applications"
+              className="w-auto min-w-32"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -534,13 +540,29 @@ function ApplicationForm({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Apply on site <ArrowUpRight />
+                    View original posting <ArrowUpRight />
                   </a>
                 </Button>
               )}
           </div>
         )}
       </div>
+      {application?.description && (
+        <section className="rounded-md border bg-muted/30 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold">Posting description</h3>
+            {application.publishedAt && (
+              <p className="text-[11px] text-muted-foreground">
+                Published{" "}
+                {new Date(application.publishedAt).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+          <p className="mt-2 max-h-32 overflow-y-auto whitespace-pre-line text-xs leading-5 text-muted-foreground">
+            {application.description}
+          </p>
+        </section>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <label className="col-span-2 grid gap-1.5 text-sm">
           Role or outreach subject
@@ -610,10 +632,7 @@ function ApplicationForm({
         </label>
         <label className="grid gap-1.5 text-sm">
           Status
-          <Select
-            name="status"
-            defaultValue={application?.status ?? "queued"}
-          >
+          <Select name="status" defaultValue={application?.status ?? "queued"}>
             <SelectTrigger aria-label="Status">
               <SelectValue />
             </SelectTrigger>

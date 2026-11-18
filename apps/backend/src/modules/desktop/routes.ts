@@ -12,8 +12,6 @@ export const desktopRoutes = new Hono();
 
 const configSchema = z
   .object({
-    searxngUrl: z.string().url().max(2048).optional(),
-    crawlerUrl: z.string().url().max(2048).optional(),
     aiProvider: z.string().trim().min(1).max(64).optional(),
     aiBaseUrl: z.string().url().max(2048).optional(),
     aiApiKey: z.string().max(4096).optional(),
@@ -50,8 +48,6 @@ desktopRoutes.put("/config", async (context) => {
   }
   try {
     updateRuntimeSettings({
-      searxngBaseUrl: parsed.data.searxngUrl,
-      crawlerBaseUrl: parsed.data.crawlerUrl,
       provider: parsed.data.aiProvider,
       baseUrl: parsed.data.aiBaseUrl,
       apiKey: parsed.data.aiApiKey,
@@ -71,22 +67,9 @@ desktopRoutes.put("/config", async (context) => {
 
 desktopRoutes.get("/diagnostics", async (context) => {
   const settings = getRuntimeSettings();
-  const [crawler, searxng, ai] = await Promise.all([
-    settings.crawlerEnabled
-      ? probe(`${settings.crawlerBaseUrl.replace(/\/$/, "")}/health`)
-      : {
-          ok: false,
-          status: null,
-          error: "Browser research is disabled for this launch.",
-        },
-    probeSearxng(settings.searxngBaseUrl),
-    probeAi(settings.baseUrl, settings.apiKey),
-  ]);
+  const ai = await probeAi(settings.baseUrl, settings.apiKey);
   return context.json({
-    crawler,
-    searxng,
     ai,
-    searxngConfigured: Boolean(settings.searxngBaseUrl),
     aiConfigured: aiConfigured(settings),
     aiKeyPresent: Boolean(settings.apiKey),
   });
@@ -99,8 +82,6 @@ function statusPayload() {
     database: "sqlite",
     databaseFile: env.SQLITE_DATABASE_FILE ?? null,
     dataDir: env.DATA_DIR,
-    searxngUrl: settings.searxngBaseUrl,
-    crawlerUrl: settings.crawlerBaseUrl,
     aiProvider: settings.provider,
     aiBaseUrl: settings.baseUrl,
     aiModel: settings.model,
@@ -127,40 +108,6 @@ async function probe(url: string, headers?: Record<string, string>) {
       ok: false,
       status: null,
       error: error instanceof Error ? error.message : "Unavailable.",
-    };
-  }
-}
-
-async function probeSearxng(baseUrl: string) {
-  try {
-    const url = new URL("search", `${baseUrl.replace(/\/?$/, "")}/`);
-    url.searchParams.set("q", "surface connectivity check");
-    url.searchParams.set("format", "json");
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!response.ok) {
-      return {
-        ok: false,
-        status: response.status,
-        error: `SearXNG returned HTTP ${response.status}.`,
-      };
-    }
-    const body = (await response.json()) as { results?: unknown[] };
-    return {
-      ok: true,
-      status: response.status,
-      error: null,
-      results: Array.isArray(body.results) ? body.results.length : 0,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      status: null,
-      error:
-        error instanceof Error
-          ? `Cannot reach SearXNG: ${error.message}`
-          : "Cannot reach SearXNG.",
     };
   }
 }

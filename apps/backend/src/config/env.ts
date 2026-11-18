@@ -24,8 +24,6 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
-  SEARXNG_BASE_URL: z.string().url().default("http://127.0.0.1:8080"),
-  CRAWLER_BASE_URL: z.string().url().default("http://127.0.0.1:4100"),
   PORT: z.coerce.number().int().positive().default(4000),
   HOST: z.string().default("127.0.0.1"),
   SQLITE_DATABASE_FILE: z.string().min(1).optional(),

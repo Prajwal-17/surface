@@ -22,6 +22,10 @@
     "changelog": "node scripts/changelog.mjs",
     "db:generate": "bun --cwd apps/backend db:generate",
     "db:migrate": "bun --cwd apps/backend db:migrate",
+    "db:studio": "bun --cwd apps/backend db:studio",
+    "db:studio:prod": "bun --cwd apps/backend db:studio:prod",
+    "db:reset-dev": "bun --cwd apps/backend db:reset-dev",
+    "db:import-notion": "bun --cwd apps/backend db:import-notion",
     "verify:sqlite": "bun --cwd apps/backend verify:sqlite"
   },
   "devDependencies": {

@@ -292,7 +292,7 @@ export async function discoverUrls(
   }
   if (!urls.size)
     errors.push(
-      "No usable source URLs returned. Check SearXNG engine availability or add a company/profile URL manually.",
+      "No usable source URLs returned. Add a company or profile URL manually.",
     );
   if (urls.size > 60)
     errors.push(

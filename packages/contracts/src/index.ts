@@ -72,6 +72,65 @@ export const jobFindResultSchema = z.object({
 export type JobFindInput = z.infer<typeof jobFindInputSchema>;
 export type JobFindResult = z.infer<typeof jobFindResultSchema>;
 
+export const jobSearchSettingsInputSchema = z.object({
+  query: z.string().trim().max(120).default(""),
+  location: z.string().trim().max(120).default(""),
+  employmentType: z
+    .enum([
+      "any",
+      "full-time",
+      "part-time",
+      "contract",
+      "internship",
+      "temporary",
+    ])
+    .default("any"),
+  remoteOnly: z.boolean().default(false),
+  intervalMinutes: z.number().int().min(0).max(10080).default(0),
+  maxApplications: z.number().int().min(1).max(100).default(10),
+  maxCompanies: z.number().int().min(1).max(100).default(5),
+  enabled: z.boolean().default(false),
+});
+export const jobSearchSourceResultSchema = z.object({
+  key: z.enum([
+    "remotive",
+    "jobicy",
+    "arbeitnow",
+    "remote-ok",
+    "we-work-remotely",
+  ]),
+  label: z.string(),
+  fetched: z.number().int().nonnegative(),
+  matched: z.number().int().nonnegative(),
+  skippedDuplicates: z.number().int().nonnegative().default(0),
+  skippedUnresolvedCompanies: z.number().int().nonnegative().default(0),
+  skippedCompanyLimit: z.number().int().nonnegative().default(0),
+  skippedApplicationLimit: z.number().int().nonnegative().default(0),
+  error: z.string().nullable(),
+});
+export const jobSearchRunSchema = z.object({
+  id: z.string(),
+  status: z.enum(["completed", "partial", "failed"]),
+  startedAt: z.string(),
+  completedAt: z.string(),
+  found: z.number().int().nonnegative(),
+  insertedApplications: z.number().int().nonnegative(),
+  insertedCompanies: z.number().int().nonnegative(),
+  skipped: z.number().int().nonnegative(),
+  sources: z.array(jobSearchSourceResultSchema),
+});
+export const jobSearchSettingsSchema = jobSearchSettingsInputSchema.extend({
+  lastRunAt: z.string().nullable(),
+  nextRunAt: z.string().nullable(),
+  latestRun: jobSearchRunSchema.nullable(),
+  running: z.boolean(),
+});
+export type JobSearchSettingsInput = z.infer<
+  typeof jobSearchSettingsInputSchema
+>;
+export type JobSearchSettings = z.infer<typeof jobSearchSettingsSchema>;
+export type JobSearchRun = z.infer<typeof jobSearchRunSchema>;
+
 export const jobFitVerdicts = ["strong", "possible", "weak"] as const;
 export const jobFitVerdictSchema = z.enum(jobFitVerdicts);
 export type JobFitVerdict = z.infer<typeof jobFitVerdictSchema>;

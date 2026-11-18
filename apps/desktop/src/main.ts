@@ -59,7 +59,6 @@ if (!gotLock) {
 
 let mainWindow: BrowserWindow | null = null;
 let backend: ManagedProcess | null = null;
-let crawler: ManagedProcess | null = null;
 let mainLog: LogSink | null = null;
 let paths: DesktopPaths | null = null;
 let backendUrl = "";
@@ -104,39 +103,10 @@ async function bootstrap(): Promise<void> {
       `settings loaded secretStorage=${selected.secretStorage} aiConfigured=${Boolean(selected.aiApiKey)}`,
     );
 
-    let crawlerUrl = selected.crawlerUrl || process.env.CRAWLER_BASE_URL;
     const backendPort =
       Number(process.env.SURFACE_DESKTOP_BACKEND_PORT) || (await getFreePort());
     desktopToken = randomBytes(32).toString("base64url");
     backendUrl = `http://127.0.0.1:${backendPort}`;
-
-    if (process.env.SURFACE_DESKTOP_ENABLE_CRAWLER === "1") {
-      let crawlerPort =
-        Number(process.env.SURFACE_DESKTOP_CRAWLER_PORT) ||
-        (await getFreePort());
-      while (crawlerPort === backendPort) crawlerPort = await getFreePort();
-      crawlerUrl = `http://127.0.0.1:${crawlerPort}`;
-      const crawlerLog = createLogSink(paths.logs, "crawler.log");
-      crawler = await startAndWait(
-        {
-          name: "crawler",
-          entry: paths.crawlerEntry,
-          log: crawlerLog,
-          env: {
-            ...process.env,
-            NODE_ENV: "production",
-            CRAWLER_HOST: "127.0.0.1",
-            CRAWLER_PORT: String(crawlerPort),
-            PLAYWRIGHT_BROWSERS_PATH: paths.playwrightBrowsers,
-          },
-          onUnexpectedExit: (name, code) => {
-            if (running) void childFailed(name, code);
-          },
-        },
-        `${crawlerUrl}/health`,
-        45_000,
-      );
-    }
 
     const backendLog = createLogSink(paths.logs, "backend.log");
     backend = await startAndWait(
@@ -160,9 +130,6 @@ async function bootstrap(): Promise<void> {
             "data",
             "locations.json.gz",
           ),
-          CRAWLER_BASE_URL: crawlerUrl,
-          SURFACE_CRAWLER_DISABLED: crawlerUrl ? "0" : "1",
-          SEARXNG_BASE_URL: selected.searxngUrl,
           AI_PROVIDER: selected.aiProvider,
           AI_BASE_URL: selected.aiBaseUrl,
           AI_MODEL: selected.aiModel,
@@ -170,7 +137,6 @@ async function bootstrap(): Promise<void> {
           OPENCODE_GO_API_KEY: selected.aiApiKey,
           SURFACE_DESKTOP_TOKEN: desktopToken,
           SURFACE_SECRET_STORAGE: selected.secretStorage,
-          PLAYWRIGHT_BROWSERS_PATH: paths.playwrightBrowsers,
         },
         onUnexpectedExit: (name, code) => {
           if (running) void childFailed(name, code);
@@ -357,22 +323,19 @@ function createWindow(): void {
               const header = await waitFor(
                 ".workspace-header, .onboarding-top",
               );
-              const [health, auth, status, jobs, schema, applications, refresh] =
+              const [health, auth, status, applications, jobSearch] =
                 await Promise.all([
                   fetch("/api/health").then((response) => response.json()),
                   fetch("/api/auth/session").then((response) => response.json()),
                   fetch("/api/desktop/status").then((response) => response.json()),
-                  fetch("/api/jobs?page=1&relevance=all&limit=1").then((response) =>
+                  fetch("/api/applications").then((response) => response.json()),
+                  fetch("/api/job-search/settings").then((response) =>
                     response.json(),
                   ),
-                  fetch("/api/schema").then((response) => response.json()),
-                  fetch("/api/applications").then((response) => response.json()),
-                  fetch("/api/refresh").then((response) => response.json()),
                 ]);
               const appInfo = await window.surfaceDesktop.appInfo();
               const before = await window.surfaceDesktop.getSettings();
               const saved = await window.surfaceDesktop.saveSettings({
-                searxngUrl: before.searxngUrl,
                 aiProvider: before.aiProvider,
                 aiBaseUrl: before.aiBaseUrl,
                 aiModel: before.aiModel,
@@ -393,10 +356,8 @@ function createWindow(): void {
                 health,
                 auth,
                 status,
-                jobs: { total: jobs.total, collectedTotal: jobs.collectedTotal },
                 applications: Array.isArray(applications) ? applications.length : null,
-                refreshAvailable: refresh.available,
-                tables: Array.isArray(schema.tables) ? schema.tables.length : null,
+                jobSearchAvailable: typeof jobSearch.query === "string",
                 saved,
                 after,
                 chrome: {
@@ -602,8 +563,6 @@ async function applyRuntimeSettings(
         "x-surface-desktop-token": desktopToken,
       },
       body: JSON.stringify({
-        searxngUrl: settings.searxngUrl,
-        crawlerUrl: settings.crawlerUrl || undefined,
         aiProvider: settings.aiProvider,
         aiBaseUrl: settings.aiBaseUrl,
         aiApiKey: settings.aiApiKey,
@@ -664,7 +623,6 @@ async function shutdown(exitCode: number, force = false): Promise<void> {
   mainLog?.write(`[${new Date().toISOString()}] shutdown requested`);
   try {
     await backend?.stop();
-    await crawler?.stop();
   } catch (error) {
     mainLog?.write(
       `[${new Date().toISOString()}] shutdown error: ${error instanceof Error ? error.message : String(error)}`,

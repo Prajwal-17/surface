@@ -11,8 +11,6 @@ services:
       PORT: "4000"
       AUTH_SECRET: ${AUTH_SECRET:-}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
-      SEARXNG_BASE_URL: http://searxng:8080
-      CRAWLER_BASE_URL: http://crawler:4100
       SOURCE_TIMEOUT_MS: ${SOURCE_TIMEOUT_MS:-12000}
       AI_PROVIDER: ${AI_PROVIDER:-opencode-go}
       AI_BASE_URL: ${AI_BASE_URL:-https://opencode.ai/inference/go/openai/v1}
@@ -45,33 +43,3 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
-
-  searxng:
-    image: searxng/searxng:2026.9.8-3fdc6d753
-    volumes:
-      - ./services/searxng/settings.yml:/etc/searxng/settings.yml:ro
-    environment:
-      SEARXNG_SECRET: ${SEARXNG_SECRET:-surface-local-company-research}
-    ports:
-      - "127.0.0.1:8080:8080"
-    restart: unless-stopped
-  crawler:
-    build:
-      context: .
-      dockerfile: apps/crawler/Dockerfile
-    init: true
-    shm_size: 1gb
-    ports:
-      - "127.0.0.1:${FIELDWORK_PROD_CRAWLER_PORT:-4101}:4100"
-    restart: unless-stopped
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://localhost:4100/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
-        ]
-      interval: 15s
-      timeout: 5s
-      retries: 3

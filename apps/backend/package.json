@@ -11,7 +11,12 @@
     "lint": "oxlint --config ../../.oxlintrc.json .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --import tsx scripts/migrate.ts",
+    "db:studio": "drizzle-kit studio",
+    "db:studio:prod": "APP_ENV=production drizzle-kit studio",
+    "db:reset-dev": "node --import tsx scripts/reset-dev-data.ts",
+    "db:import-notion": "node --import tsx scripts/import-notion-tracker.ts",
     "db:reset-tracker": "node --import tsx scripts/reset-tracker.ts",
+    "db:reset-legacy-discovery": "node --import tsx scripts/reset-legacy-job-discovery.ts",
     "db:seed-tracker-dev": "node --import tsx scripts/seed-tracker-dev.ts",
     "test": "bun run scripts/test.ts",
     "verify:sqlite": "node --import tsx scripts/verify-sqlite.ts"
@@ -31,6 +36,7 @@
     "zod": "latest"
   },
   "devDependencies": {
+    "@libsql/client": "^0.18.0",
     "@surface/typescript-config": "workspace:*",
     "@types/bun": "latest",
     "@types/node": "26.3.0",

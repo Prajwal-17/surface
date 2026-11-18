@@ -50,6 +50,7 @@ export const weWorkRemotelySource: SourceAdapter = {
           externalId: toStringValue(item.guid) || link,
           title,
           company,
+          companyWebsite: null,
           location: toStringValue(item.region, "Remote"),
           isRemote: true,
           employmentType: toStringValue(item.type) || null,

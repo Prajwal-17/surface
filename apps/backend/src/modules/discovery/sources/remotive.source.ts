@@ -31,6 +31,8 @@ export const remotiveSource: SourceAdapter = {
           externalId: toStringValue(item.id) || null,
           title,
           company: toStringValue(item.company_name, "Company not listed"),
+          companyWebsite:
+            toStringValue(item.company_url || item.company_website) || null,
           location: toStringValue(item.candidate_required_location, "Remote"),
           isRemote: true,
           countries: explicitCountries(item.candidate_required_location),

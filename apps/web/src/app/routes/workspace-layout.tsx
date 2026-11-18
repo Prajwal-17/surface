@@ -6,8 +6,8 @@ export function WorkspaceLayout() {
   const fullBleed =
     pathname === "/" ||
     pathname === "/applications" ||
-    pathname === "/companies" ||
-    pathname === "/schema";
+    pathname === "/job-search" ||
+    pathname === "/companies";
 
   return (
     <AppShell fullBleed={fullBleed}>

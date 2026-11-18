@@ -107,11 +107,13 @@ export function categorizeLink(url: string, website: string) {
       return "blog" as const;
     if (/\/pricing|\/plans/.test(path)) return "pricing" as const;
     if (/\/status/.test(path)) return "status" as const;
-    if (/\/community|\/forum|\/discord/.test(path))
-      return "community" as const;
+    if (/\/community|\/forum|\/discord/.test(path)) return "community" as const;
   }
   try {
-    if (new URL(website).hostname.replace(/^www\./, "") === host.replace(/^www\./, ""))
+    if (
+      new URL(website).hostname.replace(/^www\./, "") ===
+      host.replace(/^www\./, "")
+    )
       return path === "/" || path === "" ? "website" : "other";
   } catch {
     /* Keep the generic category. */
@@ -121,8 +123,8 @@ export function categorizeLink(url: string, website: string) {
 
 function pathTail(url: string, max = 28) {
   try {
-    const segment = new URL(url)
-      .pathname.replace(/\/$/, "")
+    const segment = new URL(url).pathname
+      .replace(/\/$/, "")
       .split("/")
       .filter(Boolean)
       .pop();
@@ -157,7 +159,10 @@ function labelFor(candidate: Candidate) {
   return fallbackLabel(candidate);
 }
 
-function extractEmails(pages: { url: string; text: string }[], website: string) {
+function extractEmails(
+  pages: { url: string; text: string }[],
+  website: string,
+) {
   let domain = "";
   try {
     domain = new URL(website).hostname.replace(/^www\./, "").toLowerCase();
@@ -174,7 +179,13 @@ function extractEmails(pages: { url: string; text: string }[], website: string) 
       if (/\.(?:png|jpe?g|gif|svg|webp|ico|css|js)$/i.test(email)) continue;
       const emailDomain = email.split("@")[1] ?? "";
       if (NOISE_HOSTS.test(emailDomain)) continue;
-      if (domain && emailDomain !== domain && !/^(?:hello|hi|contact|info|careers?|jobs?|hiring|press|support|sales|founders?|team|security|partnerships|recruit(?:ment)?)@/i.test(email))
+      if (
+        domain &&
+        emailDomain !== domain &&
+        !/^(?:hello|hi|contact|info|careers?|jobs?|hiring|press|support|sales|founders?|team|security|partnerships|recruit(?:ment)?)@/i.test(
+          email,
+        )
+      )
         continue;
       if (!found.has(email)) found.set(email, { email, sourceUrl: page.url });
     }
@@ -182,10 +193,7 @@ function extractEmails(pages: { url: string; text: string }[], website: string) 
   return [...found.values()].slice(0, MAX_EMAILS);
 }
 
-async function collectCandidates(company: {
-  name: string;
-  website: string;
-}) {
+async function collectCandidates(company: { name: string; website: string }) {
   const homepageUrl = publicUrlSchema.parse(company.website);
   const homepage = await readCompanyPage(homepageUrl);
   const pages = [homepage];
@@ -245,9 +253,8 @@ async function collectCandidates(company: {
   };
   let candidates = collect();
   const useful = () =>
-    candidates.filter(
-      (c) => c.category !== "other" && c.category !== "website",
-    ).length;
+    candidates.filter((c) => c.category !== "other" && c.category !== "website")
+      .length;
 
   // JavaScript-heavy sites hide their menu links; probe the usual public pages.
   if (useful() < 4) {
@@ -293,11 +300,15 @@ function heuristicSelection(
   }
   for (const list of byCategory.values())
     list.sort(
-      (a, b) => pathDepth(a.url) - pathDepth(b.url) || a.url.length - b.url.length,
+      (a, b) =>
+        pathDepth(a.url) - pathDepth(b.url) || a.url.length - b.url.length,
     );
 
-  const picked: { url: string; category: CompanyLinkCategory; label: string }[] =
-    [];
+  const picked: {
+    url: string;
+    category: CompanyLinkCategory;
+    label: string;
+  }[] = [];
   const seen = new Set<string>();
   // One link per category first, then a second shallow link where it helps.
   for (const pass of [0, 1]) {
@@ -358,7 +369,7 @@ export async function verifyCompanyLinks(companyId: string) {
     } catch {
       throw new HttpError(
         502,
-        "Could not read the company website. Check the address and the crawler service, then try again.",
+        "Could not read the company website. Check the address and try again.",
       );
     }
   })();

@@ -22,13 +22,16 @@ export const router = createBrowserRouter([
           redirect(`/applications${new URL(request.url).search}`),
       },
       { path: "activity", lazy: () => import("@/app/routes/activity-route") },
+      {
+        path: "job-search",
+        lazy: () => import("@/app/routes/job-search-route"),
+      },
       { path: "companies", lazy: () => import("@/app/routes/companies-route") },
       {
         path: "applications",
         lazy: () => import("@/app/routes/applications-route"),
       },
       { path: "profile", lazy: () => import("@/app/routes/profile-route") },
-      { path: "schema", lazy: () => import("@/app/routes/schema-route") },
       { path: "settings", lazy: () => import("@/app/routes/settings-route") },
     ],
   },

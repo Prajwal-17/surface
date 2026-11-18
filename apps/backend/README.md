@@ -82,6 +82,47 @@ modules, Bun APIs, database clients, and environment configuration out of it.
 The backend applies these migrations on startup. Set `SQLITE_DATABASE_FILE`
 to apply them directly with `bun run db:migrate`.
 
+`bun run db:studio` opens Drizzle Studio against the development desktop
+profile (`~/.config/Surface Dev/surface.sqlite3`), the same file the desktop app
+uses. `bun run db:studio:prod` opens the production desktop profile
+(`~/.config/Surface/surface.sqlite3`). Both follow `XDG_CONFIG_HOME` and
+`SURFACE_DESKTOP_USER_DATA`, and `SQLITE_DATABASE_FILE` overrides the file
+entirely. These commands never use the repository `data/` directory. Pass
+`--port <port>` to override the default port.
+
+Studio creates the SQLite file when it does not exist yet, so launch the
+matching desktop channel once first if you only want an existing database.
+
+`bun run db:reset-dev` clears collected data from the development desktop
+profile. It keeps profile, preferences, settings, configured sources and
+tracker data, and deletes jobs, companies, applications, collected evidence,
+runs, queues and the cached snapshot and logo files. Migrations and the schema
+stay intact. Review the preflight report first, then apply:
+
+```sh
+bun run db:reset-dev
+CONFIRM_DEV_DATA_RESET=1 bun run db:reset-dev -- --apply
+```
+
+The reset writes a `surface.sqlite3.before-dev-data-reset-<timestamp>.sqlite3`
+backup next to the database and refuses to run while the backend holds its
+worker lease or when `APP_ENV=production`.
+
+`bun run db:import-notion` copies the Notion Companies and Applications
+databases into the tracker tables of the development desktop profile. It needs
+a Notion integration token in `NOTION_TOKEN`, shared with both databases.
+Notion page ids become tracker ids, so re-running updates rows instead of
+duplicating them. Review the preflight report first, then apply:
+
+```sh
+NOTION_TOKEN=ntn_... bun run db:import-notion
+NOTION_TOKEN=ntn_... bun run db:import-notion -- --apply
+```
+
+Add `--replace` with `CONFIRM_TRACKER_IMPORT=1` to delete existing tracker rows
+first. Company size, tags and application channels are kept in the notes field
+because the tracker has no dedicated columns for them.
+
 `bun run verify:sqlite` checks a temporary on-disk profile, including migration,
 CRUD, and reopen. `bun run test` runs each suite against its own in-memory
 SQLite database and temporary asset directory.

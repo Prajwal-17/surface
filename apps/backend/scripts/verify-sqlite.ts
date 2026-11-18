@@ -11,6 +11,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DatabaseSync } from "node:sqlite";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const backendDirectory = resolve(here, "..");
@@ -63,9 +64,7 @@ async function mainCheck(): Promise<void> {
     await import("../src/modules/jobs/jobs.repository.ts");
   const { persistSnapshot } =
     await import("../src/modules/collection/snapshots.ts");
-  const { enqueueCollection, syncRuns } =
-    await import("../src/modules/work/work.service.ts");
-  const { executeCollection, recoverInterruptedWork } =
+  const { recoverInterruptedWork } =
     await import("../src/modules/work/executor.ts");
   const { listOpportunities, companyDetail } =
     await import("../src/modules/company-discovery/repository.ts");
@@ -73,7 +72,11 @@ async function mainCheck(): Promise<void> {
     await import("../src/modules/work/events.routes.ts");
   const { companies, configuredSources } =
     await import("../src/modules/workspace/workspace.tables.ts");
-  const { workItems, runItems, coordinationLocks, executorLease } =
+  const { applications } =
+    await import("../src/modules/applications/applications.tables.ts");
+  const { jobSearchSeen, jobSearchSettings } =
+    await import("../src/modules/jobs/job-search.tables.ts");
+  const { workItems, runs, runItems, coordinationLocks, executorLease } =
     await import("../src/modules/work/work.tables.ts");
   const {
     companyActions,
@@ -97,7 +100,7 @@ async function mainCheck(): Promise<void> {
        AND name <> '__surface_sqlite_migrations'
      ORDER BY name`,
   );
-  assert.equal(tableRows.length, 36);
+  assert.equal(tableRows.length, 39);
   assert.ok(tableRows.some(({ name }) => name === "applications"));
   assert.ok(tableRows.some(({ name }) => name === "tracker_companies"));
   assert.ok(tableRows.some(({ name }) => name === "tracker_applications"));
@@ -122,7 +125,9 @@ async function mainCheck(): Promise<void> {
   await executeStatement(
     `INSERT INTO tracker_applications(id,title,company_id,created_at,updated_at) VALUES('tracker-application-test','Test role','tracker-test',datetime('now'),datetime('now'))`,
   );
-  await executeStatement(`DELETE FROM tracker_companies WHERE id='tracker-test'`);
+  await executeStatement(
+    `DELETE FROM tracker_companies WHERE id='tracker-test'`,
+  );
   const cascaded = await executeStatement<{ count: number }>(
     `SELECT count(*) AS count FROM tracker_applications WHERE id='tracker-application-test'`,
   );
@@ -307,93 +312,52 @@ async function mainCheck(): Promise<void> {
     "insert/update/detail, case-insensitive search, JSON columns",
   );
 
-  const enqueued = await enqueueCollection([sourceId], "Verification refresh");
-  assert.ok(enqueued.runId);
-  assert.equal(
-    (await enqueueCollection([sourceId], "Verification refresh")).runId,
-    enqueued.runId,
-  );
-  const runItem = (
-    await db
-      .select()
-      .from(runItems)
-      .where(eq(runItems.runId, enqueued.runId))
-      .limit(1)
-  )[0]!;
-  const workRow = (
-    await db
-      .select()
-      .from(workItems)
-      .where(eq(workItems.id, runItem.workId))
-      .limit(1)
-  )[0];
-  assert.equal(workRow?.state, "queued");
-  await db
-    .update(workItems)
-    .set({ state: "running", startedAt: now, attempts: 1 })
-    .where(eq(workItems.id, runItem.workId));
+  const legacyWorkId = crypto.randomUUID();
+  await db.insert(workItems).values({
+    id: legacyWorkId,
+    kind: "collection",
+    sourceId,
+    identity: `legacy:${legacyWorkId}`,
+    state: "queued",
+    retryAt: now,
+    createdAt: now,
+  });
+  const interruptedAnalysisId = crypto.randomUUID();
+  await db.insert(workItems).values({
+    id: interruptedAnalysisId,
+    kind: "analysis",
+    jobId: listed.jobs[0]!.id,
+    identity: `analysis:${interruptedAnalysisId}`,
+    state: "running",
+    attempts: 1,
+    retryAt: now,
+    createdAt: now,
+    startedAt: now,
+  });
   await recoverInterruptedWork();
   assert.equal(
     (
       await db
         .select()
         .from(workItems)
-        .where(eq(workItems.id, runItem.workId))
+        .where(eq(workItems.id, legacyWorkId))
         .limit(1)
     )[0]?.state,
-    "queued",
+    "interrupted",
   );
-  await syncRuns();
-  check(
-    "monitoring queue and recovery",
-    "collection enqueued, run linked, interrupted work recovered",
-  );
-  const failedSourceId = crypto.randomUUID();
-  await db.insert(configuredSources).values({
-    id: failedSourceId,
-    label: "Fixture failed portal",
-    url: "https://example.test/failed",
-    endpoint: "https://example.test/failed",
-    provider: "public-page",
-    support: "supported",
-    reason: "Fixture",
-    scheduleHours: 0,
-    createdAt: now,
-    updatedAt: now,
-  });
-  const refresh = await enqueueCollection(
-    [sourceId, failedSourceId],
-    "Partial refresh fixture",
-  );
-  const { getRun } = await import("../src/modules/work/work.service.ts");
-  const refreshRun = await getRun(refresh.runId);
-  const [healthy, failed] = [sourceId, failedSourceId].map((id) =>
-    refreshRun.items.find((item) => item.sourceId === id)!,
-  );
-  await db
-    .update(workItems)
-    .set({ attempts: 2 })
-    .where(eq(workItems.id, failed!.id));
-  await Promise.all([
-    executeCollection(healthy!, async () => ({
-      candidates: [candidate],
-      complete: true,
-      error: null,
-    })),
-    executeCollection(failed!, async () => {
-      throw new Error("Fixture portal unavailable");
-    }),
-  ]);
-  const outcomes = await getRun(refresh.runId);
-  assert.equal(outcomes.state, "partial");
   assert.equal(
-    outcomes.items.find(({ id }) => id === healthy!.id)?.result?.insertedCount,
-    0,
+    (
+      await db
+        .select()
+        .from(workItems)
+        .where(eq(workItems.id, interruptedAnalysisId))
+        .limit(1)
+    )[0]?.state,
+    "interrupted",
   );
-  assert.equal((await findJobById(listed.jobs[0]!.id))?.availability, "open");
   check(
-    "partial refresh",
-    "healthy source preserved its listing and repeated collection created no duplicate",
+    "legacy job worker shutdown",
+    "collection and analysis work are interrupted; company workflows remain active",
   );
   await db.insert(executorLease).values({
     id: "backend",
@@ -685,6 +649,58 @@ async function mainCheck(): Promise<void> {
     "match views",
     "unassessed role appears in Needs review and moves to Best matches after a supported assessment",
   );
+  const protectedApplicationId = crypto.randomUUID();
+  await db.insert(applications).values({
+    id: protectedApplicationId,
+    jobId: listed.jobs[0]!.id,
+    companyId,
+    title: "Senior TypeScript Engineer",
+    companyName: "Acme Robotics",
+    sourceUrl: "https://acme.example/jobs/1",
+    description: "Protected application description",
+    publishedAt: "2026-11-01T00:00:00.000Z",
+    status: "applied",
+    notes: "Keep these notes",
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db
+    .update(jobSearchSettings)
+    .set({ query: "TypeScript", updatedAt: now })
+    .where(eq(jobSearchSettings.id, "default"));
+  await db.insert(jobSearchSeen).values({
+    id: crypto.randomUUID(),
+    canonicalUrl: "https://acme.example/jobs/1",
+    source: "remotive",
+    applicationId: protectedApplicationId,
+    firstSeenAt: now,
+  });
+  const collectionRunId = crypto.randomUUID();
+  const collectionWorkId = crypto.randomUUID();
+  await db.insert(runs).values({
+    id: collectionRunId,
+    kind: "collection",
+    label: "Legacy refresh fixture",
+    state: "queued",
+    createdAt: now,
+  });
+  await db.insert(workItems).values({
+    id: collectionWorkId,
+    kind: "collection",
+    sourceId,
+    identity: `legacy-reset:${collectionWorkId}`,
+    state: "queued",
+    retryAt: now,
+    createdAt: now,
+  });
+  await db.insert(runItems).values({
+    runId: collectionRunId,
+    workId: collectionWorkId,
+  });
+  await db
+    .update(executorLease)
+    .set({ expiresAt: 0 })
+    .where(eq(executorLease.id, "backend"));
   await db
     .update(workItems)
     .set({ state: "completed", completedAt: now })
@@ -719,6 +735,132 @@ async function mainCheck(): Promise<void> {
   assert.equal(reopened.profileRevision, 1);
   assert.equal(reopened.migrations, migrationCount);
   check("restart persistence", JSON.stringify(reopened));
+
+  const beforeReset = new DatabaseSync(databaseFile, { readOnly: true });
+  const preservedEvidence = beforeReset
+    .prepare(
+      "SELECT (SELECT count(*) FROM resources) AS resources, (SELECT count(*) FROM snapshots) AS snapshots",
+    )
+    .get() as { resources: number; snapshots: number };
+  beforeReset.close();
+  const reset = spawnSync(
+    process.execPath,
+    ["--import", "tsx", join(here, "reset-legacy-job-discovery.ts"), "--apply"],
+    {
+      env: {
+        ...process.env,
+        SQLITE_DATABASE_FILE: databaseFile,
+        CONFIRM_LEGACY_JOB_RESET: "1",
+      },
+      encoding: "utf8",
+    },
+  );
+  if (reset.status !== 0) {
+    throw new Error(
+      `Guarded legacy reset verification failed (${reset.status}): ${reset.stderr || reset.stdout}`,
+    );
+  }
+  const afterReset = new DatabaseSync(databaseFile, {
+    readOnly: true,
+    enableForeignKeyConstraints: true,
+  });
+  const scalar = (sql: string) =>
+    (afterReset.prepare(sql).get() as { count: number }).count;
+  const preservedApplication = afterReset
+    .prepare(
+      "SELECT job_id,status,notes,source_url FROM applications WHERE id=?",
+    )
+    .get(protectedApplicationId) as {
+    job_id: string | null;
+    status: string;
+    notes: string;
+    source_url: string;
+  };
+  assert.equal(scalar("SELECT count(*) AS count FROM jobs"), 0);
+  assert.equal(scalar("SELECT count(*) AS count FROM job_sources"), 0);
+  assert.equal(scalar("SELECT count(*) AS count FROM observations"), 0);
+  assert.equal(scalar("SELECT count(*) AS count FROM job_versions"), 0);
+  assert.equal(scalar("SELECT count(*) AS count FROM duplicate_decisions"), 0);
+  assert.equal(
+    scalar("SELECT count(*) AS count FROM work_items WHERE kind='collection'"),
+    0,
+  );
+  assert.equal(
+    scalar("SELECT count(*) AS count FROM work_items WHERE kind='analysis'"),
+    0,
+  );
+  assert.equal(scalar("SELECT count(*) AS count FROM companies"), 1);
+  assert.equal(scalar("SELECT count(*) AS count FROM applications"), 1);
+  assert.equal(preservedApplication.job_id, null);
+  assert.equal(preservedApplication.status, "applied");
+  assert.equal(preservedApplication.notes, "Keep these notes");
+  assert.equal(preservedApplication.source_url, "https://acme.example/jobs/1");
+  assert.equal(scalar("SELECT count(*) AS count FROM job_search_settings"), 1);
+  assert.equal(scalar("SELECT count(*) AS count FROM job_search_seen"), 1);
+  assert.equal(
+    scalar(
+      "SELECT count(*) AS count FROM company_actions WHERE job_id IS NULL",
+    ),
+    1,
+  );
+  assert.deepEqual(
+    afterReset
+      .prepare(
+        "SELECT (SELECT count(*) FROM resources) AS resources, (SELECT count(*) FROM snapshots) AS snapshots",
+      )
+      .get(),
+    preservedEvidence,
+  );
+  afterReset.close();
+  check(
+    "guarded legacy reset",
+    "old job data and legacy worker queues cleared; Applications, Companies, Job Search state, and company evidence preserved",
+  );
+
+  const workerRecoveryCode = `
+    import { recoverInterruptedWork } from "./src/modules/work/executor.ts";
+    import { closeDatabase, executeStatement } from "./src/infrastructure/database/client.ts";
+    await recoverInterruptedWork();
+    const rows = await executeStatement("SELECT (SELECT count(*) FROM jobs) AS jobs, (SELECT count(*) FROM work_items WHERE kind='collection') AS collection, (SELECT count(*) FROM work_items WHERE kind='analysis') AS analysis");
+    console.log("POST_RESET_WORKER_JSON " + JSON.stringify(rows[0]));
+    await closeDatabase();
+  `;
+  const workerRecovery = spawnSync(
+    process.execPath,
+    ["--input-type=module", "--import", "tsx", "-e", workerRecoveryCode],
+    {
+      cwd: backendDirectory,
+      env: {
+        ...process.env,
+        SQLITE_DATABASE_FILE: databaseFile,
+        DATA_DIR: dataDirectory,
+        SQLITE_MIGRATIONS_DIR: join(backendDirectory, "drizzle-sqlite"),
+        APP_ENV: "test",
+        NODE_ENV: "test",
+      },
+      encoding: "utf8",
+    },
+  );
+  if (workerRecovery.status !== 0) {
+    throw new Error(
+      `Post-reset worker recovery failed (${workerRecovery.status}): ${workerRecovery.stderr || workerRecovery.stdout}`,
+    );
+  }
+  const workerLine = workerRecovery.stdout
+    .split("\n")
+    .find((line) => line.startsWith("POST_RESET_WORKER_JSON "));
+  assert.ok(
+    workerLine,
+    `Post-reset worker report missing: ${workerRecovery.stdout}`,
+  );
+  const workerCounts = JSON.parse(
+    workerLine.slice("POST_RESET_WORKER_JSON ".length),
+  ) as { jobs: number; collection: number; analysis: number };
+  assert.deepEqual(workerCounts, { jobs: 0, collection: 0, analysis: 0 });
+  check(
+    "no legacy data returns after recovery",
+    "backend recovery leaves job-discovery tables and worker queues empty",
+  );
 
   const integrity = await reopenIntegrity(databaseFile);
   assert.equal(integrity, "ok");

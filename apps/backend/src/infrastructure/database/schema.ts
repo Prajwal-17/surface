@@ -4,6 +4,11 @@ export {
 } from "../../modules/discovery/discovery.tables";
 export { jobs, jobSources } from "../../modules/jobs/jobs.tables";
 export {
+  jobSearchSettings,
+  jobSearchRuns,
+  jobSearchSeen,
+} from "../../modules/jobs/job-search.tables";
+export {
   jobPreferences,
   profileRevisions,
 } from "../../modules/profile/profile.tables";

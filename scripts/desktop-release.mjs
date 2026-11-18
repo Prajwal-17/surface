@@ -4,7 +4,7 @@
  *
  * This script is intentionally dependency-free so CI can run it immediately
  * after checkout. It owns version/tag validation, release artifact discovery,
- * SHA-256 checksums, the staged Playwright Chromium check, and the fresh-profile
+ * SHA-256 checksums, build verification, and the fresh-profile
  * AppImage smoke test. Packaging itself stays in apps/desktop/package.json,
  * which is owned by the desktop implementation.
  */
@@ -22,7 +22,6 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,7 +31,6 @@ const desktopDirectory = join(root, "apps/desktop");
 const desktopPackage = readDesktopPackage();
 const version = desktopPackage.version;
 const expectedTag = `desktop-v${version}`;
-const require = createRequire(import.meta.url);
 const channels = {
   production: {
     name: "production",
@@ -107,7 +105,7 @@ Commands:
                 write BUILD-INFO.json, then write SHA256SUMS.
   manifest      Write BUILD-INFO.json for existing channel artifacts.
   checksums     Verify existing artifacts and write SHA256SUMS.
-  verify-build  Launch the staged Playwright Chromium with the system libraries.
+  verify-build  Check the staged desktop application files.
   smoke         Extract and run the channel AppImage with Xvfb, a new temporary
                 profile, and SURFACE_DESKTOP_SMOKE_TEST=1.
 
@@ -393,48 +391,17 @@ function commandOutput(command, args) {
 
 async function verifyBuild() {
   assertLinuxX64();
-  const browsersPath = join(desktopDirectory, "build/playwright");
-  if (!existsSync(browsersPath)) {
-    throw new Error(
-      `Missing staged Playwright browsers at ${browsersPath}. Run node apps/desktop/scripts/build.mjs first.`,
-    );
-  }
-  const chromiumDirectories = readdirSync(browsersPath).filter((name) =>
-    name.startsWith("chromium-"),
+  const required = [
+    "build/web/index.html",
+    "build/backend/index.mjs",
+    "build/backend/drizzle-sqlite/meta/_journal.json",
+  ];
+  const missing = required.filter(
+    (path) => !existsSync(join(desktopDirectory, path)),
   );
-  if (!chromiumDirectories.length) {
-    throw new Error(`No Chromium directory was staged in ${browsersPath}.`);
-  }
-
-  const playwrightPath = join(
-    desktopDirectory,
-    "build/crawler/node_modules/playwright",
-  );
-  if (!existsSync(playwrightPath)) {
-    throw new Error(
-      `Missing crawler Playwright dependency at ${playwrightPath}. Run the desktop build first.`,
-    );
-  }
-
-  process.env.PLAYWRIGHT_BROWSERS_PATH = browsersPath;
-  const { chromium } = require(playwrightPath);
-  const browser = await chromium.launch({
-    headless: true,
-    args: ["--no-sandbox"],
-  });
-  try {
-    const page = await browser.newPage();
-    await page.setContent("<title>Surface build verification</title>");
-    const title = await page.title();
-    if (title !== "Surface build verification") {
-      throw new Error(`Unexpected test page title "${title}".`);
-    }
-    console.log(
-      `Playwright Chromium ${browser.version()} launched from ${browsersPath}.`,
-    );
-  } finally {
-    await browser.close();
-  }
+  if (missing.length)
+    throw new Error(`Desktop build is incomplete: ${missing.join(", ")}`);
+  console.log("Desktop build files verified without browser dependencies.");
 }
 
 async function smokeTest(channel) {
@@ -470,7 +437,6 @@ async function smokeTest(channel) {
     ...process.env,
     APPIMAGE_EXTRACT_AND_RUN: "1",
     SURFACE_DESKTOP_SMOKE_TEST: "1",
-    SURFACE_DESKTOP_ENABLE_CRAWLER: "0",
     SURFACE_DESKTOP_USER_DATA: profile,
   };
   // A developer shell opened from another Electron app can inherit its
@@ -545,15 +511,12 @@ async function smokeTest(channel) {
       `AppImage smoke test printed an unreadable SMOKE_READY payload: ${error.message}`,
     );
   }
-  if (existsSync(join(profile, "logs/crawler.log"))) {
-    throw new Error("Smoke test unexpectedly started the optional crawler.");
-  }
   if (
     !Number.isInteger(ready?.result?.applications) ||
-    typeof ready?.result?.refreshAvailable !== "boolean"
+    typeof ready?.result?.jobSearchAvailable !== "boolean"
   ) {
     throw new Error(
-      "Smoke test did not reach the Applications or portal refresh APIs.",
+      "Smoke test did not reach the Applications or Job Search APIs.",
     );
   }
   const reportedChannel = ready?.result?.appInfo?.channel;
@@ -571,7 +534,7 @@ async function smokeTest(channel) {
   }
   console.log(readyLine.trim());
   console.log(
-    `Packaged ${channel.name} backend ${backup ? "upgraded the isolated backup" : "created a fresh SQLite database"} and opened the workspace without a crawler process.`,
+    `Packaged ${channel.name} backend ${backup ? "upgraded the isolated backup" : "created a fresh SQLite database"} and opened the workspace.`,
   );
   rmSync(temporaryRoot, { recursive: true, force: true });
 }

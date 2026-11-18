@@ -6,15 +6,11 @@ import { eq } from "drizzle-orm";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { db } from "../../infrastructure/database/client";
-import { enqueueCollection } from "../work/work.service";
 import { decideDuplicate } from "../jobs/duplicates";
 import { snapshots } from "./collection.tables";
 import { snapshotDirectory } from "./snapshots";
 import { HttpError } from "../../shared/errors/http-error";
 export const collectionRoutes = new Hono();
-collectionRoutes.post("/sources/:id/refresh", async (c) =>
-  c.json(await enqueueCollection([c.req.param("id")]), 202),
-);
 collectionRoutes.post(
   "/duplicates/:id",
   zValidator(

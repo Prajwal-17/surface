@@ -28,6 +28,8 @@ export const arbeitnowSource: SourceAdapter = {
           externalId: toStringValue(item.slug) || null,
           title,
           company: toStringValue(item.company_name, "Company not listed"),
+          companyWebsite:
+            toStringValue(item.company_url || item.company_website) || null,
           location: toStringValue(item.location, "Location not listed"),
           isRemote: item.remote === true,
           employmentType: toStringArray(item.job_types).join(", ") || null,

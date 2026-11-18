@@ -11,15 +11,10 @@ extraResources:
     to: web
   - from: build/backend
     to: backend
-  - from: build/crawler
-    to: crawler
-  - from: build/playwright
-    to: playwright
   - from: resources/icon.png
     to: icon.png
 asar: true
 npmRebuild: false
-afterPack: scripts/after-pack.cjs
 # Packaging scripts must never publish. Release uploads happen only in GitHub
 # Actions after the build and smoke test succeed.
 publish: null

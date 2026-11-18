@@ -85,6 +85,13 @@
       "when": 1795003000000,
       "tag": "0011_tracker_application_details",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795004000000,
+      "tag": "0012_job_search",
+      "breakpoints": true
     }
   ]
 }

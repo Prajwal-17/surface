@@ -3,13 +3,13 @@ import { profileDetailsSchema } from "@surface/contracts";
 import { useSyncExternalStore } from "react";
 import {
   ClipboardList,
+  Search,
   Building2,
   Activity,
   UserRound,
   ChevronRight,
   Settings2,
   PanelLeft,
-  Database,
   LogOut,
 } from "lucide-react";
 import {
@@ -31,11 +31,11 @@ import { useAuth } from "@/features/auth/auth-context";
 import { useDesktopChannel } from "@/lib/desktop-channel";
 
 const destinations = [
+  { href: "/job-search", label: "Job Search", icon: Search },
   { href: "/applications", label: "Applications", icon: ClipboardList },
   { href: "/companies", label: "Companies", icon: Building2 },
 ] as const;
 const referenceDestinations = [
-  { href: "/schema", label: "Schema", icon: Database },
   { href: "/settings", label: "Settings", icon: Settings2 },
   { href: "/activity", label: "Activity", icon: Activity },
 ] as const;

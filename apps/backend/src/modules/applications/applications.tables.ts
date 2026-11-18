@@ -29,6 +29,8 @@ export const applications = sqliteTable(
     title: text("title").notNull(),
     companyName: text("company_name").notNull(),
     sourceUrl: text("source_url"),
+    description: text("description"),
+    publishedAt: text("published_at"),
     location: text("location"),
     employmentType: text("employment_type"),
     workMode:

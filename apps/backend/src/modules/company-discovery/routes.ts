@@ -308,14 +308,14 @@ companyDiscoveryRoutes.get("/sources", async (c) => {
         id: "funding",
         name: "Funding news",
         description:
-          "Selected publishers through SearXNG; TechCrunch RSS also supplies current leads. Dates are checked on source pages.",
+          "TechCrunch RSS supplies current leads. Dates are checked on source pages.",
         status: "available",
       },
       {
         id: "yc",
         name: "Y Combinator",
         description:
-          "Public directory search and company profiles, filtered against each profile’s recorded batch. SearXNG is a fallback; query-page crawling respects robots.txt.",
+          "Public directory profiles, filtered against each profile’s recorded batch.",
         status: "available",
       },
       {

@@ -32,6 +32,8 @@ export const jobicySource: SourceAdapter = {
           externalId: toStringValue(item.id) || null,
           title,
           company: toStringValue(item.companyName, "Company not listed"),
+          companyWebsite:
+            toStringValue(item.companyWebsite || item.companyUrl) || null,
           location: toStringValue(item.jobGeo, "Remote"),
           isRemote: true,
           countries: explicitCountries(item.jobGeo),
