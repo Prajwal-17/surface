@@ -447,11 +447,6 @@ export function TrackedCompanies() {
                 onClose={closeReader}
                 mutate={(input) => mutation.mutateAsync(input)}
                 pending={mutation.isPending}
-                readerTab="overview"
-                onReaderTabChange={(tab) => {
-                  if (tab === "research")
-                    patch({ reader: "research", expanded: "1", queue: "all" });
-                }}
                 actions={
                   <>
                     <span className="flex items-center gap-2">
@@ -470,13 +465,6 @@ export function TrackedCompanies() {
                           to={`/applications?companyId=${encodeURIComponent(selectedId)}`}
                         >
                           Open roles <ArrowUpRight />
-                        </Link>
-                      </Button>
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link
-                          to={`/companies?company=${encodeURIComponent(selectedId)}&reader=research&expanded=1&queue=all`}
-                        >
-                          Saved research <ArrowUpRight />
                         </Link>
                       </Button>
                     </span>

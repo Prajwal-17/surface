@@ -2,7 +2,7 @@
 
 Milestones A–C live in the existing Companies workspace. Discover, Searches,
 Watchlist, and Sources share existing company IDs, SQLite, the background
-executor, job collectors, snapshot storage, and the cited research engine.
+executor, job collectors, and snapshot storage.
 Configured job sources and saved job searches remain independent.
 
 ## Workflow
@@ -22,12 +22,8 @@ can be viewed and restored.
 Initial enrichment collects identity, a cached logo/favicon, and published
 contacts. Opening or shortlisting adds team/contact/careers checks. Shortlisted
 companies are checked weekly. Find contacts checks fresh contact pages; failed
-checks quietly retain existing facts and assets in the company reader. Existing research receives
-stored discovery/contact evidence as cited sources. The reader’s manual Generate summary
-action uses `/api/companies/:id/research/summary`, reads the official site, and
-saves a cited overview as a `summary` research run and message. Opening the reader
-only loads saved summaries; generation continues after the panel closes. Failed
-regeneration retains the last saved summary. Contact source evidence is collapsed
+checks quietly retain existing facts and assets in the company reader. Contact
+source evidence is collapsed
 below each contact, and profile links use recognizable site favicons. Dedicated AI relevance,
 approach, and outreach tools are milestone D.
 
@@ -103,30 +99,18 @@ API groups under `/api/company-discovery` cover search CRUD/run, intake,
 opportunities, company detail/updates/actions, contact discovery/corrections,
 unresolved confirmation, source status, and logos. Background requests return a
 persisted run ID and HTTP 202. Existing `/api/runs` supplies progress and retries.
-Research API routes and storage remain unchanged. Legacy Research UI routes redirect
-into Companies while preserving company IDs and existing reports/sources/Q&A.
 
-## Research in Companies
+## Curated links
 
-Overview and Research are shadcn reader tabs. Research contains Report, Company Q&A,
-and Sources, with explicit Run research, report version selection, citation links,
-streaming progress, cancellation, and retry. Overview’s Refresh details queues public
-information collection independently of AI report generation.
-
-The Has research filter uses existing `research_reports` before pagination and
-switches to the All decision queue. Summary-only companies do not match. Research
-indicators are computed from saved reports and report runs; no new storage or
-migration is needed. Legacy companies with no discovery signal still appear.
-Expand retains the mounted company reader and list, with URL filters and scroll
-restored when returning. Old `/research` opens the report-filtered directory;
-`/research/:companyId` opens that company’s expanded Research tab.
-
-Merge verification: 46 backend tests, 36 frontend tests, and 66 browser assertions
-passed. Browser fixtures cover report versions, citations, sources, saved Q&A,
-manual generation, failed-run retention, legacy redirects, and desktop/mobile
-layouts. Expand/Return preserves list filters, scroll, and an unsent question.
-Before/after row hashes for nine local company/research tables were identical.
-Captures and checks are under `/tmp/surface-merged-research-qa/`.
+`GET /companies/:id/links` returns the saved links bar;
+`POST /companies/:id/links/verify` crawls the official website plus its about,
+careers, and contact pages, then asks the configured model to select official
+careers, docs, GitHub, LinkedIn, X, blog, pricing, status, and community links
+from the crawled candidates. Published role inboxes found on those pages are
+saved as company contacts with their source evidence. Every returned URL must be
+one of the crawled candidates, so the model cannot invent links. Without AI
+configuration the endpoint falls back to deterministic category selection. The
+company detail payload includes the saved links and the checked date.
 
 ## Rollout and verification
 

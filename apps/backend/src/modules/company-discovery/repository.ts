@@ -15,11 +15,11 @@ import {
 import { companies } from "../workspace/workspace.tables";
 import { jobs } from "../jobs/jobs.tables";
 import { workItems } from "../work/work.tables";
-import { researchReports, researchRuns } from "../research/research.tables";
 import {
   companyActions,
   companyContacts,
   companyDiscoverySearches,
+  companyLinks,
   companySearchMatches,
   companySignals,
 } from "./tables";
@@ -214,7 +214,7 @@ export async function persistCandidate(
 }
 export async function opportunityRows(ids: string[]) {
   if (!ids.length) return [];
-  const [rows, signals, contacts, roles, reports, runs] = await Promise.all([
+  const [rows, signals, contacts, roles] = await Promise.all([
     db.select().from(companies).where(inArray(companies.id, ids)),
     db
       .select()
@@ -234,25 +234,6 @@ export async function opportunityRows(ids: string[]) {
           sql`EXISTS (SELECT 1 FROM job_sources s WHERE s.job_id=${jobs.id} AND s.availability IN ('observed','open','active'))`,
         ),
       ),
-    db
-      .select({
-        companyId: researchReports.companyId,
-        reportCount: countAsInteger(),
-        latestReportAt: sql<string>`max(${researchReports.createdAt})`,
-      })
-      .from(researchReports)
-      .where(inArray(researchReports.companyId, ids))
-      .groupBy(researchReports.companyId),
-    db
-      .select({ companyId: researchRuns.companyId, state: researchRuns.state })
-      .from(researchRuns)
-      .where(
-        and(
-          inArray(researchRuns.companyId, ids),
-          eq(researchRuns.kind, "report"),
-        ),
-      )
-      .orderBy(desc(researchRuns.createdAt)),
   ]);
   return rows.map((c) => ({
     ...c,
@@ -263,25 +244,6 @@ export async function opportunityRows(ids: string[]) {
       ),
     contactCount: contacts.filter((x) => x.companyId === c.id).length,
     jobCount: roles.filter((x) => x.companyId === c.id).length,
-    research: {
-      reportCount: reports.find((r) => r.companyId === c.id)?.reportCount ?? 0,
-      latestReportAt:
-        reports.find((r) => r.companyId === c.id)?.latestReportAt ?? null,
-      state:
-        runs.find((r) => r.companyId === c.id)?.state === "running"
-          ? ("running" as const)
-          : reports.some((r) => r.companyId === c.id)
-            ? ("saved" as const)
-            : runs.some(
-                  (r) =>
-                    r.companyId === c.id &&
-                    ["failed", "partial", "interrupted", "cancelled"].includes(
-                      r.state,
-                    ),
-                )
-              ? ("failed" as const)
-              : ("none" as const),
-    },
   }));
 }
 export async function listOpportunities(input: {
@@ -293,7 +255,6 @@ export async function listOpportunities(input: {
   signal?: string;
   watchlist?: boolean;
   archived?: boolean;
-  hasResearch?: boolean;
 }) {
   const now = new Date().toISOString();
   const filters = [eq(companies.archived, input.archived ?? false)];
@@ -308,12 +269,6 @@ export async function listOpportunities(input: {
   if (input.signal)
     filters.push(
       sql`EXISTS (SELECT 1 FROM company_signals s WHERE s.company_id=${companies.id} AND s.kind=${input.signal})`,
-    );
-  if (input.hasResearch !== undefined)
-    filters.push(
-      input.hasResearch
-        ? sql`EXISTS (SELECT 1 FROM research_reports r WHERE r.company_id=${companies.id})`
-        : sql`NOT EXISTS (SELECT 1 FROM research_reports r WHERE r.company_id=${companies.id})`,
     );
   const queue = sql`CASE WHEN ${companies.deferredUntil}>${now} THEN 'later' ELSE ${companies.reviewState} END`;
   if (input.watchlist)
@@ -369,7 +324,7 @@ export async function listOpportunities(input: {
 export async function companyDetail(id: string) {
   await getCompany(id);
   const [company] = await opportunityRows([id]);
-  const [contacts, actions, roles, matches, pending] = await Promise.all([
+  const [contacts, actions, roles, matches, links, pending] = await Promise.all([
     db.select().from(companyContacts).where(eq(companyContacts.companyId, id)),
     db
       .select()
@@ -403,6 +358,11 @@ export async function companyDetail(id: string) {
         eq(companySearchMatches.searchId, companyDiscoverySearches.id),
       )
       .where(eq(companySearchMatches.companyId, id)),
+    db
+      .select()
+      .from(companyLinks)
+      .where(eq(companyLinks.companyId, id))
+      .orderBy(companyLinks.category, companyLinks.label),
     queryRows<{ found: number }>(
       sql`SELECT 1 AS found FROM work_items WHERE kind='company-enrichment' AND state IN ('queued','running') AND ${jsonText(workItems.payload, "companyId")}=${id} LIMIT 1`,
     ),
@@ -413,6 +373,8 @@ export async function companyDetail(id: string) {
     ...company!,
     contacts,
     actions,
+    links,
+    linksCheckedAt: links[0]?.checkedAt ?? null,
     jobs: roles
       .map((j) => ({
         ...j,

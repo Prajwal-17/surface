@@ -34,16 +34,16 @@ export function AnalysisSettings() {
       </h2>
       <p className="text-muted-foreground">
         {!data.configured
-          ? "OpenCode Go is not configured. Add your provider, model, and API key in Research and AI services above (desktop) or the backend environment."
-          : "OpenCode Go is connected. Research, summaries, and assessments run when you request them."}
+          ? "OpenCode Go is not configured. Add your provider, model, and API key in Services and AI above (desktop) or the backend environment."
+          : "OpenCode Go is connected. Summaries and assessments run when you request them."}
       </p>
       <div className="rounded-lg border bg-card p-3 space-y-3">
         <p className="font-medium">
           {data.paused ? "AI is paused" : "AI is available"}
         </p>
         <p className="text-sm text-muted-foreground">
-          Pause new research, summaries, and assessments. Saved results remain
-          available. Résumé imports can still be requested explicitly.
+          Pause new summaries and assessments. Saved results remain available.
+          Résumé imports can still be requested explicitly.
         </p>
         <Button
           variant="outline"

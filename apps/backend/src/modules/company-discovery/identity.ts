@@ -1,5 +1,19 @@
-import { companyDomain, normalizedName } from "../research/evidence";
-export { normalizedName };
+export function companyDomain(value: string) {
+  try {
+    return new URL(value).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+export function normalizedName(name: string) {
+  return name
+    .normalize("NFKC")
+    .toLocaleLowerCase("en")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
 export function websiteIdentity(input: string) {
   const host = companyDomain(input);
   if (!host) return null;

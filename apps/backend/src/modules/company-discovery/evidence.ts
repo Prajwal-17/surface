@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { db } from "../../infrastructure/database/client";
 import { snapshots, resources } from "../collection/collection.tables";
 import { persistSnapshot, snapshotDirectory } from "../collection/snapshots";
-import { crawlPage, crawlOutput } from "../research/tools";
+import { crawlPage, crawlOutput } from "./web-tools";
 import type { DiscoveryPage } from "./sources";
 import { canonicalUrl } from "./identity";
 const inFlight = new Map<string, Promise<DiscoveryPage>>();

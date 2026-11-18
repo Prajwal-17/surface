@@ -20,7 +20,6 @@ import { workRoutes } from "./modules/work/work.routes";
 import { collectionRoutes } from "./modules/collection/collection.routes";
 import { workspaceRoutes } from "./modules/workspace/workspace.routes";
 
-import { researchRoutes } from "./modules/research/research.routes";
 import { authRoutes } from "./modules/auth";
 import { readSession } from "./modules/auth/session";
 import { desktopRoutes } from "./modules/desktop/routes";
@@ -114,7 +113,6 @@ function quoteIdentifier(name: string): string {
 }
 
 app.route("/api/desktop", desktopRoutes);
-app.route("/api", researchRoutes);
 app.route("/api/company-discovery", companyDiscoveryRoutes);
 app.route("/api/discovery", discoveryRoutes);
 app.route("/api/jobs", jobsRoutes);

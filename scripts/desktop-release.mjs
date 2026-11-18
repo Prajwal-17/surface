@@ -563,12 +563,6 @@ async function smokeTest(channel) {
     );
   }
   const development = channel.name === "development";
-  const hasEnvironmentTag = ready?.result?.chrome?.environmentTag === true;
-  if (hasEnvironmentTag !== development) {
-    throw new Error(
-      `AppImage environment tag is ${hasEnvironmentTag ? "present" : "missing"} for the ${channel.name} channel.`,
-    );
-  }
   const documentTitle = ready?.result?.documentTitle ?? "";
   if (documentTitle.includes("Surface Dev") !== development) {
     throw new Error(

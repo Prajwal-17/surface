@@ -7,8 +7,7 @@ export function WorkspaceLayout() {
     pathname === "/" ||
     pathname === "/applications" ||
     pathname === "/companies" ||
-    pathname === "/schema" ||
-    /^\/research\/[^/]+\/?$/.test(pathname);
+    pathname === "/schema";
 
   return (
     <AppShell fullBleed={fullBleed}>

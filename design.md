@@ -1,6 +1,6 @@
 # Surface interface
 
-Surface is a compact personal research and job-review workspace. Navigation and controls support scanning; descriptions, reports, and personal evidence retain comfortable reading space. The October 2026 revamp adapts T3 Code's default neutral chrome to Surface's existing workflows.
+Surface is a compact personal job-review and company-tracking workspace. Navigation and controls support scanning; descriptions and personal evidence retain comfortable reading space. The October 2026 revamp adapts T3 Code's default neutral chrome to Surface's existing workflows.
 
 ## Reference and identity
 
@@ -8,7 +8,7 @@ The reference study is recorded in [docs/ui-reference-mapping.md](docs/ui-refere
 
 The original Surface SVG uses two offset horizontal planes to form an abstract S. It is monochrome, readable at 16px, and displayed at 20px beside the compact wordmark. The 48px rail uses the mark alone. Navigation, onboarding, authentication, and the SVG favicon share this identity.
 
-Geist Sans and Geist Mono are bundled locally. No runtime font service is used. Interface text is 14px; supporting metadata is 13px; section headings are 18px; reader titles are 20px. Small captions and compact company initials use 12px. Descriptions, research prose, and long profile answers are 16px with 1.65 line height and a maximum measure of 76ch. Mobile form text is 16px. Scores, timestamps, identifiers, measurements, and diagnostics use Geist Mono and tabular numerals. Shared weight tokens use 550 for medium emphasis and 650 for semibold emphasis. Sidebar labels use 650, with the selected destination at 700; active tabs, job titles, company/source names, section headings, and form labels carry stronger emphasis. Reading text remains at 400. Shared Tailwind type tokens own the scale across controls, feature text, notifications, and prose; job titles use 20px leading and metadata uses 18px leading so larger text stays clear within compact rows.
+Geist Sans and Geist Mono are bundled locally. No runtime font service is used. Interface text is 14px; supporting metadata is 13px; section headings are 18px; reader titles are 20px. Small captions and compact company initials use 12px. Descriptions and long profile answers are 16px with 1.65 line height and a maximum measure of 76ch. Mobile form text is 16px. Scores, timestamps, identifiers, measurements, and diagnostics use Geist Mono and tabular numerals. Shared weight tokens use 550 for medium emphasis and 650 for semibold emphasis. Sidebar labels use 650, with the selected destination at 700; active tabs, job titles, company/source names, section headings, and form labels carry stronger emphasis. Reading text remains at 400. Shared Tailwind type tokens own the scale across controls, feature text, notifications, and prose; job titles use 20px leading and metadata uses 18px leading so larger text stays clear within compact rows.
 
 ## Theme
 
@@ -33,7 +33,7 @@ Desktop chrome has a 44px header, 208px sidebar, and 48px collapsed rail. Naviga
 
 Button, Input, Textarea, Select, Checkbox, Tabs, Dialog, Sheet, Popover, Tooltip, Sidebar, Badge, and Sonner remain shared components. Touch controls retain a minimum 44px target. Tooltips use neutral popovers. Focus is visible, statuses have labels, and Radix retains focus trapping, selection, and dismissal behavior. Form field hints are descriptions rather than part of their accessible names.
 
-Jobs, Research, Companies, and Activity are primary navigation. Schema, Settings, and Profile occupy the secondary area. Active rows have neutral selection with a blue icon. Collapsed links retain accessible names and tooltips. The workspace header holds breadcrumbs and page actions. The existing authentication and DEV/PROD indicator remain; overlays move the environment label clear of Close.
+Applications and Companies are primary navigation. Schema, Settings, and Profile occupy the secondary area. Active rows have neutral selection with a blue icon. Collapsed links retain accessible names and tooltips. The workspace header holds breadcrumbs and page actions. The existing authentication flow and the sidebar DEV badge remain.
 
 ## Jobs and reader
 
@@ -55,9 +55,7 @@ A versioned `surface-ui-preferences` record stores `{ version: 1, sidebarExpande
 
 ## Other workflows
 
-Research lives in the Companies reader, alongside Overview. Report, Company Q&A, and Sources use shared shadcn tabs inside Research. Run research explicitly generates a cited report; Refresh details checks public information. Expand opens the same company across the workspace, with a readable report measure and Back to companies restoring the list, filters, scroll, and Q&A draft. Report versions, streaming, citations, evidence, and saved questions stay attached to existing company IDs. The sidebar has one Companies destination; old Research URLs redirect into it.
-
-Companies combines Discover, Searches, Watchlist, and Sources with a shared company reader. Overview contains facts, funding, contacts, linked roles, decisions, and optional AI summaries. Has research filters actual saved reports before pagination, with small indicators for saved, running, or incomplete research. Summary-only and unresearched companies remain in the directory. Sources align collection state and available last-success data, with expanded URL/provider/schedule details.
+Companies combines Discover, Searches, Watchlist, and Sources with a shared company reader. The reader shows facts, funding, contacts, linked roles, discovery signals, and decisions. A curated links bar under the company identity lists the official careers, docs, GitHub, social, blog, pricing, and status links; Verify links re-runs AI curation against the website, replaces the saved selection, and adds published role inboxes to Contacts. Sources align collection state and available last-success data, with expanded URL/provider/schedule details.
 
 Activity uses a compact strip of existing run counts, readable run history, expandable work steps, schedules, sources, retry controls, and the existing cleanup preview. Settings uses compact section navigation for Appearance and AI settings.
 
@@ -81,15 +79,15 @@ Never alter Radix positioning-wrapper transforms. All floating motion belongs to
 - `bun run lint`, `bun run check-types`, and `bun run build` pass using Vite.
 - `bun run --cwd apps/web test`: 36 focused tests for preference recovery, persistence, resize boundaries, keyboard movement, editable targets, overlays, mutation-shortcut exclusion, and filter counting, reset scope, labels, and state semantics.
 - Before/after captures use the same local dataset. Initial Jobs/reader captures preceded editing; remaining baseline captures were recovered from the preserved source and original tracked patch. At 1440×900, with the increased typography, both themes show **11 complete job rows versus 7 before**, approximately **57% more**.
-- The browser matrix covers Jobs, reader, Research, report, Companies, Sources, Activity, Profile, Settings, Schema, and onboarding at 1440×900, 1280×800, and 390×844, in both themes. The updated app has no page or main-content horizontal overflow and no browser errors in these 66 combinations.
+- The browser matrix covers Jobs, reader, Companies, Sources, Activity, Profile, Settings, Schema, and onboarding at 1440×900, 1280×800, and 390×844, in both themes. The updated app has no page or main-content horizontal overflow and no browser errors in these 66 combinations.
 - Native browser checks cover `/`, title arrows/Enter, modal focus trapping, overlay-first Escape, reader-close focus restoration, pointer clamping, keyboard resizing, reload persistence, the 48px rail, the split threshold, and reduced motion.
-- Browser regression checks exercise profile editing/review/discard, source editing, saved-search requests, job mutations, and résumé review. Mutating requests and AI results use isolated response fixtures so stored research and profile data are preserved. Empty, failed, stale, queued, running, current, and unassessed jobs are verified without treating missing results as zero.
-- Sampled normal text on Jobs, Research, Profile, and Activity passes AA on actual composited backgrounds in both themes: 636 text samples, minimum 4.65:1. Visible focus and labeled semantic states are retained. Mobile Close is 44px and clear of the environment indicator.
+- Browser regression checks exercise profile editing/review/discard, source editing, saved-search requests, job mutations, and résumé review. Mutating requests and AI results use isolated response fixtures so stored profile data is preserved. Empty, failed, stale, queued, running, current, and unassessed jobs are verified without treating missing results as zero.
+- Sampled normal text on Jobs, Companies, Profile, and Activity passes AA on actual composited backgrounds in both themes: 636 text samples, minimum 4.65:1. Visible focus and labeled semantic states are retained. Mobile Close is 44px and clear of the environment indicator.
 
 Screenshots and machine-readable checks are under `/tmp/surface-ui-revamp/`, with `visual-matrix-before-after.json`, `visual-matrix-final.json`, `behavior-checks.json`, `contrast-checks.json`, and `extra-state-checks.json`. Baseline source and the initial tracked patch are retained there for review. No backend API, database schema, shared contract, or route-path changes are part of this revamp; pre-existing unrelated edits remain intact.
 
 The typography increase is rechecked across the same 66 route/theme/viewport combinations, with no page or main-content horizontal overflow and no browser errors. Updated captures and `visual-checks.json`, including computed type sizes, are under `/tmp/surface-type-step/`.
 
-The weight refinement passes 24 targeted Jobs, reader, Research, Companies, Profile, and Settings checks across desktop/mobile and both themes. Computed sidebar weights are 650 for ordinary destinations and 700 for the active destination, including the mobile drawer. The Jobs list retains 11 complete desktop rows. Captures and `weight-checks.json` are under `/tmp/surface-type-weight/`.
+The weight refinement passes 24 targeted Jobs, reader, Companies, Profile, and Settings checks across desktop/mobile and both themes. Computed sidebar weights are 650 for ordinary destinations and 700 for the active destination, including the mobile drawer. The Jobs list retains 11 complete desktop rows. Captures and `weight-checks.json` are under `/tmp/surface-type-weight/`.
 
 The Jobs filter redesign is checked at 1440×900, 1280×800, and 390×844 in both themes, plus immediate URL updates, rapid choices, reset scope, reload, saved-search sources, native radio keys, nested Escape, focus restoration, mobile dates, long values, and lookup recovery. Before/after captures and `checks.json` are under `/tmp/surface-job-filters/`.

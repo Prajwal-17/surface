@@ -1,22 +1,25 @@
 import { z } from "zod";
-import { tool } from "ai";
 import { HttpError } from "../../shared/errors/http-error";
 import { getRuntimeSettings } from "../../config/runtime";
 import { publicUrlSchema, crawlMetadataSchema } from "@surface/contracts";
+
 export const searchInput = z
   .object({
     query: z.string().trim().min(1).max(1000),
     page: z.number().int().min(1).max(10).optional(),
   })
   .strict();
+
 export const crawlInput = z
   .object({ url: publicUrlSchema, render: z.boolean().optional() })
   .strict();
+
 const linkSchema = z.object({
   url: z.string().url(),
   title: z.string(),
   context: z.string().optional(),
 });
+
 export const crawlOutput = z.object({
   url: z.string().url(),
   title: z.string(),
@@ -28,28 +31,6 @@ export const crawlOutput = z.object({
   retrievedAt: z.string(),
 });
 
-export type WebToolExecutors = {
-  search: (input: z.infer<typeof searchInput>) => Promise<unknown>;
-  crawl: (input: z.infer<typeof crawlInput>) => Promise<unknown>;
-};
-
-/** Typed SDK tools around the existing SearXNG and crawler executors. */
-export function webTools(executors: WebToolExecutors) {
-  return {
-    search_web: tool({
-      description:
-        "Search public web pages using our SearXNG instance. Search snippets are leads, not verified page evidence.",
-      inputSchema: searchInput,
-      execute: async (input) => await executors.search(input),
-    }),
-    crawl_page: tool({
-      description:
-        "Read a public page with Crawlee, extracting text and links. JavaScript rendering is automatic when needed; set render=true if the static content is incomplete. Do not attempt private sites or authenticated access.",
-      inputSchema: crawlInput,
-      execute: async (input) => await executors.crawl(input),
-    }),
-  };
-}
 export async function searchWeb(
   input: z.infer<typeof searchInput>,
   signal?: AbortSignal,
@@ -109,6 +90,7 @@ export async function searchWeb(
     })
     .slice(0, 12);
 }
+
 export async function crawlPage(
   input: z.infer<typeof crawlInput>,
   signal: AbortSignal,

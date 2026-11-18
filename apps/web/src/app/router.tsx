@@ -17,11 +17,6 @@ export const router = createBrowserRouter([
         lazy: () => import("@/app/routes/applications-route"),
       },
       { path: "profile", lazy: () => import("@/app/routes/profile-route") },
-      { path: "research", lazy: () => import("@/app/routes/research-route") },
-      {
-        path: "research/:companyId",
-        lazy: () => import("@/app/routes/company-research-route"),
-      },
       { path: "schema", lazy: () => import("@/app/routes/schema-route") },
       { path: "settings", lazy: () => import("@/app/routes/settings-route") },
     ],

@@ -7,7 +7,6 @@ import {
   resolveMigrationsFolder,
 } from "./infrastructure/database/client";
 import { runMigrations } from "./infrastructure/database/migrate";
-import { recoverResearch } from "./modules/research/research.service";
 import { startExecutor } from "./modules/work/executor";
 
 export interface SurfaceServer {
@@ -23,7 +22,6 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
   const smokeTest =
     Boolean(env.SURFACE_DESKTOP_TOKEN) &&
     process.env.SURFACE_DESKTOP_SMOKE_TEST === "1";
-  if (!smokeTest) await recoverResearch();
   const stopExecutor = smokeTest ? async () => {} : await startExecutor();
 
   const server = serve({

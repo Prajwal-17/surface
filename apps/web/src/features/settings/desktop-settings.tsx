@@ -160,11 +160,11 @@ export function DesktopSettings() {
     <section className="max-w-3xl space-y-5">
       <div>
         <h2 className="flex items-center gap-2 text-base font-semibold">
-          <ShieldCheck className="size-5 text-brand" /> Research and AI services
+          <ShieldCheck className="size-5 text-brand" /> Services and AI
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           SearXNG is optional: without it, jobs, monitoring, snapshots and
-          company research from saved sources still work, while web search
+          company discovery from saved sources still work, while web search
           reports a clear error. AI generation uses your OpenCode Go
           subscription directly; no local model gateway is required.
         </p>
@@ -208,8 +208,8 @@ export function DesktopSettings() {
                 placeholder="http://127.0.0.1:4100"
               />
               <span className="block text-xs text-muted-foreground">
-                Optional. Leave blank to use the bundled crawler. Browser
-                research is unavailable without a reachable crawler.
+                Optional. Leave blank to use the bundled crawler. Company
+                discovery is unavailable without a reachable crawler.
               </span>
             </label>
             <label className="space-y-1.5 text-sm">
@@ -407,7 +407,7 @@ function ServiceDiagnostics({
               ? ` (${diagnostics.searxng.results} results)`
               : ""
           }`
-        : "Optional · research without web search still uses saved sources",
+        : "Optional · company discovery still uses saved sources",
       state: diagnostics.searxng,
     },
     {

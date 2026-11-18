@@ -67,8 +67,6 @@ async function mainCheck(): Promise<void> {
     await import("../src/modules/work/work.service.ts");
   const { executeCollection, recoverInterruptedWork } =
     await import("../src/modules/work/executor.ts");
-  const { details, library, recoverResearch } =
-    await import("../src/modules/research/research.service.ts");
   const { listOpportunities, companyDetail } =
     await import("../src/modules/company-discovery/repository.ts");
   const { workspaceRevision } =
@@ -84,14 +82,6 @@ async function mainCheck(): Promise<void> {
     companySearchMatches,
     companySignals,
   } = await import("../src/modules/company-discovery/tables.ts");
-  const {
-    researchEvents,
-    researchMessages,
-    researchReports,
-    researchRuns,
-    researchSources,
-    companyLinkReviews,
-  } = await import("../src/modules/research/research.tables.ts");
   const { jobs, jobSources } =
     await import("../src/modules/jobs/jobs.tables.ts");
   const { observations, jobVersions, snapshots } =
@@ -107,7 +97,7 @@ async function mainCheck(): Promise<void> {
        AND name <> '__surface_sqlite_migrations'
      ORDER BY name`,
   );
-  assert.equal(tableRows.length, 34);
+  assert.equal(tableRows.length, 29);
   assert.ok(tableRows.some(({ name }) => name === "applications"));
   check("fresh migration baseline", `${tableRows.length} application tables`);
   const migrationRows = await executeStatement<{ count: number }>(
@@ -122,7 +112,7 @@ async function mainCheck(): Promise<void> {
       await executeStatement(`PRAGMA foreign_key_list("${name}")`)
     ).length;
   }
-  assert.ok(foreignKeyCount >= 30);
+  assert.ok(foreignKeyCount >= 24);
   check("constraints", `${foreignKeyCount} foreign keys`);
 
   const profile = await saveProfile({
@@ -594,84 +584,6 @@ async function mainCheck(): Promise<void> {
     "search, queue counts, contacts, actions and JSON payload lookup",
   );
 
-  const researchRunId = crypto.randomUUID();
-  await db.insert(researchRuns).values({
-    id: researchRunId,
-    companyId,
-    kind: "report",
-    state: "running",
-    draft: "",
-    createdAt: now,
-  });
-  await db.insert(researchSources).values({
-    id: crypto.randomUUID(),
-    companyId,
-    runId: researchRunId,
-    url: "https://acme.example/about",
-    title: "About Acme",
-    kind: "page",
-    text: "Acme builds warehouse robots.",
-    links: [],
-    status: "200",
-    retrievedAt: now,
-  });
-  const events = await db
-    .insert(researchEvents)
-    .values([
-      {
-        runId: researchRunId,
-        type: "progress",
-        text: "Started",
-        createdAt: now,
-      },
-      {
-        runId: researchRunId,
-        type: "text",
-        text: "Reading sources",
-        createdAt: now,
-      },
-    ])
-    .returning();
-  assert.ok(events[1]!.id > events[0]!.id);
-  await db.insert(researchReports).values({
-    id: crypto.randomUUID(),
-    companyId,
-    runId: researchRunId,
-    markdown: "# Acme",
-    sourceIds: [],
-    model: "verification",
-    createdAt: now,
-  });
-  await db.insert(researchMessages).values({
-    id: crypto.randomUUID(),
-    companyId,
-    runId: researchRunId,
-    question: "What does Acme build?",
-    answer: "Warehouse robots.",
-    webSearch: false,
-    sourceIds: [],
-    createdAt: now,
-  });
-  await db.insert(companyLinkReviews).values({
-    companyId,
-    runId: researchRunId,
-    links: [],
-    checkedAt: now,
-  });
-  const research = await details(companyId);
-  assert.equal(research.reports.length, 1);
-  assert.equal(research.messages[0]?.webSearch, false);
-  assert.equal(research.sources.length, 1);
-  await recoverResearch();
-  const interrupted = await details(companyId);
-  assert.equal(interrupted.runs[0]?.state, "interrupted");
-  assert.ok(interrupted.runs[0]?.completedAt);
-  assert.equal((await library()).length, 1);
-  check(
-    "research lifecycle",
-    "run, sources, serial events, report, boolean message and recovery",
-  );
-
   const revision = await workspaceRevision();
   assert.match(revision, /versions/);
   check("workspace revision", revision);
@@ -760,10 +672,6 @@ async function mainCheck(): Promise<void> {
     "unassessed role appears in Needs review and moves to Best matches after a supported assessment",
   );
   await db
-    .update(researchRuns)
-    .set({ state: "completed", completedAt: now })
-    .where(eq(researchRuns.id, researchRunId));
-  await db
     .update(workItems)
     .set({ state: "completed", completedAt: now })
     .where(eq(workItems.id, enrichmentWorkId));
@@ -795,7 +703,6 @@ async function mainCheck(): Promise<void> {
   ) as Record<string, unknown>;
   assert.equal(reopened.jobs, 1);
   assert.equal(reopened.profileRevision, 1);
-  assert.equal(reopened.researchRuns, 1);
   assert.equal(reopened.migrations, migrationCount);
   check("restart persistence", JSON.stringify(reopened));
 
@@ -848,9 +755,6 @@ async function reopenCheck(): Promise<void> {
   const reopen = {
     jobs: listed.total,
     profileRevision: (await findProfile())?.revision ?? 0,
-    researchRuns: await scalar(
-      "SELECT CAST(count(*) AS INTEGER) AS value FROM research_runs",
-    ),
     workItems: await scalar(
       "SELECT CAST(count(*) AS INTEGER) AS value FROM work_items",
     ),

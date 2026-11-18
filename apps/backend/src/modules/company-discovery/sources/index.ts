@@ -4,7 +4,7 @@ import {
   type CompanySearchInput,
   type CompanyEvidence,
 } from "@surface/contracts";
-import { crawlOutput, searchWeb } from "../../research/tools";
+import { crawlOutput, searchWeb } from "../web-tools";
 import type { z } from "zod";
 import { evidenceDate, normalizedName, websiteIdentity } from "../identity";
 export type DiscoveryPage = z.infer<typeof crawlOutput>;

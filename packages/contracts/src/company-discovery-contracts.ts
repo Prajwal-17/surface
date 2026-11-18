@@ -123,6 +123,34 @@ export const companyActionSchema = companyActionInputSchema.safeExtend({
   companyId: z.string(),
   createdAt: z.string(),
 });
+export const companyLinkCategorySchema = z.enum([
+  "website",
+  "docs",
+  "github",
+  "linkedin",
+  "x",
+  "careers",
+  "blog",
+  "pricing",
+  "status",
+  "community",
+  "other",
+]);
+export const companyLinkSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  category: companyLinkCategorySchema,
+  url: publicUrlSchema,
+  label: z.string(),
+  checkedAt: z.string(),
+});
+export type CompanyLinkCategory = z.infer<typeof companyLinkCategorySchema>;
+export type CompanyLink = z.infer<typeof companyLinkSchema>;
+export const companyLinksSchema = z.object({
+  links: z.array(companyLinkSchema),
+  checkedAt: z.string().nullable(),
+  emails: z.array(z.string()),
+});
 export const companyOpportunitySchema = companySchema.extend({
   description: z.string(),
   normalizedWebsite: z.string().nullable(),
@@ -139,15 +167,12 @@ export const companyOpportunitySchema = companySchema.extend({
   signals: z.array(companySignalSchema),
   contactCount: z.number(),
   jobCount: z.number(),
-  research: z.object({
-    reportCount: z.number().int().nonnegative(),
-    latestReportAt: z.string().nullable(),
-    state: z.enum(["none", "running", "saved", "failed"]),
-  }),
 });
 export const companyDetailSchema = companyOpportunitySchema.extend({
   contacts: z.array(companyContactSchema),
   actions: z.array(companyActionSchema),
+  links: z.array(companyLinkSchema),
+  linksCheckedAt: z.string().nullable(),
   jobs: z.array(
     z.object({
       id: z.string(),

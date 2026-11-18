@@ -12,15 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { CompanySummary } from "./company-summary";
-import { CompanyResearch } from "@/features/research/company-research";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { SiteLink } from "./site-link";
+import { CompanyLinks } from "./company-links";
 import {
   Dialog,
   DialogContent,
@@ -39,8 +33,6 @@ import {
   X,
   Pencil,
   ChevronDown,
-  ArrowLeft,
-  Expand,
 } from "lucide-react";
 import { toast } from "sonner";
 import { displayDate, signalLabel, contactStatus } from "../company-ui";
@@ -109,20 +101,12 @@ export function CompanyReader({
   onClose,
   mutate,
   pending,
-  readerTab,
-  onReaderTabChange,
-  expanded = false,
-  onExpand,
   actions,
 }: {
   company: CompanyDetail;
   onClose: () => void;
   mutate: CompanyMutation;
   pending: boolean;
-  readerTab: "overview" | "research";
-  onReaderTabChange: (tab: "overview" | "research") => void;
-  expanded?: boolean;
-  onExpand?: () => void;
   actions?: ReactNode;
 }) {
   const [later, setLater] = useState(false),
@@ -153,21 +137,7 @@ export function CompanyReader({
     perform("/actions", { kind, requestId: crypto.randomUUID(), ...extra });
   const selected = contact && contact !== "new" ? contact : null;
   return (
-    <Tabs
-      value={readerTab}
-      onValueChange={(tab) =>
-        onReaderTabChange(tab === "research" ? "research" : "overview")
-      }
-      className="company-reader-content"
-    >
-      {expanded && (
-        <div className="border-b px-4 py-2">
-          <Button size="sm" variant="ghost" onClick={onClose}>
-            <ArrowLeft />
-            Back to companies
-          </Button>
-        </div>
-      )}
+    <div className="company-reader-content">
       <header className="company-reader-header">
         <CompanyMark name={c.name} src={c.logoPath} company={c} />
         <div className="min-w-0 flex-1">
@@ -191,42 +161,18 @@ export function CompanyReader({
             <span className="status-pill tone-muted">Website unconfirmed</span>
           )}
         </div>
-        {readerTab === "research" && !expanded && onExpand && (
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label="Expand research"
-            onClick={onExpand}
-          >
-            <Expand />
-            Expand
-          </Button>
-        )}
-        {!expanded && (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Close company reader"
-            onClick={onClose}
-          >
-            <X />
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Close company reader"
+          onClick={onClose}
+        >
+          <X />
+        </Button>
       </header>
+      <CompanyLinks company={c} mutate={mutate} pending={pending} />
       {actions ? <div className="company-reader-actions">{actions}</div> : null}
-      <TabsList aria-label="Company reader" className="shrink-0 px-5">
-        <TabsTrigger value="overview" className="min-h-11 md:min-h-8">
-          Overview
-        </TabsTrigger>
-        <TabsTrigger value="research" className="min-h-11 md:min-h-8">
-          Research
-        </TabsTrigger>
-      </TabsList>
-      <TabsContent
-        value="overview"
-        forceMount
-        className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
-      >
+      <div className="mt-0 flex min-h-0 flex-1 flex-col">
         <div className="company-reader-body">
           <p className="company-description">
             {c.description ||
@@ -247,7 +193,6 @@ export function CompanyReader({
               </Button>
             </div>
           )}
-          <CompanySummary key={c.id} companyId={c.id} />
           <section className="company-reader-section">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3>
@@ -575,14 +520,7 @@ export function CompanyReader({
             </div>
           )}
         </footer>
-      </TabsContent>
-      <TabsContent
-        value="research"
-        forceMount
-        className="mt-0 min-h-0 flex-1 data-[state=inactive]:hidden"
-      >
-        <CompanyResearch companyId={c.id} expanded={expanded} />
-      </TabsContent>
+      </div>
       <Dialog
         open={Boolean(contact)}
         onOpenChange={(v) => !v && setContact(null)}
@@ -724,6 +662,6 @@ export function CompanyReader({
           </form>
         </DialogContent>
       </Dialog>
-    </Tabs>
+    </div>
   );
 }

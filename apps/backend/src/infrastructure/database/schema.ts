@@ -31,17 +31,10 @@ export {
   assessments,
 } from "../../modules/analysis/analysis.tables";
 export {
-  companyLinkReviews,
-  researchEvents,
-  researchMessages,
-  researchReports,
-  researchRuns,
-  researchSources,
-} from "../../modules/research/research.tables";
-export {
   companyActions,
   companyContacts,
   companyDiscoverySearches,
+  companyLinks,
   companySearchMatches,
   companySignals,
 } from "../../modules/company-discovery/tables";

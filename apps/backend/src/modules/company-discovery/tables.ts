@@ -11,6 +11,7 @@ import type {
   CompanySearchInput,
   CompanyResultCounts,
   CompanyEvidence,
+  CompanyLinkCategory,
   ContactMethod,
 } from "@surface/contracts";
 
@@ -115,6 +116,22 @@ export const companyContacts = sqliteTable(
   },
   (table) => [
     uniqueIndex("company_contact_identity").on(table.companyId, table.identity),
+  ],
+);
+
+export const companyLinks = sqliteTable(
+  "company_links",
+  {
+    id: text("id").primaryKey(),
+    companyId: companyId(),
+    category: text("category").$type<CompanyLinkCategory>().notNull(),
+    url: text("url").notNull(),
+    label: text("label").notNull(),
+    checkedAt: text("checked_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("company_link_url").on(table.companyId, table.url),
+    index("company_links_company").on(table.companyId),
   ],
 );
 

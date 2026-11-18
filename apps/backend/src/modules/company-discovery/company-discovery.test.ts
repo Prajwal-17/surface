@@ -8,12 +8,6 @@ import {
 import { runMigrations } from "../../infrastructure/database/migrate";
 import { db, rawQuery } from "../../infrastructure/database/client";
 import { companies } from "../workspace/workspace.tables";
-import {
-  researchRuns,
-  researchReports,
-  researchSources,
-  researchMessages,
-} from "../research/research.tables";
 import { workItems } from "../work/work.tables";
 import {
   companySignals,
@@ -30,7 +24,7 @@ import {
 } from "./repository";
 import { contactsFromPage, saveContact } from "./contacts";
 import { nextDailyRun, queueFor, canonicalUrl } from "./identity";
-import { crawlOutput } from "../research/tools";
+import { crawlOutput } from "./web-tools";
 import {
   parseCompanyPage,
   matchesRule,
@@ -74,156 +68,6 @@ beforeAll(async () => {
   await runMigrations();
 });
 describe("company discovery evidence and rules", () => {
-  test("legacy company reports stay in Companies without a discovery signal; summaries do not count as reports", async () => {
-    const companyId = crypto.randomUUID(),
-      summaryCompanyId = crypto.randomUUID(),
-      reportRun = crypto.randomUUID(),
-      questionRun = crypto.randomUUID(),
-      summaryRun = crypto.randomUUID(),
-      sourceId = crypto.randomUUID(),
-      label = `Research preservation ${crypto.randomUUID()}`,
-      date = now();
-    await db.insert(companies).values([
-      {
-        id: companyId,
-        name: label,
-        website: "https://legacy-research.example",
-        watchReason: "Existing shortlist",
-        reviewState: "will_apply",
-        createdAt: date,
-        updatedAt: date,
-      },
-      {
-        id: summaryCompanyId,
-        name: label + " summary",
-        website: "https://summary-only.example",
-        createdAt: date,
-        updatedAt: date,
-      },
-    ]);
-    await db.insert(researchRuns).values([
-      {
-        id: reportRun,
-        companyId,
-        kind: "report",
-        state: "completed",
-        createdAt: date,
-        completedAt: date,
-      },
-      {
-        id: questionRun,
-        companyId,
-        kind: "question",
-        state: "completed",
-        createdAt: date,
-        completedAt: date,
-      },
-      {
-        id: summaryRun,
-        companyId: summaryCompanyId,
-        kind: "summary",
-        state: "completed",
-        createdAt: date,
-        completedAt: date,
-      },
-    ]);
-    await db.insert(researchSources).values({
-      id: sourceId,
-      companyId,
-      runId: reportRun,
-      url: "https://legacy-research.example",
-      title: "Official evidence",
-      kind: "page",
-      text: "Saved company evidence",
-      links: [],
-      status: "ok",
-      retrievedAt: date,
-    });
-    await db.insert(researchReports).values({
-      id: crypto.randomUUID(),
-      companyId,
-      runId: reportRun,
-      markdown: "Original cited report",
-      sourceIds: [sourceId],
-      model: "original-model",
-      createdAt: date,
-    });
-    await db.insert(researchMessages).values([
-      {
-        id: crypto.randomUUID(),
-        companyId,
-        runId: questionRun,
-        question: "Original question",
-        answer: "Original answer",
-        sourceIds: [sourceId],
-        webSearch: false,
-        createdAt: date,
-      },
-      {
-        id: crypto.randomUUID(),
-        companyId: summaryCompanyId,
-        runId: summaryRun,
-        question: "Company summary",
-        answer: "Only a summary",
-        sourceIds: [],
-        webSearch: true,
-        createdAt: date,
-      },
-    ]);
-    const { details } = await import("../research/research.service");
-    const before = await details(companyId);
-    const matching = await listOpportunities({
-      page: 1,
-      pageSize: 1,
-      q: label,
-      queue: "all",
-      hasResearch: true,
-    });
-    expect(matching.total).toBe(1);
-    expect(matching.items[0]!.id).toBe(companyId);
-    expect(matching.items[0]!.signals).toHaveLength(0);
-    expect(matching.items[0]!.research).toEqual({
-      reportCount: 1,
-      latestReportAt: date,
-      state: "saved",
-    });
-    expect(matching.counts.all).toBe(1);
-    expect(matching.counts.will_apply).toBe(1);
-    const withoutReport = await listOpportunities({
-      page: 1,
-      pageSize: 30,
-      q: label,
-      hasResearch: false,
-    });
-    expect(withoutReport.items.map((c) => c.id)).toEqual([summaryCompanyId]);
-    expect(withoutReport.items[0]!.research.state).toBe("none");
-    expect(await details(companyId)).toEqual(before);
-    const activeId = crypto.randomUUID();
-    await db.insert(researchRuns).values({
-      id: activeId,
-      companyId,
-      kind: "report",
-      state: "running",
-      createdAt: new Date(Date.parse(date) + 1000).toISOString(),
-    });
-    expect((await companyDetail(companyId)).research.state).toBe("running");
-    await db
-      .update(researchRuns)
-      .set({
-        state: "failed",
-        completedAt: now(),
-        error: "Provider unavailable",
-      })
-      .where(eq(researchRuns.id, activeId));
-    expect((await companyDetail(companyId)).research).toEqual({
-      reportCount: 1,
-      latestReportAt: date,
-      state: "saved",
-    });
-    expect((await details(companyId)).reports).toEqual(before.reports);
-    expect((await details(companyId)).messages).toEqual(before.messages);
-    expect((await details(companyId)).sources).toEqual(before.sources);
-  });
   test("live YC fixture establishes stable identity and founders without inventing an email or date", async () => {
     const p = await fixture("yc-posthog"),
       c = parseCompanyPage(p, "yc")!;

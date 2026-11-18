@@ -349,7 +349,7 @@ function createWindow(): void {
               const header = await waitFor(
                 ".workspace-header, .onboarding-top",
               );
-              const [health, auth, status, jobs, research, schema, applications, refresh] =
+              const [health, auth, status, jobs, schema, applications, refresh] =
                 await Promise.all([
                   fetch("/api/health").then((response) => response.json()),
                   fetch("/api/auth/session").then((response) => response.json()),
@@ -357,17 +357,11 @@ function createWindow(): void {
                   fetch("/api/jobs?page=1&relevance=all&limit=1").then((response) =>
                     response.json(),
                   ),
-                  fetch("/api/research?page=1").then((response) =>
-                    response.json(),
-                  ),
                   fetch("/api/schema").then((response) => response.json()),
                   fetch("/api/applications").then((response) => response.json()),
                   fetch("/api/refresh").then((response) => response.json()),
                 ]);
               const appInfo = await window.surfaceDesktop.appInfo();
-              if (appInfo.channel === "development") {
-                await waitFor(".environment-tag");
-              }
               const before = await window.surfaceDesktop.getSettings();
               const saved = await window.surfaceDesktop.saveSettings({
                 searxngUrl: before.searxngUrl,
@@ -392,7 +386,6 @@ function createWindow(): void {
                 auth,
                 status,
                 jobs: { total: jobs.total, collectedTotal: jobs.collectedTotal },
-                researchCompanies: Array.isArray(research) ? research.length : null,
                 applications: Array.isArray(applications) ? applications.length : null,
                 refreshAvailable: refresh.available,
                 tables: Array.isArray(schema.tables) ? schema.tables.length : null,
@@ -402,9 +395,6 @@ function createWindow(): void {
                   controls: document.querySelectorAll(
                     ".desktop-window-controls button",
                   ).length,
-                  environmentTag: Boolean(
-                    document.querySelector(".environment-tag"),
-                  ),
                   drag: getComputedStyle(header).getPropertyValue(
                     "-webkit-app-region",
                   ),

@@ -31,6 +31,7 @@ import {
 } from "./service";
 import { nextDailyRun, websiteIdentity } from "./identity";
 import { saveContact, orderContacts } from "./contacts";
+import { listCompanyLinks, verifyCompanyLinks } from "./links";
 import { logoDirectory } from "./enrichment";
 import { companyFavicon } from "./favicon";
 import { readCompanyPage } from "./evidence";
@@ -141,7 +142,6 @@ companyDiscoveryRoutes.get(
       signal: z.enum(["funding", "yc", "manual"]).optional(),
       watchlist: z.enum(["true", "false"]).optional(),
       archived: z.enum(["true", "false"]).optional(),
-      hasResearch: z.enum(["true", "false"]).optional(),
     }),
   ),
   async (c) => {
@@ -151,8 +151,6 @@ companyDiscoveryRoutes.get(
         ...v,
         watchlist: v.watchlist === "true",
         archived: v.archived === "true",
-        hasResearch:
-          v.hasResearch === undefined ? undefined : v.hasResearch === "true",
       }),
     );
   },
@@ -161,6 +159,12 @@ companyDiscoveryRoutes.get("/companies/:id", async (c) => {
   const detail = await companyDetail(c.req.param("id"));
   return c.json({ ...detail, contacts: orderContacts(detail.contacts) });
 });
+companyDiscoveryRoutes.get("/companies/:id/links", async (c) =>
+  c.json(await listCompanyLinks(c.req.param("id"))),
+);
+companyDiscoveryRoutes.post("/companies/:id/links/verify", async (c) =>
+  c.json(await verifyCompanyLinks(c.req.param("id"))),
+);
 companyDiscoveryRoutes.patch(
   "/companies/:id",
   zValidator("json", companyUpdateSchema),

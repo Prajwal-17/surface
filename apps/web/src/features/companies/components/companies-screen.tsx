@@ -52,7 +52,6 @@ import {
   Globe2,
   ExternalLink,
   RefreshCw,
-  BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CompanySourcesScreen } from "./company-sources-screen";
@@ -105,8 +104,6 @@ function CompanyDiscoveryScreen() {
     tab = params.get("tab") || "discover",
     queue = params.get("queue") || "new",
     selected = params.get("company"),
-    readerTab = params.get("reader") === "research" ? "research" : "overview",
-    expanded = Boolean(selected && params.get("expanded") === "1"),
     [intake, setIntake] = useState(false),
     [csv, setCsv] = useState(""),
     [ref, layout] = useReaderLayout();
@@ -114,9 +111,8 @@ function CompanyDiscoveryScreen() {
   const listRef = useRef<HTMLDivElement>(null);
   const listScroll = useRef(0);
   useEffect(() => {
-    if (!expanded && listRef.current)
-      listRef.current.scrollTop = listScroll.current;
-  }, [expanded]);
+    if (listRef.current) listRef.current.scrollTop = listScroll.current;
+  }, []);
   const patch = (values: Record<string, string | null>) =>
     setParams(
       () => {
@@ -139,16 +135,7 @@ function CompanyDiscoveryScreen() {
     target?.focus();
   };
   const close = () => {
-    if (expanded) {
-      patch({ expanded: null });
-      requestAnimationFrame(() =>
-        document
-          .querySelector<HTMLButtonElement>('[aria-label="Expand research"]')
-          ?.focus(),
-      );
-      return;
-    }
-    patch({ company: null, reader: null, expanded: null });
+    patch({ company: null });
     requestAnimationFrame(restoreFocus);
   };
   const urlText = params.get("q") || "";
@@ -191,7 +178,7 @@ function CompanyDiscoveryScreen() {
     page: params.get("page") || "1",
     pageSize: "30",
   });
-  for (const key of ["q", "searchId", "signal", "archived", "hasResearch"]) {
+  for (const key of ["q", "searchId", "signal", "archived"]) {
     const v = params.get(key);
     if (v) query.set(key, v);
   }
@@ -325,19 +312,6 @@ function CompanyDiscoveryScreen() {
       onClose={close}
       mutate={mutate}
       pending={action.isPending}
-      readerTab={readerTab}
-      onReaderTabChange={(nextReader) =>
-        patch({ reader: nextReader === "research" ? "research" : null })
-      }
-      expanded={expanded}
-      onExpand={
-        layout.split
-          ? () => {
-              listScroll.current = listRef.current?.scrollTop ?? 0;
-              patch({ reader: "research", expanded: "1" });
-            }
-          : undefined
-      }
     />
   ) : null;
   const active = searches.data?.filter((s) => !s.paused) ?? [],
@@ -374,10 +348,7 @@ function CompanyDiscoveryScreen() {
           </Button>
         </div>
       </HeaderActions>
-      <nav
-        className={`company-tabs ${expanded ? "hidden" : ""}`}
-        aria-label="Companies"
-      >
+      <nav className="company-tabs" aria-label="Companies">
         <div
           role="tablist"
           tabIndex={-1}
@@ -427,8 +398,6 @@ function CompanyDiscoveryScreen() {
                   company: null,
                   page: null,
                   archived: null,
-                  expanded: null,
-                  reader: null,
                 })
               }
             >
@@ -447,9 +416,9 @@ function CompanyDiscoveryScreen() {
       <div className="company-workspace-body">
         <div
           ref={listRef}
-          className={`company-main ${expanded ? "hidden" : ""}`}
+          className="company-main"
           onScroll={(e) => {
-            if (!expanded) listScroll.current = e.currentTarget.scrollTop;
+            listScroll.current = e.currentTarget.scrollTop;
           }}
           id="company-tab-panel"
           role="tabpanel"
@@ -476,7 +445,7 @@ function CompanyDiscoveryScreen() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   {tab === "watchlist"
                     ? "Your shortlist and companies saved for later."
-                    : "Discover companies, review your shortlist, and research the ones that interest you."}
+                    : "Discover companies, review your shortlist, and keep the ones that interest you."}
                 </p>
               </header>
               <p className="mb-4 flex flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -549,19 +518,6 @@ function CompanyDiscoveryScreen() {
                 </Select>
               </div>
               <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1">
-                <label className="inline-flex min-h-11 items-center gap-2 text-xs text-muted-foreground md:min-h-8">
-                  <Checkbox
-                    checked={params.get("hasResearch") === "true"}
-                    onCheckedChange={(checked) =>
-                      patch({
-                        hasResearch: checked === true ? "true" : null,
-                        queue: checked === true ? "all" : null,
-                        page: null,
-                      })
-                    }
-                  />
-                  Has research
-                </label>
                 {tab === "discover" && (
                   <label className="mb-3 inline-flex min-h-11 items-center gap-2 text-xs text-muted-foreground md:min-h-8">
                     <Checkbox
@@ -657,22 +613,6 @@ function CompanyDiscoveryScreen() {
                                   ? new URL(c.website).hostname
                                   : "Description not yet collected")}
                             </p>
-                            {c.research.state !== "none" && (
-                              <button
-                                className="mt-1 inline-flex min-h-8 items-center gap-1.5 text-xs text-muted-foreground hover:text-brand"
-                                aria-label={`Open research for ${c.name}`}
-                                onClick={() =>
-                                  patch({ company: c.id, reader: "research" })
-                                }
-                              >
-                                <BookOpen className="size-3" />
-                                {c.research.state === "running"
-                                  ? "Researching…"
-                                  : c.research.reportCount
-                                    ? "Report saved"
-                                    : "Research incomplete"}
-                              </button>
-                            )}
                           </div>
                         </div>
                         <div role="cell" className="company-row-signals">
@@ -719,31 +659,26 @@ function CompanyDiscoveryScreen() {
                     <div className="company-empty">
                       <Building2 />
                       <h2>
-                        {text ||
-                        params.get("searchId") ||
-                        params.get("hasResearch")
+                        {text || params.get("searchId")
                           ? "No matching companies"
                           : "Nothing here yet"}
                       </h2>
                       <p>
-                        {params.get("hasResearch") === "true"
-                          ? "No saved reports match these filters. Open a company’s Research tab and choose Run research to create one."
-                          : tab === "watchlist"
-                            ? "Choose Will apply or Later in a company’s reader to add it here."
-                            : queue === "new"
-                              ? "Create a saved search or add a company URL to start discovering."
-                              : "Review a company in New to add it to this queue."}
+                        {tab === "watchlist"
+                          ? "Choose Will apply or Later in a company’s reader to add it here."
+                          : queue === "new"
+                            ? "Create a saved search or add a company URL to start discovering."
+                            : "Review a company in New to add it to this queue."}
                       </p>
-                      {queue === "new" &&
-                        params.get("hasResearch") !== "true" && (
-                          <Button
-                            variant="outline"
-                            onClick={() => setIntake(true)}
-                          >
-                            <Plus />
-                            Add company
-                          </Button>
-                        )}
+                      {queue === "new" && (
+                        <Button
+                          variant="outline"
+                          onClick={() => setIntake(true)}
+                        >
+                          <Plus />
+                          Add company
+                        </Button>
+                      )}
                     </div>
                   )}
                   <div className="mt-4 flex items-center justify-between gap-3 text-xs text-muted-foreground">
@@ -924,30 +859,28 @@ function CompanyDiscoveryScreen() {
             </section>
           )}
         </div>
-        {selected && (layout.split || expanded) && (
+        {selected && layout.split && (
           <>
-            {!expanded && (
-              <div
-                role="separator"
-                tabIndex={0}
-                aria-label="Resize company reader"
-                aria-orientation="vertical"
-                aria-valuemin={420}
-                aria-valuemax={Math.round(layout.max)}
-                aria-valuenow={Math.round(layout.width)}
-                className="company-reader-divider"
-                {...{
-                  onPointerDown: layout.onPointerDown,
-                  onPointerMove: layout.onPointerMove,
-                  onPointerUp: layout.onPointerUp,
-                  onLostPointerCapture: layout.onLostPointerCapture,
-                  onKeyDown: layout.onKeyDown,
-                }}
-              />
-            )}
+            <div
+              role="separator"
+              tabIndex={0}
+              aria-label="Resize company reader"
+              aria-orientation="vertical"
+              aria-valuemin={420}
+              aria-valuemax={Math.round(layout.max)}
+              aria-valuenow={Math.round(layout.width)}
+              className="company-reader-divider"
+              {...{
+                onPointerDown: layout.onPointerDown,
+                onPointerMove: layout.onPointerMove,
+                onPointerUp: layout.onPointerUp,
+                onLostPointerCapture: layout.onLostPointerCapture,
+                onKeyDown: layout.onKeyDown,
+              }}
+            />
             <aside
-              className={`company-reader ${expanded ? "company-reader-expanded" : ""}`}
-              style={{ width: expanded ? "100%" : layout.width }}
+              className="company-reader"
+              style={{ width: layout.width }}
               aria-labelledby="company-reader-title"
             >
               {reader}
@@ -956,7 +889,7 @@ function CompanyDiscoveryScreen() {
         )}
       </div>
       <Sheet
-        open={Boolean(selected) && layout.ready && !layout.split && !expanded}
+        open={Boolean(selected) && layout.ready && !layout.split}
         onOpenChange={(open) => !open && close()}
       >
         <SheetContent

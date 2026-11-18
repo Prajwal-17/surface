@@ -2,7 +2,7 @@
 
 Surface is an Ubuntu desktop workspace for finding jobs, tracking applications,
 and drafting outreach. Electron serves the React interface through a local Hono
-backend. Jobs, company research, profiles, and drafts are stored in SQLite.
+backend. Jobs, company profiles, and drafts are stored in SQLite.
 
 ## Development
 
@@ -207,51 +207,28 @@ Location data: [Countries States Cities Database](https://github.com/dr5hn/count
 ODbL 1.0. The derived snapshot, checksum, attribution and license are in
 `apps/backend/src/modules/profile/data`.
 
-## Company research
+## Companies
 
-Open **Companies**, select a company, and switch its reader from **Overview** to
-**Research**. Choose **Run research** to generate a deeper cited report. Overview
-keeps company facts, funding, contacts, jobs, decisions, and the optional
-short AI summary together. **Refresh details** checks public company information
-without generating a research report.
+Open **Companies** to scan, filter, and track the companies you follow. Each row
+keeps your tracking status and the counts of open roles and linked applications.
+The reader panel shows company facts, funding, contacts, open roles, discovery
+signals, and your decisions. **Add company** saves a website, YC profile, or
+funding announcement URL for background discovery and enrichment.
 
-Use **Has research** to find companies with saved reports across decision queues.
-List indicators distinguish saved reports, active research, and unfinished runs.
-**Expand** opens the company across the workspace; **Back to companies** restores
-the list, filters, scroll position, and any Q&A draft.
+Company discovery starts from saved searches and manual intake. New companies are
+saved, but career pages do not become monitoring sources until you connect them
+through Companies → Sources → Inspect sources. Sources align collection state and
+available last-success data, with expanded URL/provider/schedule details.
 
-Reports, source snapshots, questions, and answers keep their existing
-company IDs and storage. No data migration or deletion is needed for this navigation
-change. Old `/research` links redirect into Companies, and `/research/:companyId`
-opens the same saved research in the expanded company reader.
+The company reader keeps a **useful links** bar under the company name. **Verify
+links** crawls the official website plus its about, careers, and contact pages,
+then curates the careers, docs, GitHub, LinkedIn, X, blog, pricing, status, and
+community links. Found role inboxes (such as careers@ or press@) are added to
+Contacts with their source page. Re-running replaces the previous selection and
+updates the checked date. Without a configured AI key, a deterministic fallback
+still selects the best official links.
 
-The company bar shows only links selected by an AI review after a fresh Crawlee inspection.
-Use **Verify links** on an older report, or recheck the saved selection later. The custom
-`inspect_company_link` and `publish_company_links` tools reject uninspected, blocked,
-empty and duplicate destinations; the model filters out unrelated and unhelpful pages.
-Reviews are saved independently, and a failed recheck retains the previous selection.
-New report runs also review discovered links.
-
-Report, Company Q&A, and Sources tabs share the research reader. Questions and
-answers have distinct labels and separate copy controls; older report versions
-remain selectable.
-
-The main pane contains a cited Markdown briefing covering products, open-source and
-license evidence, hiring from India, careers, engineering, and useful links. A company
-Q&A panel uses saved evidence by default. **Search web** explicitly enables our custom
-SearXNG search and Crawlee read tools for one question; it resets off after sending.
-Company research does not use provider-hosted search or automatically include your profile.
-New companies are saved, but career pages do not become monitoring sources until you
-connect them through Companies → Sources → Inspect sources.
-
-Reports are versioned. Run research gathers fresh sources and retains the previous report
-until a valid replacement finishes. Stop cancels model and crawler work. Reloading
-reconnects to persisted events; backend restarts mark unfinished work interrupted, with
-sources retained for an explicit retry. Failed or partial drafts are labeled and do
-not replace successful reports. Public source text is untrusted evidence; citations
-and supplied URLs are validated before publishing the result.
-
-Start the research dependencies:
+Start the discovery dependencies:
 
 ```sh
 docker compose up -d --build searxng crawler
@@ -276,24 +253,15 @@ desktop Settings page supplies service URLs and AI credentials):
 ```
 SEARXNG_BASE_URL=http://127.0.0.1:8080
 CRAWLER_BASE_URL=http://127.0.0.1:4100
-RESEARCH_MAX_ROUNDS=30
-RESEARCH_MAX_PAGES=60
-RESEARCH_TIMEOUT_MS=900000
+SOURCE_TIMEOUT_MS=12000
 ```
 
 Compose uses service hostnames internally. The SearXNG JSON API is enabled by the
-checked-in settings. Search and crawling errors appear in research progress and sources.
-Research runs have bounded execution and page counts, not a daily AI allowance.
-
-The API provides `/api/research` (company library), `/api/research/resolve` and
-`/api/research/confirm`, plus `/api/companies/:id/research` for detail/refresh,
-`/questions` with `{ question, webSearch: false }`, and `/runs/:runId/events` and
-`/runs/:runId/cancel` for replayable SSE and cancellation.
+checked-in settings. Search and crawling errors appear in discovery progress and sources.
 
 Verification:
 
 ```sh
-bun test apps/backend/src/modules/research/research.test.ts
 bun --cwd apps/crawler run test
 bun run lint
 bun run check-types

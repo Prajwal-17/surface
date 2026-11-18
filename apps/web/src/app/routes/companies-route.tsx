@@ -4,10 +4,6 @@ import { TrackedCompanies } from "@/features/companies/components/tracked-compan
 
 export function Component() {
   const [params] = useSearchParams();
-  const compatibilityView =
-    params.has("tab") ||
-    params.has("reader") ||
-    params.has("expanded") ||
-    params.has("hasResearch");
+  const compatibilityView = params.has("tab");
   return compatibilityView ? <CompaniesScreen /> : <TrackedCompanies />;
 }

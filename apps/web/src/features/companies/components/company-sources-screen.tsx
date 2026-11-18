@@ -1,5 +1,4 @@
 import { HeaderActions } from "@/components/layout/header-actions";
-import { Link } from "react-router";
 import {
   Collapsible,
   CollapsibleContent,
@@ -364,13 +363,6 @@ export function CompanySourcesScreen({
                           ).length ?? 0}{" "}
                           sources
                         </span>
-                        <Button asChild variant="outline" size="sm">
-                          <Link
-                            to={`/companies?company=${encodeURIComponent(company.id)}&reader=research&queue=all`}
-                          >
-                            Research <ArrowUpRight />
-                          </Link>
-                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
@@ -482,7 +474,7 @@ export function CompanySourcesScreen({
               {editing ? "Edit company" : "Watch a company"}
             </DialogTitle>
             <DialogDescription>
-              Add a company and keep your research in one place.
+              Add a company and keep it in one place.
             </DialogDescription>
           </DialogHeader>
           <form

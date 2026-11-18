@@ -2,7 +2,7 @@
 
 Surface runs as one personal **Ubuntu Linux** desktop app. Electron starts a
 local Node backend with SQLite. Hono serves the React renderer on a loopback
-port. Browser research and SearXNG are optional.
+port. Browser-based company discovery and SearXNG are optional.
 
 Open the development app with `bun dev` from the repository root. The launcher
 builds the renderer and backend before opening the Surface Dev window. Re-run
@@ -21,7 +21,7 @@ root-owned with mode `4755`.
   addon to rebuild or stage.
 - Optional: Docker for SearXNG.
 - Optional: an OpenCode Go API key for AI summaries, assessments and
-  company research.
+  company discovery.
 
 ## Build and package
 
@@ -153,7 +153,7 @@ SURFACE_DESKTOP_USER_DATA="$restore" apps/desktop/release/dev/linux-unpacked/sur
 
 ### Settings and credentials
 
-Settings → AI settings → Research and AI services lets you set:
+Settings → AI settings → Services and AI lets you set:
 
 - SearXNG URL,
 - AI provider (`opencode-go`), base URL, model and OpenCode Go API key.
@@ -188,7 +188,7 @@ Verify the optional search service with:
 curl 'http://127.0.0.1:8080/search?q=surface&format=json'
 ```
 
-Without SearXNG, jobs, monitoring, snapshots, company research from saved
+Without SearXNG, jobs, monitoring, snapshots, company discovery from saved
 sources, and AI operations that do not request web search continue to work.
 `search_web` returns:
 
@@ -217,7 +217,7 @@ version.
 - JSON values are stored as SQLite `text` with Drizzle JSON mapping; booleans
   use SQLite integer `0/1`; timestamps remain ISO text so existing application
   comparisons stay stable.
-- Foreign keys, unique indexes, partial indexes for active work and research
+- Foreign keys, unique indexes, partial indexes for active work
   runs, and the executor lease are enforced in SQLite. FTS5 is not enabled:
   current search is literal substring matching and changing that would change
   result semantics; normal indexes cover the existing equality and ordering
@@ -248,5 +248,5 @@ bun run verify:sqlite
 
 The smoke test used during implementation sets `SURFACE_DESKTOP_SMOKE_TEST=1`.
 The app starts both workers, checks `/api/health`, authenticated `/api/jobs`,
-`/api/research`, `/api/schema` and `/api/desktop/status`, saves a test key
+`/api/companies`, `/api/schema` and `/api/desktop/status`, saves a test key
 through the preload/IPC bridge, and exits.
