@@ -67,6 +67,7 @@ export const jobs = sqliteTable(
     index("jobs_canonical_url_idx").on(table.canonicalUrl),
     index("jobs_status_idx").on(table.status),
     index("jobs_posted_at_idx").on(table.postedAt),
+    index("jobs_company_idx").on(table.companyId),
   ],
 );
 

@@ -3,6 +3,7 @@ import { useEffect, useRef, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   applicationStatusSchema,
+  applicationWorkModeSchema,
   type Application,
   type ApplicationStatus,
 } from "@surface/contracts";
@@ -11,7 +12,6 @@ import {
   ArrowLeft,
   ArrowUpRight,
   BriefcaseBusiness,
-  Plus,
   RotateCcw,
   Search,
 } from "lucide-react";
@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { LoadingRows } from "@/components/feedback/loading-state";
 import { apiClient } from "@/lib/api-client";
+import { formatCompensation } from "@/lib/utils";
 import {
   applicationKeys,
   applicationLabels,
@@ -72,7 +73,13 @@ export function ApplicationsScreen() {
   const item = params.get("application");
   const company = params.get("company");
   const archive = params.get("archive") ?? "active";
-  const status = params.get("status") ?? "all";
+  const requestedStatus = params.get("status");
+  const status =
+    requestedStatus === "saved"
+      ? "queued"
+      : requestedStatus === "dismissed"
+        ? "ignored"
+        : (requestedStatus ?? "all");
   const sort = params.get("sort") ?? "recent";
   const q = params.get("q") ?? "";
   const selected = list.data?.find((row) => row.id === item);
@@ -89,6 +96,7 @@ export function ApplicationsScreen() {
 
   function patch(values: Record<string, string | null>) {
     const next = new URLSearchParams(window.location.search);
+    next.set("section", "tracker");
     Object.entries(values).forEach(([key, value]) => {
       if (value) next.set(key, value);
       else next.delete(key);
@@ -104,7 +112,7 @@ export function ApplicationsScreen() {
         listRef.current?.querySelector<HTMLButtonElement>(
           `[data-application-id="${CSS.escape(item)}"]`,
         );
-      (target || listRef.current?.querySelector("h1"))?.focus();
+      (target || listRef.current?.querySelector("h2"))?.focus();
     });
   }
 
@@ -137,9 +145,9 @@ export function ApplicationsScreen() {
         className={`min-w-0 flex-1 overflow-y-auto px-4 pb-5 pt-5 ${detail ? "max-lg:hidden" : ""}`}
       >
         <header className="flex flex-wrap items-center justify-between gap-3">
-          <h1 tabIndex={-1} className="text-xl font-semibold">
-            Applications
-          </h1>
+          <h2 tabIndex={-1} className="text-base font-semibold">
+            Application tracker
+          </h2>
           <div className="flex flex-wrap items-center gap-3">
             <p aria-live="polite" className="text-sm text-muted-foreground">
               {list.isSuccess && (
@@ -149,12 +157,6 @@ export function ApplicationsScreen() {
                 </>
               )}
             </p>
-            <Button
-              size="sm"
-              onClick={() => patch({ new: "1", application: null })}
-            >
-              <Plus /> Add application
-            </Button>
           </div>
         </header>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -283,6 +285,20 @@ export function ApplicationsScreen() {
                       >
                         {row.companyName}
                       </span>
+                      {(row.compensation ||
+                        row.employmentType ||
+                        (row.workMode && row.workMode !== "unknown")) && (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {[
+                            row.compensation &&
+                              formatCompensation(row.compensation),
+                            row.employmentType,
+                            row.workMode !== "unknown" && row.workMode,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      )}
                     </button>
                     <select
                       aria-label={`Status for ${row.title}`}
@@ -400,11 +416,33 @@ function ApplicationForm({
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const text = (key: string) => String(data.get(key) ?? "").trim();
+    const compensation = text("compensation");
+    const previousCompensation = application?.compensation;
     const fields = {
       title: text("title"),
       companyName: text("companyName"),
-      companyId: application?.companyId ?? company?.id ?? null,
+      companyId:
+        text("companyName") === (application?.companyName ?? company?.name)
+          ? (application?.companyId ?? company?.id ?? null)
+          : null,
       sourceUrl: text("sourceUrl") || null,
+      location: text("location") || null,
+      employmentType: text("employmentType") || null,
+      workMode: text("workMode")
+        ? applicationWorkModeSchema.parse(text("workMode"))
+        : null,
+      compensation: compensation
+        ? previousCompensation &&
+          compensation === formatCompensation(previousCompensation)
+          ? previousCompensation
+          : {
+              original: compensation,
+              min: null,
+              max: null,
+              currency: null,
+              period: null,
+            }
+        : null,
       status: applicationStatusSchema.parse(text("status")),
       appliedOn: text("appliedOn") || null,
       contactedOn: text("contactedOn") || null,
@@ -458,8 +496,10 @@ function ApplicationForm({
             )}
             {application.jobId && (
               <Button variant="ghost" size="sm" asChild>
-                <Link to={`/?job=${encodeURIComponent(application.jobId)}`}>
-                  Job details <ArrowUpRight />
+                <Link
+                  to={`/applications?job=${encodeURIComponent(application.jobId)}`}
+                >
+                  Listing details <ArrowUpRight />
                 </Link>
               </Button>
             )}
@@ -471,7 +511,7 @@ function ApplicationForm({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Original listing <ArrowUpRight />
+                    Apply on site <ArrowUpRight />
                   </a>
                 </Button>
               )}
@@ -486,6 +526,50 @@ function ApplicationForm({
             required
             maxLength={300}
             defaultValue={application?.title}
+          />
+        </label>
+        <label className="col-span-2 grid gap-1.5 text-sm">
+          Compensation
+          <Input
+            name="compensation"
+            defaultValue={
+              application?.compensation
+                ? formatCompensation(application.compensation)
+                : ""
+            }
+          />
+        </label>
+        <label className="grid gap-1.5 text-sm">
+          Employment type
+          <Input
+            name="employmentType"
+            maxLength={200}
+            defaultValue={application?.employmentType ?? ""}
+          />
+        </label>
+        <label className="grid gap-1.5 text-sm">
+          Work arrangement
+          <select
+            name="workMode"
+            className={selectStyle}
+            defaultValue={
+              application?.workMode === "unknown"
+                ? ""
+                : (application?.workMode ?? "")
+            }
+          >
+            <option value="">Not specified</option>
+            <option value="remote">Remote</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="onsite">On-site</option>
+          </select>
+        </label>
+        <label className="col-span-2 grid gap-1.5 text-sm">
+          Location
+          <Input
+            name="location"
+            maxLength={400}
+            defaultValue={application?.location ?? ""}
           />
         </label>
         <label className="col-span-2 grid gap-1.5 text-sm">
@@ -583,6 +667,22 @@ function ApplicationForm({
               ? "Save changes"
               : "Add application"}
         </Button>
+        {application && (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={save.isPending}
+            onClick={() =>
+              save.mutate({
+                id: application.id,
+                fields: { archived: !application.archivedAt },
+              })
+            }
+          >
+            {application.archivedAt ? <RotateCcw /> : <Archive />}
+            {application.archivedAt ? "Restore" : "Archive"}
+          </Button>
+        )}
         {save.isSuccess && (
           <span role="status" className="text-sm text-muted-foreground">
             Saved

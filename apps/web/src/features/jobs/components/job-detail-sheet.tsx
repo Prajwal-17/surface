@@ -253,11 +253,11 @@ export function JobDetailSheet({
         <Link
           to={
             job.companyId
-              ? `/companies?company=${encodeURIComponent(job.companyId)}&reader=research&queue=all`
-              : `/companies?q=${encodeURIComponent(job.companyWebsite || job.company)}&queue=all`
+              ? `/companies?company=${encodeURIComponent(job.companyId)}`
+              : `/companies?q=${encodeURIComponent(job.company)}`
           }
         >
-          Research company
+          View company
         </Link>
       </Button>
       <Button
@@ -279,10 +279,10 @@ export function JobDetailSheet({
           href={job.applyUrl}
           target="_blank"
           rel="noreferrer"
-          title="Open original listing"
-          aria-label="Open original listing"
+          title="Open the application site"
+          aria-label="Apply on site"
         >
-          Original
+          Apply on site
           <ExternalLink />
         </a>
       </Button>
@@ -557,7 +557,7 @@ export function JobDetailSheet({
               </h3>
               <Link
                 className="text-sm underline"
-                to={`/?job=${encodeURIComponent(duplicate.leftId === job.id ? duplicate.rightId : duplicate.leftId)}`}
+                to={`/applications?job=${encodeURIComponent(duplicate.leftId === job.id ? duplicate.rightId : duplicate.leftId)}`}
               >
                 Inspect other listing
               </Link>

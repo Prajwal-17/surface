@@ -1,5 +1,6 @@
 import { isAssessmentRunning } from "../analysis/analysis.service";
 import { companies } from "../workspace/workspace.tables";
+import { resolveCompany } from "../workspace/company-identity";
 import { companyWebsite } from "./company-website";
 import { workspaceRevision } from "../work/events.routes";
 import { assessments } from "../analysis/analysis.tables";
@@ -7,7 +8,10 @@ import { workItems } from "../work/work.tables";
 import { checkEligibility } from "../analysis/eligibility";
 import { findProfile } from "../profile/profile.repository";
 import { roleMatcher } from "./relevance";
-import { assessmentFormatVersion } from "@surface/contracts";
+import {
+  assessmentFormatVersion,
+  defaultJobRelevance,
+} from "@surface/contracts";
 import { createHash } from "node:crypto";
 import {
   duplicateDecisions,
@@ -82,6 +86,7 @@ export async function upsertCandidates(
 ): Promise<UpsertResult> {
   let insertedCount = 0,
     updatedCount = 0;
+  const inferredCompanies = new Map<string, string | null>();
   await runTransaction(connection, async (tx) => {
     for (const candidate of candidates) {
       const now = new Date().toISOString(),
@@ -185,11 +190,19 @@ export async function upsertCandidates(
           !authoritative(candidate.source) &&
           previousSources.some((s) => authoritative(s.source))
         );
+      let companyId = candidate.companyId ?? existing?.companyId ?? null;
+      if (!companyId && candidate.company.trim()) {
+        if (!inferredCompanies.has(candidate.company)) {
+          const company = await resolveCompany(tx, candidate.company, now);
+          inferredCompanies.set(candidate.company, company?.id ?? null);
+        }
+        companyId = inferredCompanies.get(candidate.company) ?? null;
+      }
       const fields = {
         canonicalUrl,
         title: candidate.title,
         company: candidate.company,
-        companyId: candidate.companyId ?? existing?.companyId ?? null,
+        companyId,
         location: candidate.location,
         isRemote: candidate.isRemote,
         workMode:
@@ -585,16 +598,10 @@ export async function listJobs(
   // Load related rows once: the inbox evaluates eligibility and filters before pagination.
   const context = await jobReadContext(rows);
   const matchesRole = roleMatcher(context.profile);
+  const relevance = input.relevance ?? defaultJobRelevance(input);
   let mapped = await Promise.all(
     rows
-      .filter(
-        (row) =>
-          (input.relevance ??
-            (input.status === "inbox" &&
-            (!input.view || input.view === "matches")
-              ? "target"
-              : "all")) === "all" || matchesRole(row),
-      )
+      .filter((row) => relevance === "all" || matchesRole(row))
       .map((row) => mapJob(row, false, context)),
   );
   mapped = mapped.filter(

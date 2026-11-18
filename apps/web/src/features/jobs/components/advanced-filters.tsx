@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import { ChevronDown, RotateCcw, SlidersHorizontal, X } from "lucide-react";
-import type { JobsListQuery } from "@surface/contracts";
+import { defaultJobRelevance, type JobsListQuery } from "@surface/contracts";
 import { Button } from "@/components/ui/button";
 import { ChoiceGroup, type ChoiceOption } from "@/components/ui/choice-group";
 import { Input } from "@/components/ui/input";
@@ -371,9 +371,7 @@ export function AdvancedFilters({
   return (
     <>
       <Select
-        value={
-          filters.relevance ?? (filters.status === "inbox" ? "target" : "all")
-        }
+        value={filters.relevance ?? defaultJobRelevance(filters)}
         onValueChange={(value) => change({ relevance: value, page: "1" })}
       >
         <SelectTrigger aria-label="Role relevance" className="w-auto min-w-32">

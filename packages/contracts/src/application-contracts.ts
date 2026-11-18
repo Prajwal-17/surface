@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { compensationSchema } from "./job-evidence-contracts";
 
 export const applicationStatusSchema = z.enum([
   "queued",
@@ -10,6 +11,12 @@ export const applicationStatusSchema = z.enum([
 ]);
 
 export type ApplicationStatus = z.infer<typeof applicationStatusSchema>;
+export const applicationWorkModeSchema = z.enum([
+  "remote",
+  "hybrid",
+  "onsite",
+  "unknown",
+]);
 
 const date = z.iso.date();
 const applicationFields = z.object({
@@ -17,6 +24,10 @@ const applicationFields = z.object({
   companyName: z.string().trim().min(1).max(300),
   companyId: z.string().min(1).nullable(),
   sourceUrl: z.url({ protocol: /^https?$/ }).nullable(),
+  location: z.string().trim().max(400).nullable(),
+  employmentType: z.string().trim().max(200).nullable(),
+  workMode: applicationWorkModeSchema.nullable(),
+  compensation: compensationSchema.nullable(),
   status: applicationStatusSchema,
   notes: z.string().max(20000),
   outcome: z.string().trim().max(500).nullable(),

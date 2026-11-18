@@ -15,7 +15,7 @@ import {
 } from "../../infrastructure/database/client";
 import { HttpError } from "../../shared/errors/http-error";
 import { jobs } from "../jobs/jobs.tables";
-import { companies } from "../workspace/workspace.tables";
+import { resolveCompany } from "../workspace/company-identity";
 import { applications } from "./applications.tables";
 
 export const applicationRoutes = new Hono();
@@ -37,12 +37,19 @@ async function canonicalJob(connection: Database | Transaction, id: string) {
   throw new HttpError(409, "This job has an invalid merge history.");
 }
 
-async function existingCompany(connection: Database | Transaction, id: string) {
-  const [company] = await connection
-    .select({ id: companies.id })
-    .from(companies)
-    .where(eq(companies.id, id));
-  return company?.id ?? null;
+async function applicationCompany(
+  tx: Transaction,
+  name: string,
+  now: string,
+  companyId?: string | null,
+) {
+  const company = await resolveCompany(tx, name, now, companyId);
+  if (!company)
+    throw new HttpError(
+      409,
+      "Choose a specific company from Companies before adding this application.",
+    );
+  return { companyId: company.id, companyName: company.name };
 }
 
 function patchFields(
@@ -98,18 +105,26 @@ applicationRoutes.post(
   zValidator("json", createApplicationSchema),
   async (c) => {
     const input = c.req.valid("json");
-    if (input.companyId && !(await existingCompany(db, input.companyId)))
-      throw new HttpError(400, "Company not found.");
     const now = new Date().toISOString();
-    const [row] = await db
-      .insert(applications)
-      .values({
-        ...input,
-        ...patchFields(input, now),
-        id: crypto.randomUUID(),
-        createdAt: now,
-      })
-      .returning();
+    const row = await transaction(async (tx) => {
+      const link = await applicationCompany(
+        tx,
+        input.companyName,
+        now,
+        input.companyId,
+      );
+      const [created] = await tx
+        .insert(applications)
+        .values({
+          ...patchFields(input, now),
+          ...link,
+          title: input.title,
+          id: crypto.randomUUID(),
+          createdAt: now,
+        })
+        .returning();
+      return created;
+    });
     return c.json(row, 201);
   },
 );
@@ -126,12 +141,20 @@ applicationRoutes.patch(
         .from(applications)
         .where(eq(applications.id, id));
       if (!current) throw new HttpError(404, "Application not found.");
-      if (input.companyId && !(await existingCompany(tx, input.companyId)))
-        throw new HttpError(400, "Company not found.");
       const now = new Date().toISOString();
+      const link =
+        input.companyId !== undefined || input.companyName !== undefined
+          ? await applicationCompany(
+              tx,
+              input.companyName ?? current.companyName,
+              now,
+              input.companyId ??
+                (input.companyName === undefined ? current.companyId : null),
+            )
+          : {};
       const [updated] = await tx
         .update(applications)
-        .set(patchFields(input, now, current))
+        .set({ ...patchFields(input, now, current), ...link })
         .where(eq(applications.id, id))
         .returning();
       if (input.status && updated) await reflectJobStatus(tx, updated, now);
@@ -162,13 +185,25 @@ applicationRoutes.put(
         .select()
         .from(applications)
         .where(eq(applications.jobId, job.id));
-      if (current && current.status === input.status) return current;
+      if (
+        current?.companyId &&
+        current.status === input.status &&
+        !current.archivedAt
+      )
+        return current;
 
       const now = new Date().toISOString();
+      const link = await applicationCompany(
+        tx,
+        current?.companyName ?? job.company,
+        now,
+        current?.companyId ?? job.companyId,
+      );
       const fields = patchFields(
         {
           status: input.status,
           appliedOn: current?.appliedOn ?? input.appliedOn,
+          archived: current?.archivedAt ? false : undefined,
         },
         now,
         current,
@@ -176,7 +211,7 @@ applicationRoutes.put(
       const [updated] = current
         ? await tx
             .update(applications)
-            .set(fields)
+            .set({ ...fields, ...link })
             .where(eq(applications.id, current.id))
             .returning()
         : await tx
@@ -185,16 +220,22 @@ applicationRoutes.put(
               ...fields,
               id: crypto.randomUUID(),
               jobId: job.id,
-              companyId: job.companyId
-                ? await existingCompany(tx, job.companyId)
-                : null,
-              companyName: job.company,
+              ...link,
               title: job.title,
-              sourceUrl: job.applyUrl,
+              sourceUrl: job.applyUrl || job.canonicalUrl,
+              location: job.location,
+              employmentType: job.employmentType,
+              workMode: job.workMode,
+              compensation: job.compensation,
               createdAt: now,
             })
             .returning();
 
+      if (!job.companyId)
+        await tx
+          .update(jobs)
+          .set({ companyId: link.companyId })
+          .where(eq(jobs.id, job.id));
       if (updated) await reflectJobStatus(tx, updated, now);
       return updated;
     });

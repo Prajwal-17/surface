@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  defaultJobRelevance,
   jobSchema,
   type Job,
   type JobStatus,
@@ -15,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { JobDetailSheet } from "@/features/jobs/components/job-detail-sheet";
 import { JobFilters } from "@/features/jobs/components/job-filters";
 import { JobList } from "@/features/jobs/components/job-list";
-import { JobStatusTabs } from "@/features/jobs/components/job-status-tabs";
 import { useJobs } from "@/features/jobs/hooks/use-jobs";
 import { useTrackJob } from "@/features/applications/application-api";
 import { apiClient } from "@/lib/api-client";
@@ -116,10 +116,7 @@ export function DiscoveryScreen({
       key in filterNames &&
       value !== undefined &&
       value !== "" &&
-      !(
-        key === "relevance" &&
-        value === (filters.status === "inbox" ? "target" : "all")
-      ),
+      !(key === "relevance" && value === defaultJobRelevance(filters)),
   );
   function statusChange(job: Job, status: JobStatus) {
     mutation.mutate({
@@ -137,40 +134,26 @@ export function DiscoveryScreen({
       data-reader-open={Boolean(selectedId)}
     >
       <div id="job-inbox" className="discovery-inbox">
-        <h1 data-job-list-heading tabIndex={-1} className="sr-only">
-          Jobs
-        </h1>
-        <div className="inbox-header">
-          <div className="inbox-status">
-            <JobStatusTabs
-              value={filters.status}
-              count={jobsQuery.data?.total}
-              onChange={(status) =>
-                change({ status, page: "1", job: undefined, view: undefined })
-              }
-            />
-          </div>
-          <HeaderActions>
-            <span className="inline-flex min-w-5">
-              {jobsQuery.isFetching && !jobsQuery.isPending && (
-                <LoadingStatus>
-                  <span className="sr-only">Updating jobs</span>
-                </LoadingStatus>
-              )}
-            </span>
-            <SavedSearches
-              parameters={parameters}
-              onSelectSearch={(savedFilters) =>
-                change({ ...savedFilters, page: "1", job: undefined })
-              }
-            />
-            <Button asChild size="sm">
-              <Link to="/settings?section=sources">
-                <Plus /> <span className="max-sm:sr-only">Add sources</span>
-              </Link>
-            </Button>
-          </HeaderActions>
-        </div>
+        <HeaderActions>
+          <span className="inline-flex min-w-5">
+            {jobsQuery.isFetching && !jobsQuery.isPending && (
+              <LoadingStatus>
+                <span className="sr-only">Updating jobs</span>
+              </LoadingStatus>
+            )}
+          </span>
+          <SavedSearches
+            parameters={parameters}
+            onSelectSearch={(savedFilters) =>
+              change({ ...savedFilters, page: "1", job: undefined })
+            }
+          />
+          <Button asChild size="sm">
+            <Link to="/settings?section=sources">
+              <Plus /> <span className="max-sm:sr-only">Add sources</span>
+            </Link>
+          </Button>
+        </HeaderActions>
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
           <p role="status" className="text-xs text-muted-foreground">
             {refreshStatus.data?.active

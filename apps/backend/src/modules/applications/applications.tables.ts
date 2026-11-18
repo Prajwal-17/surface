@@ -1,6 +1,8 @@
 import {
   applicationStatusSchema,
   type ApplicationStatus,
+  type Compensation,
+  type applicationWorkModeSchema,
 } from "@surface/contracts";
 import { sql, type SQLWrapper } from "drizzle-orm";
 import { check, index, sqliteTable, text } from "drizzle-orm/sqlite-core";
@@ -27,6 +29,13 @@ export const applications = sqliteTable(
     title: text("title").notNull(),
     companyName: text("company_name").notNull(),
     sourceUrl: text("source_url"),
+    location: text("location"),
+    employmentType: text("employment_type"),
+    workMode:
+      text("work_mode").$type<
+        (typeof applicationWorkModeSchema)["options"][number]
+      >(),
+    compensation: text("compensation", { mode: "json" }).$type<Compensation>(),
     status: text("status")
       .$type<ApplicationStatus>()
       .notNull()

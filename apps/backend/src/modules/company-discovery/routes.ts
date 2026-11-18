@@ -32,6 +32,7 @@ import {
 import { nextDailyRun, websiteIdentity } from "./identity";
 import { saveContact, orderContacts } from "./contacts";
 import { logoDirectory } from "./enrichment";
+import { companyFavicon } from "./favicon";
 import { readCompanyPage } from "./evidence";
 import { parseCompanyPage, type CompanyCandidate } from "./sources";
 import { HttpError } from "../../shared/errors/http-error";
@@ -428,6 +429,20 @@ companyDiscoveryRoutes.post(
     return c.json({ companyId: result.company.id });
   },
 );
+companyDiscoveryRoutes.get("/companies/:id/favicon", async (c) => {
+  const path = await companyFavicon(await getCompany(c.req.param("id")));
+  if (
+    !path ||
+    !/^\/api\/company-discovery\/logos\/[a-f0-9]{64}\.(png|jpg|webp|gif|ico|svg)$/.test(
+      path,
+    )
+  ) {
+    c.header("Cache-Control", "private, max-age=900");
+    return c.body(null, 404);
+  }
+  c.header("Cache-Control", "private, max-age=300");
+  return c.redirect(path);
+});
 companyDiscoveryRoutes.get("/logos/:file", async (c) => {
   const file = c.req.param("file");
   if (!/^[a-f0-9]{64}\.(png|jpg|webp|gif|ico|svg)$/.test(file))

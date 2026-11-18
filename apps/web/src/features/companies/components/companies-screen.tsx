@@ -626,6 +626,7 @@ function CompanyDiscoveryScreen() {
                           <CompanyMark
                             name={c.name}
                             src={c.logoPath}
+                            company={c}
                             fallback="none"
                             className="size-9"
                           />

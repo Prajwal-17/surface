@@ -108,6 +108,8 @@ export function TrackedCompanies() {
 
   function patch(fields: Record<string, string | null>) {
     const next = new URLSearchParams(window.location.search);
+    if (["q", "status", "archive", "sort"].some((key) => key in fields))
+      next.delete("page");
     for (const [key, value] of Object.entries(fields)) {
       if (value) next.set(key, value);
       else next.delete(key);
@@ -155,6 +157,13 @@ export function TrackedCompanies() {
         return (b.newestOpening ?? "").localeCompare(a.newestOpening ?? "");
       return a.name.localeCompare(b.name);
     });
+  const pageSize = 60;
+  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const page = Math.min(
+    pages,
+    Math.max(1, Number.parseInt(params.get("page") ?? "1", 10) || 1),
+  );
+  const visibleRows = rows.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-hidden lg:flex-row">
@@ -283,7 +292,7 @@ export function TrackedCompanies() {
               <span className="sr-only">Actions</span>
             </div>
             <ul className="divide-y divide-border">
-              {rows.map((company) => (
+              {visibleRows.map((company) => (
                 <li
                   key={company.id}
                   className={`grid grid-cols-[minmax(0,1fr)_7rem_10rem_2rem] items-center gap-2 px-3 py-2 max-sm:grid-cols-[minmax(0,1fr)_7rem_2rem] ${selectedId === company.id ? "bg-accent" : "hover:bg-muted/50"}`}
@@ -300,6 +309,7 @@ export function TrackedCompanies() {
                     <CompanyMark
                       name={company.name}
                       src={company.logoPath}
+                      company={company}
                       className="size-7 shrink-0"
                     />
                     <span className="min-w-0 truncate" title={company.name}>
@@ -348,6 +358,35 @@ export function TrackedCompanies() {
                 No companies match this view.
               </p>
             )}
+            {pages > 1 && (
+              <nav
+                aria-label="Company pages"
+                className="flex items-center justify-between gap-3 border-t px-3 py-2"
+              >
+                <p className="text-xs text-muted-foreground" aria-live="polite">
+                  {rows.length.toLocaleString()} companies · Page {page} of{" "}
+                  {pages}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={page === 1}
+                    onClick={() => patch({ page: String(page - 1) })}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={page === pages}
+                    onClick={() => patch({ page: String(page + 1) })}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </nav>
+            )}
           </div>
         )}
       </section>
@@ -379,9 +418,9 @@ export function TrackedCompanies() {
                 </Button>
                 <Button variant="ghost" size="sm" asChild>
                   <Link
-                    to={`/?companyId=${encodeURIComponent(selectedId)}&relevance=all`}
+                    to={`/applications?companyId=${encodeURIComponent(selectedId)}`}
                   >
-                    View jobs <ArrowUpRight />
+                    Open roles <ArrowUpRight />
                   </Link>
                 </Button>
                 <Button variant="ghost" size="sm" asChild>

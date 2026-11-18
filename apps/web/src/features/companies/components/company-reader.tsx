@@ -173,7 +173,7 @@ export function CompanyReader({
         </div>
       )}
       <header className="company-reader-header">
-        <CompanyMark name={c.name} src={c.logoPath} fallback="none" />
+        <CompanyMark name={c.name} src={c.logoPath} company={c} />
         <div className="min-w-0 flex-1">
           <h2
             id="company-reader-title"
@@ -408,7 +408,7 @@ export function CompanyReader({
                 <article key={j.id} className="border-b py-3">
                   <Link
                     className="text-sm font-medium text-brand"
-                    to={`/?job=${j.id}`}
+                    to={`/applications?job=${encodeURIComponent(j.id)}`}
                   >
                     {j.title}
                   </Link>

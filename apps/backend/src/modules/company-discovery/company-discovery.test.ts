@@ -45,6 +45,7 @@ import {
   retryCompanyRun,
 } from "./service";
 import { enrichCompany, cacheLogo } from "./enrichment";
+import { discoverFavicon } from "./favicon";
 const fixture = async (name: string) =>
   crawlOutput.parse(
     await Bun.file(new URL(`fixtures/${name}.json`, import.meta.url)).json(),
@@ -648,6 +649,32 @@ describe("persistent company workflow", () => {
     expect(path).toMatch(
       /^\/api\/company-discovery\/logos\/[a-f0-9]{64}\.svg$/,
     );
+  });
+
+  test("checks declared icons and falls back to the favicon on the redirected website", async () => {
+    const attempted: string[] = [];
+    const result = await discoverFavicon(
+      "https://company.com/careers",
+      async () => ({
+        url: "https://www.company.com/home",
+        body: '<link rel="shortcut icon" href="/icons/main.png"><link rel="icon" href="data:image/png;base64,abc">',
+        mediaType: "text/html",
+        statusCode: 200,
+      }),
+      async (url) => {
+        attempted.push(url);
+        if (url.endsWith(".png")) throw new Error("Icon not reachable");
+        return "/cached.ico";
+      },
+    );
+    expect(attempted).toEqual([
+      "https://www.company.com/icons/main.png",
+      "https://www.company.com/favicon.ico",
+    ]);
+    expect(result).toEqual({
+      path: "/cached.ico",
+      url: "https://www.company.com/favicon.ico",
+    });
   });
 });
 

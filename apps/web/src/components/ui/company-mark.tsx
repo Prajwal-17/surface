@@ -4,15 +4,22 @@ export function CompanyMark({
   name,
   className,
   src,
+  company,
   fallback = "initials",
 }: {
   name: string;
   className?: string;
   src?: string | null;
+  company?: { id: string; website: string };
   fallback?: "initials" | "none";
 }) {
   const [failed, setFailed] = useState<string | null>(null);
-  if (fallback === "none" && (!src || failed === src)) return null;
+  const image =
+    src ||
+    (company?.website
+      ? `/api/company-discovery/companies/${encodeURIComponent(company.id)}/favicon`
+      : null);
+  if (fallback === "none" && (!image || failed === image)) return null;
   return (
     <span
       aria-hidden="true"
@@ -21,12 +28,14 @@ export function CompanyMark({
         className,
       )}
     >
-      {src && failed !== src ? (
+      {image && failed !== image ? (
         <img
-          src={src}
+          src={image}
           alt=""
-          className="size-full rounded-[inherit] object-contain p-1"
-          onError={() => setFailed(src)}
+          loading="lazy"
+          decoding="async"
+          className="size-full rounded-[inherit] object-contain p-0.5"
+          onError={() => setFailed(image)}
         />
       ) : (
         name

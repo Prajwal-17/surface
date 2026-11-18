@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { jobsListQuerySchema } from "@surface/contracts";
+import { defaultJobRelevance, jobsListQuerySchema } from "@surface/contracts";
 import {
   advancedFilterCount,
   describeJobFilter,
@@ -7,6 +7,16 @@ import {
 } from "../src/features/jobs/filter-options";
 
 describe("job filter controls", () => {
+  test("uses the selected job view to determine the default role scope", () => {
+    expect(defaultJobRelevance({ status: "inbox", view: "matches" })).toBe(
+      "target",
+    );
+    expect(defaultJobRelevance({ status: "inbox", view: "all" })).toBe("all");
+    expect(defaultJobRelevance({ status: "inbox", view: "review" })).toBe(
+      "all",
+    );
+    expect(defaultJobRelevance({ status: "saved" })).toBe("all");
+  });
   test("counts advanced categories independently of toolbar and reader state", () => {
     const defaults = jobsListQuerySchema.parse({
       status: "saved",

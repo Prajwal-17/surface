@@ -161,6 +161,13 @@ export const jobsListQuerySchema = z.object({
 
 export type JobsListQuery = z.infer<typeof jobsListQuerySchema>;
 
+export function defaultJobRelevance({
+  status,
+  view,
+}: Pick<JobsListQuery, "status" | "view">): "target" | "all" {
+  return status === "inbox" && (!view || view === "matches") ? "target" : "all";
+}
+
 export const jobsListResponseSchema = z.object({
   jobs: z.array(jobSchema),
   revision: z.string(),

@@ -1,11 +1,15 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, redirect } from "react-router";
 import { WorkspaceLayout } from "@/app/routes/workspace-layout";
 
 export const router = createBrowserRouter([
   {
     Component: WorkspaceLayout,
     children: [
-      { index: true, lazy: () => import("@/app/routes/jobs-route") },
+      {
+        index: true,
+        loader: ({ request }) =>
+          redirect(`/applications${new URL(request.url).search}`),
+      },
       { path: "activity", lazy: () => import("@/app/routes/activity-route") },
       { path: "companies", lazy: () => import("@/app/routes/companies-route") },
       {

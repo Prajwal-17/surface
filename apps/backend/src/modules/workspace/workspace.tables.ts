@@ -1,4 +1,5 @@
 import type { CompanyTrackingStatus } from "@surface/contracts";
+import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const companies = sqliteTable(
@@ -36,7 +37,10 @@ export const companies = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
-  (table) => [index("companies_website_identity").on(table.normalizedWebsite)],
+  (table) => [
+    index("companies_website_identity").on(table.normalizedWebsite),
+    index("companies_normalized_name_idx").on(sql`lower(trim(${table.name}))`),
+  ],
 );
 
 export const configuredSources = sqliteTable("configured_sources", {

@@ -7,13 +7,21 @@
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const backendDirectory = resolve(here, "..");
+const migrationCount = (
+  JSON.parse(
+    readFileSync(
+      join(backendDirectory, "drizzle-sqlite/meta/_journal.json"),
+      "utf8",
+    ),
+  ) as { entries: unknown[] }
+).entries.length;
 const phase = process.env.SURFACE_SQLITE_VERIFY_PHASE ?? "main";
 const root =
   process.env.SURFACE_SQLITE_VERIFY_DIR ??
@@ -105,8 +113,8 @@ async function mainCheck(): Promise<void> {
   const migrationRows = await executeStatement<{ count: number }>(
     "SELECT CAST(count(*) AS INTEGER) AS count FROM __surface_sqlite_migrations",
   );
-  assert.equal(migrationRows[0]?.count, 4);
-  check("migration history", "4 SQLite migrations recorded");
+  assert.equal(migrationRows[0]?.count, migrationCount);
+  check("migration history", `${migrationCount} SQLite migrations recorded`);
   let foreignKeyCount = 0;
   for (const { name } of tableRows) {
     assert.match(name, /^[a-z_][a-z0-9_]*$/i);
@@ -788,7 +796,7 @@ async function mainCheck(): Promise<void> {
   assert.equal(reopened.jobs, 1);
   assert.equal(reopened.profileRevision, 1);
   assert.equal(reopened.researchRuns, 1);
-  assert.equal(reopened.migrations, 4);
+  assert.equal(reopened.migrations, migrationCount);
   check("restart persistence", JSON.stringify(reopened));
 
   const integrity = await reopenIntegrity(databaseFile);

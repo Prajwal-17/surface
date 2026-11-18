@@ -336,6 +336,7 @@ export function CompanySourcesScreen({
                         >
                           <CompanyMark
                             name={company.name}
+                            company={company}
                             className="size-7 text-caption"
                           />
                           <span className="min-w-0 flex-1">

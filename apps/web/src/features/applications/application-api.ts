@@ -53,6 +53,10 @@ export function useSaveApplication() {
         queryClient.invalidateQueries({ queryKey: applicationKeys }),
         queryClient.invalidateQueries({ queryKey: ["jobs"] }),
         queryClient.invalidateQueries({ queryKey: ["tracked-companies"] }),
+        queryClient.invalidateQueries({ queryKey: ["companies"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["application-company-options"],
+        }),
       ]);
     },
     onError: (error) => toast.error(error.message),
@@ -95,6 +99,8 @@ export function useTrackJob() {
         client.invalidateQueries({ queryKey: applicationKeys }),
         client.invalidateQueries({ queryKey: ["jobs"] }),
         client.invalidateQueries({ queryKey: ["tracked-companies"] }),
+        client.invalidateQueries({ queryKey: ["companies"] }),
+        client.invalidateQueries({ queryKey: ["application-company-options"] }),
       ]);
     },
     onError: (error) => toast.error(error.message),
