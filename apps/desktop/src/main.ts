@@ -232,6 +232,7 @@ function createWindow(): void {
       spellcheck: false,
     },
   });
+  mainWindow.maximize();
   mainWindow.on("maximize", () => publishWindowState());
   mainWindow.on("unmaximize", () => publishWindowState());
   mainWindow.on("enter-full-screen", () => publishWindowState());
@@ -281,7 +282,13 @@ function createWindow(): void {
       toggleMaximize();
     }
   });
-  const allowedOrigin = new URL(backendUrl).origin;
+  const rendererOrigin = process.env.SURFACE_DESKTOP_RENDERER_URL
+    ? new URL(process.env.SURFACE_DESKTOP_RENDERER_URL).origin
+    : null;
+  const allowedOrigins = new Set([
+    new URL(backendUrl).origin,
+    ...(rendererOrigin ? [rendererOrigin] : []),
+  ]);
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
     return { action: "deny" };
@@ -294,7 +301,7 @@ function createWindow(): void {
       event.preventDefault();
       return;
     }
-    if (target.origin !== allowedOrigin) {
+    if (!allowedOrigins.has(target.origin)) {
       event.preventDefault();
       if (/^https?:$/i.test(target.protocol)) void shell.openExternal(url);
     }
@@ -323,7 +330,8 @@ function createWindow(): void {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
-  void mainWindow.loadURL(`${backendUrl}/`).catch(async (error) => {
+  const rendererUrl = process.env.SURFACE_DESKTOP_RENDERER_URL ?? backendUrl;
+  void mainWindow.loadURL(`${rendererUrl}/`).catch(async (error) => {
     await fatal(`${identity.productName} could not open its interface`, error);
   });
   if (process.env.SURFACE_DESKTOP_SMOKE_TEST === "1") {
@@ -420,8 +428,9 @@ function createWindow(): void {
 }
 
 async function setDesktopCookie(): Promise<void> {
+  const cookieOrigin = process.env.SURFACE_DESKTOP_RENDERER_URL ?? backendUrl;
   await session.defaultSession.cookies.set({
-    url: backendUrl,
+    url: cookieOrigin,
     name: "surface_desktop_token",
     value: desktopToken,
     httpOnly: true,
@@ -570,8 +579,14 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
   ) {
     throw new Error("Untrusted desktop IPC sender.");
   }
+  const trustedOrigins = new Set([
+    new URL(backendUrl).origin,
+    ...(process.env.SURFACE_DESKTOP_RENDERER_URL
+      ? [new URL(process.env.SURFACE_DESKTOP_RENDERER_URL).origin]
+      : []),
+  ]);
   const origin = new URL(frameUrl).origin;
-  if (origin !== new URL(backendUrl).origin) {
+  if (!trustedOrigins.has(origin)) {
     throw new Error("Untrusted desktop IPC sender.");
   }
 }

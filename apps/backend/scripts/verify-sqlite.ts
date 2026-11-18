@@ -97,8 +97,10 @@ async function mainCheck(): Promise<void> {
        AND name <> '__surface_sqlite_migrations'
      ORDER BY name`,
   );
-  assert.equal(tableRows.length, 29);
+  assert.equal(tableRows.length, 36);
   assert.ok(tableRows.some(({ name }) => name === "applications"));
+  assert.ok(tableRows.some(({ name }) => name === "tracker_companies"));
+  assert.ok(tableRows.some(({ name }) => name === "tracker_applications"));
   check("fresh migration baseline", `${tableRows.length} application tables`);
   const migrationRows = await executeStatement<{ count: number }>(
     "SELECT CAST(count(*) AS INTEGER) AS count FROM __surface_sqlite_migrations",
@@ -114,6 +116,18 @@ async function mainCheck(): Promise<void> {
   }
   assert.ok(foreignKeyCount >= 24);
   check("constraints", `${foreignKeyCount} foreign keys`);
+  await executeStatement(
+    `INSERT INTO tracker_companies(id,name,created_at,updated_at) VALUES('tracker-test','Tracker test',datetime('now'),datetime('now'))`,
+  );
+  await executeStatement(
+    `INSERT INTO tracker_applications(id,title,company_id,created_at,updated_at) VALUES('tracker-application-test','Test role','tracker-test',datetime('now'),datetime('now'))`,
+  );
+  await executeStatement(`DELETE FROM tracker_companies WHERE id='tracker-test'`);
+  const cascaded = await executeStatement<{ count: number }>(
+    `SELECT count(*) AS count FROM tracker_applications WHERE id='tracker-application-test'`,
+  );
+  assert.equal(cascaded[0]?.count, 0);
+  check("tracker cascade delete", "linked applications removed with company");
 
   const profile = await saveProfile({
     targetRoles: "Senior Software Engineer, TypeScript",

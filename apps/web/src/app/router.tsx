@@ -1,12 +1,23 @@
 import { createBrowserRouter, redirect } from "react-router";
 import { WorkspaceLayout } from "@/app/routes/workspace-layout";
+import { LoadingStatus } from "@/components/feedback/loading-state";
+
+function RouterHydrateFallback() {
+  return (
+    <main className="flex min-h-svh items-center justify-center bg-background">
+      <LoadingStatus>Loading workspace…</LoadingStatus>
+    </main>
+  );
+}
 
 export const router = createBrowserRouter([
   {
     Component: WorkspaceLayout,
+    HydrateFallback: RouterHydrateFallback,
     children: [
       {
         index: true,
+        Component: () => null,
         loader: ({ request }) =>
           redirect(`/applications${new URL(request.url).search}`),
       },

@@ -10,6 +10,7 @@ import {
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { createServer } from "node:net";
 
 // Launch a real Electron process even from a shell opened by another Electron app.
 for (const name of [
@@ -23,20 +24,93 @@ for (const name of [
 }
 const electron = createRequire(import.meta.url)("electron");
 const app = fileURLToPath(new URL("../", import.meta.url));
+const web = join(app, "../web");
 const args = process.argv.slice(2);
+const backendPort = await getFreePort();
+const rendererUrl = "http://127.0.0.1:17000";
+const vite = spawn(
+  process.execPath,
+  [
+    join(web, "node_modules/vite/bin/vite.js"),
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "17000",
+    "--strictPort",
+  ],
+  {
+    cwd: web,
+    env: { ...process.env, BACKEND_URL: `http://127.0.0.1:${backendPort}` },
+    stdio: "inherit",
+  },
+);
+let viteError;
+vite.on("error", (error) => {
+  viteError = error;
+});
+try {
+  await waitForVite(vite, rendererUrl, () => viteError);
+} catch (error) {
+  vite.kill("SIGTERM");
+  throw error;
+}
+
 const child = spawn(localElectron(electron, app, args), [app, ...args], {
   stdio: "inherit",
+  env: {
+    ...process.env,
+    SURFACE_DESKTOP_BACKEND_PORT: String(backendPort),
+    SURFACE_DESKTOP_RENDERER_URL: rendererUrl,
+  },
 });
 for (const signal of ["SIGINT", "SIGTERM"]) {
-  process.once(signal, () => child.kill(signal));
+  process.once(signal, () => {
+    child.kill(signal);
+    vite.kill(signal);
+  });
 }
 child.on("error", (error) => {
   console.error(`Could not start Surface Dev. ${error.message}`);
+  vite.kill("SIGTERM");
   process.exitCode = 1;
 });
 child.on("exit", (code) => {
+  vite.kill("SIGTERM");
   process.exitCode = code ?? 1;
 });
+
+function getFreePort() {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      server.close((error) => {
+        if (error) reject(error);
+        else resolve(address.port);
+      });
+    });
+  });
+}
+
+async function waitForVite(childProcess, url, getStartError) {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const startError = getStartError();
+    if (startError)
+      throw new Error(`Could not start Vite. ${startError.message}`);
+    if (childProcess.exitCode !== null)
+      throw new Error("Vite exited before the renderer was ready.");
+    try {
+      const response = await fetch(url);
+      if (response.ok) return;
+    } catch {
+      // Vite is still starting.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error(`Vite did not become ready at ${url}.`);
+}
 
 // Ubuntu can require a setuid sandbox for the npm Electron binary. Reuse an
 // installed helper in a separate runtime directory so the sandbox stays enabled.

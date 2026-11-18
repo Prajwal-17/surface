@@ -64,6 +64,27 @@
       "when": 1795000212055,
       "tag": "0008_new_piledriver",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795001000000,
+      "tag": "0009_minimal_tracker",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795002000000,
+      "tag": "0010_tracker_company_immutable",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795003000000,
+      "tag": "0011_tracker_application_details",
+      "breakpoints": true
     }
   ]
 }

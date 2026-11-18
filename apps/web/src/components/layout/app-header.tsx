@@ -1,6 +1,6 @@
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, useLocation } from "react-router";
 import { profileDetailsSchema } from "@surface/contracts";
-import { useEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import {
   ClipboardList,
   Building2,
@@ -45,8 +45,7 @@ const profileDestination = {
   icon: UserRound,
 } as const;
 export function AppHeader() {
-  const location = useLocation();
-  const pathname = location.pathname;
+  const { pathname } = useLocation();
   const desktopChannel = useDesktopChannel();
   const { toggleSidebar, setOpenMobile, state } = useSidebar();
   const auth = useAuth();
@@ -70,17 +69,6 @@ export function AppHeader() {
   );
   const email =
     profile.data?.context.details?.email || auth.email || legacyEmail;
-  const navigate = useNavigate();
-  useEffect(() => {
-    if (pathname !== "/applications" || !profile.isSuccess || profile.data)
-      return;
-    try {
-      if (localStorage.getItem("surface-onboarding-skipped")) return;
-    } catch {
-      return;
-    }
-    void navigate("/onboarding", { replace: true });
-  }, [pathname, profile.isSuccess, profile.data, navigate]);
   const current = [
     ...destinations,
     ...referenceDestinations,
