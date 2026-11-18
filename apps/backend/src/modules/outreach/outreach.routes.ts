@@ -11,6 +11,7 @@ import {
 import { db } from "../../infrastructure/database/client";
 import { HttpError } from "../../shared/errors/http-error";
 import { aiConfigured } from "../../config/runtime";
+import { AiError } from "../../shared/ai/errors";
 import { generateObject } from "../../shared/ai/generation";
 import { jobs } from "../jobs/jobs.tables";
 import { companies } from "../workspace/workspace.tables";
@@ -204,10 +205,22 @@ outreachRoutes.post(
         throw new Error("Unsupported evidence");
       }
       return c.json(output);
-    } catch {
+    } catch (error) {
+      const summary =
+        error instanceof AiError &&
+        [
+          "workload",
+          "auth",
+          "rate-limit",
+          "busy",
+          "timeout",
+          "unconfigured",
+        ].includes(error.kind)
+          ? error.message
+          : "Could not prepare a draft with verified evidence.";
       throw new HttpError(
         502,
-        "Could not prepare a draft with verified evidence. Your current edits are still available.",
+        `${summary} Your current edits are still available.`,
       );
     }
   },

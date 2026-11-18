@@ -1,3 +1,4 @@
+import { AiError } from "../../shared/ai/errors";
 import {
   and,
   count,
@@ -416,7 +417,8 @@ export async function executeAnalysis(
         .where(eq(workItems.id, item.id))
         .limit(1)
     )[0]!;
-    const retry = row.attempts < 3;
+    const retry =
+      row.attempts < 3 && (!(error instanceof AiError) || error.retryable);
     await db
       .update(workItems)
       .set({

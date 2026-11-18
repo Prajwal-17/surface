@@ -16,6 +16,7 @@ export type AiErrorKind =
   | "busy"
   | "auth"
   | "rate-limit"
+  | "workload"
   | "provider"
   | "invalid-output"
   | "incomplete"
@@ -74,6 +75,17 @@ export function normalizeAiError(
       : new AiError("aborted", "The AI request was stopped.", { cause: error });
   if (APICallError.isInstance(error)) {
     const status = error.statusCode;
+    if (
+      status === 400 &&
+      /missing x-opencode-session/i.test(
+        `${error.message} ${error.responseBody ?? ""}`,
+      )
+    )
+      return new AiError(
+        "workload",
+        "OpenCode Go declined this Surface request. Configure an endpoint that supports this workload in Settings.",
+        { cause: error },
+      );
     if (status === 401 || status === 403)
       return new AiError(
         "auth",

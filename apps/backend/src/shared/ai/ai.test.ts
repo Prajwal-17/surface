@@ -233,6 +233,30 @@ describe("structured generation", () => {
     ).rejects.toBeInstanceOf(AiError);
   });
 
+  test("surfaces a provider workload rejection without retrying", async () => {
+    respond = () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            message:
+              "Request is missing x-opencode-session and cannot be routed efficiently.",
+          },
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
+    await expect(
+      generateObject({
+        schema: z.object({ ok: z.boolean() }),
+        name: "surface_test",
+        instructions: "Test",
+        input: {},
+        maxOutputTokens: 10,
+        feature: "test",
+      }),
+    ).rejects.toMatchObject({ kind: "workload", retryable: false });
+    expect(requests).toHaveLength(1);
+  });
+
   test("propagates an abort signal", async () => {
     const controller = new AbortController();
     respond = () =>
