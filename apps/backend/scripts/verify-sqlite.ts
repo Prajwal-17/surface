@@ -101,14 +101,14 @@ async function mainCheck(): Promise<void> {
        AND name <> '__surface_sqlite_migrations'
      ORDER BY name`,
   );
-  assert.equal(tableRows.length, 33);
+  assert.equal(tableRows.length, 34);
   assert.ok(tableRows.some(({ name }) => name === "applications"));
   check("fresh migration baseline", `${tableRows.length} application tables`);
   const migrationRows = await executeStatement<{ count: number }>(
     "SELECT CAST(count(*) AS INTEGER) AS count FROM __surface_sqlite_migrations",
   );
-  assert.equal(migrationRows[0]?.count, 3);
-  check("migration history", "3 SQLite migrations recorded");
+  assert.equal(migrationRows[0]?.count, 4);
+  check("migration history", "4 SQLite migrations recorded");
   let foreignKeyCount = 0;
   for (const { name } of tableRows) {
     assert.match(name, /^[a-z_][a-z0-9_]*$/i);
@@ -766,7 +766,7 @@ async function mainCheck(): Promise<void> {
   assert.equal(reopened.jobs, 1);
   assert.equal(reopened.profileRevision, 1);
   assert.equal(reopened.researchRuns, 1);
-  assert.equal(reopened.migrations, 3);
+  assert.equal(reopened.migrations, 4);
   check("restart persistence", JSON.stringify(reopened));
 
   const integrity = await reopenIntegrity(databaseFile);

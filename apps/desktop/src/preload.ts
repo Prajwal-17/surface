@@ -1,6 +1,17 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("surfaceDesktop", {
+  gmailStatus: () => ipcRenderer.invoke("desktop:gmail:status"),
+  connectGmail: () => ipcRenderer.invoke("desktop:gmail:connect"),
+  disconnectGmail: () => ipcRenderer.invoke("desktop:gmail:disconnect"),
+  gmailDraftStatus: (id: string) =>
+    ipcRenderer.invoke("desktop:gmail:draft-status", id),
+  saveGmailDraft: (
+    id: string,
+    email: string,
+    open: boolean,
+    replace: boolean,
+  ) => ipcRenderer.invoke("desktop:gmail:save-draft", id, email, open, replace),
   getSettings: () => ipcRenderer.invoke("desktop:settings:get"),
   saveSettings: (input: unknown) =>
     ipcRenderer.invoke("desktop:settings:save", input),

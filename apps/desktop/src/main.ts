@@ -11,6 +11,7 @@ import {
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { GmailConnection } from "./gmail";
 import { desktopIdentity } from "./channel";
 import { applyDevelopmentSeed } from "./dev-seed";
 import { createLogSink, type LogSink } from "./logger";
@@ -185,7 +186,7 @@ async function bootstrap(): Promise<void> {
     );
 
     await setDesktopCookie();
-    registerIpc(settings);
+    registerIpc(settings, new GmailConnection(paths.root));
     createWindow();
     running = true;
     startupLog.write(
@@ -445,7 +446,60 @@ async function setDesktopCookie(): Promise<void> {
   session.defaultSession.setPermissionCheckHandler(() => false);
 }
 
-function registerIpc(settings: SettingsStore): void {
+function localDraftId(input: unknown): string {
+  if (
+    typeof input !== "string" ||
+    !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(input)
+  ) {
+    throw new Error("Invalid local draft ID.");
+  }
+  return input;
+}
+
+function registerIpc(settings: SettingsStore, gmail: GmailConnection): void {
+  ipcMain.handle("desktop:gmail:status", (event) => {
+    assertTrustedSender(event);
+    return gmail.status();
+  });
+  ipcMain.handle("desktop:gmail:connect", (event) => {
+    assertTrustedSender(event);
+    return gmail.connect();
+  });
+  ipcMain.handle("desktop:gmail:disconnect", (event) => {
+    assertTrustedSender(event);
+    return gmail.disconnect();
+  });
+  ipcMain.handle("desktop:gmail:draft-status", (event, id: unknown) => {
+    assertTrustedSender(event);
+    return gmail.draftStatus(localDraftId(id));
+  });
+  ipcMain.handle(
+    "desktop:gmail:save-draft",
+    async (
+      event,
+      id: unknown,
+      email: unknown,
+      open: unknown,
+      replace: unknown,
+    ) => {
+      assertTrustedSender(event);
+      const draftId = localDraftId(id);
+      if (typeof email !== "string")
+        throw new Error("Confirm the connected Gmail account before saving.");
+      const response = await fetch(
+        `${backendUrl}/api/outreach-drafts/${draftId}`,
+        {
+          headers: { "x-surface-desktop-token": desktopToken },
+          signal: AbortSignal.timeout(5000),
+        },
+      );
+      if (!response.ok) throw new Error("Save this draft locally first.");
+      const draft = (await response.json()) as Parameters<
+        GmailConnection["save"]
+      >[0];
+      return gmail.save(draft, email, open === true, replace === true);
+    },
+  );
   ipcMain.handle("desktop:settings:get", (event) => {
     assertTrustedSender(event);
     return settings.snapshot();

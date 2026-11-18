@@ -1,3 +1,4 @@
+import { OutreachComposer } from "@/features/outreach/outreach-composer";
 import type { Job } from "@surface/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Check, ListPlus, X } from "lucide-react";
@@ -63,6 +64,7 @@ export function JobActions({ job }: { job: Job }) {
           <X /> Ignore
         </Button>
       )}
+      <OutreachComposer target="job" id={job.id} />
       {query.error && (
         <p className="text-xs text-destructive" role="alert">
           {query.error.message}

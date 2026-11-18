@@ -692,7 +692,7 @@ test("PostgreSQL supports job filters, transactional collection, JSON, booleans 
   const structure = (await schema.json()) as {
     tables: { name: string; foreignKeys: unknown[] }[];
   };
-  expect(structure.tables).toHaveLength(32);
+  expect(structure.tables).toHaveLength(34);
   expect(structure.tables.some((t) => t.name === "coordination_locks")).toBe(
     true,
   );

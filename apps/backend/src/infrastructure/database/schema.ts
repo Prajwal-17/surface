@@ -47,3 +47,5 @@ export {
 } from "../../modules/company-discovery/tables";
 
 export { applications } from "../../modules/applications/applications.tables";
+
+export { outreachDrafts } from "../../modules/outreach/outreach.tables";

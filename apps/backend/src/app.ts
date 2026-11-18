@@ -13,6 +13,7 @@ import {
 import { discoveryRoutes } from "./modules/discovery";
 import { applicationRoutes } from "./modules/applications/applications.routes";
 import { jobsRoutes } from "./modules/jobs";
+import { outreachRoutes } from "./modules/outreach/outreach.routes";
 import { profileRoutes } from "./modules/profile";
 import { handleError } from "./shared/http/error-handler";
 import { requestLogger } from "./shared/http/request-logger";
@@ -162,6 +163,7 @@ app.route("/api/company-discovery", companyDiscoveryRoutes);
 app.route("/api/discovery", discoveryRoutes);
 app.route("/api/jobs", jobsRoutes);
 app.route("/api", applicationRoutes);
+app.route("/api", outreachRoutes);
 app.route("/api/profile", profileRoutes);
 app.route("/api", workspaceRoutes);
 app.route("/api", collectionRoutes);

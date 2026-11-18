@@ -1,3 +1,4 @@
+import { OutreachComposer } from "@/features/outreach/outreach-composer";
 import { useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -390,6 +391,9 @@ export function TrackedCompanies() {
                     Saved research <ArrowUpRight />
                   </Link>
                 </Button>
+              </div>
+              <div className="px-3 pt-2">
+                <OutreachComposer target="company" id={selectedId} />
               </div>
               <CompanyReader
                 company={selected.data}

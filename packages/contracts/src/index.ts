@@ -189,3 +189,5 @@ export * from "./company-contact-contracts";
 export * from "./company-discovery-contracts";
 
 export * from "./application-contracts";
+
+export * from "./outreach-contracts";

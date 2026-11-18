@@ -1,3 +1,4 @@
+import { OutreachComposer } from "@/features/outreach/outreach-composer";
 import { useEffect, useRef, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -441,6 +442,11 @@ function ApplicationForm({
         )}
         {application && (
           <div className="mt-2 flex flex-wrap gap-2">
+            <OutreachComposer
+              target="application"
+              id={application.id}
+              knownRecipient={application.contactEmail ?? ""}
+            />
             {application.companyId && (
               <Button variant="ghost" size="sm" asChild>
                 <Link

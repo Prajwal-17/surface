@@ -28,7 +28,24 @@ interface SurfaceWindowState {
   focused: boolean;
 }
 
+type GmailState = {
+  email: string | null;
+  available: boolean;
+  error: string | null;
+};
+
 interface SurfaceDesktopApi {
+  gmailStatus: () => Promise<GmailState>;
+  connectGmail: () => Promise<GmailState>;
+  disconnectGmail: () => Promise<GmailState>;
+  gmailDraftStatus: (id: string) => Promise<string | null>;
+  saveGmailDraft: (
+    id: string,
+    email: string,
+    open: boolean,
+    replace: boolean,
+  ) => Promise<{ email: string; savedRevision: string }>;
+
   getSettings(): Promise<DesktopSettingsSnapshot>;
   saveSettings(input: DesktopSettingsInput): Promise<{
     settings: DesktopSettingsSnapshot;
