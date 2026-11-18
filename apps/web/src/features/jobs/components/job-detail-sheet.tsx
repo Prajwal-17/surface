@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import {
   DESCRIPTION_SUMMARY_FORMAT_VERSION,
   type Job,
-  type JobStatus,
 } from "@surface/contracts";
 import { useEffect, useRef, useState } from "react";
 import { ReaderLoadingContent } from "@/components/feedback/loading-state";
@@ -46,8 +45,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 interface JobDetailSheetProps {
   job: Job | null;
   onClose: () => void;
-  onStatusChange: (job: Job, status: JobStatus) => void;
-  isUpdating: boolean;
   loading?: boolean;
   split: boolean;
   error?: Error | null;
@@ -57,8 +54,6 @@ interface JobDetailSheetProps {
 export function JobDetailSheet({
   job,
   onClose,
-  onStatusChange,
-  isUpdating,
   loading = false,
   split: wide,
   error,
@@ -265,12 +260,6 @@ export function JobDetailSheet({
           Research company
         </Link>
       </Button>
-      <JobActions
-        job={job}
-        compact
-        isPending={isUpdating}
-        onChange={(status) => onStatusChange(job, status)}
-      />
       <Button
         variant="ghost"
         size="icon"
@@ -301,6 +290,7 @@ export function JobDetailSheet({
   );
   const content = (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+      <JobActions job={job} />
       <dl className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b pb-3 text-xs">
         {[
           {

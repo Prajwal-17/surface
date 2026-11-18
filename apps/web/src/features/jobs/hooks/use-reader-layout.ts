@@ -1,5 +1,5 @@
 import {
-  useEffect,
+  useCallback,
   useRef,
   useState,
   type KeyboardEvent,
@@ -22,14 +22,18 @@ export function useReaderLayout() {
   const lastWidth = useRef<number | null>(preferred);
   const geometry = readerGeometry(workspaceWidth, preferred);
 
-  useEffect(() => {
-    const element = ref.current;
+  const observeWorkspace = useCallback((element: HTMLElement | null) => {
+    ref.current = element;
     if (!element) return;
+    setWorkspaceWidth(element.clientWidth);
     const observer = new ResizeObserver(([entry]) => {
       if (entry) setWorkspaceWidth(entry.contentRect.width);
     });
     observer.observe(element);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      ref.current = null;
+    };
   }, []);
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -74,7 +78,7 @@ export function useReaderLayout() {
   }
 
   return [
-    ref,
+    observeWorkspace,
     {
       ...geometry,
       ready: workspaceWidth > 0,

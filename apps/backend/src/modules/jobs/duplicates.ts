@@ -1,4 +1,6 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import { lockCoordination } from "../../infrastructure/database/locks";
+import { applications } from "../applications/applications.tables";
 import { transaction } from "../../infrastructure/database/client";
 import { duplicateDecisions } from "../collection/collection.tables";
 import { jobs, jobSources } from "./jobs.tables";
@@ -8,6 +10,7 @@ export async function decideDuplicate(
   action: "merge" | "separate" | "undo",
 ) {
   return await transaction(async (tx) => {
+    await lockCoordination(tx, "surface:application-links");
     let decision = (
       await tx
         .select()
@@ -86,6 +89,24 @@ export async function decideDuplicate(
           .set({ leftId, rightId })
           .where(eq(duplicateDecisions.id, id));
         decision = { ...decision, leftId, rightId };
+      }
+      const linkedApplications = await tx
+        .select({ id: applications.id, jobId: applications.jobId })
+        .from(applications)
+        .where(
+          inArray(applications.jobId, [decision.leftId, decision.rightId]),
+        );
+      if (linkedApplications.length > 1)
+        throw new HttpError(
+          409,
+          "Both listings already have an application. Their tracking histories must stay separate.",
+        );
+      const [linkedApplication] = linkedApplications;
+      if (linkedApplication?.jobId === decision.rightId) {
+        await tx
+          .update(applications)
+          .set({ jobId: decision.leftId })
+          .where(eq(applications.id, linkedApplication.id));
       }
       const sourceIds = (
         await tx

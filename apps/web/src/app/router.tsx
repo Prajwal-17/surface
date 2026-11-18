@@ -8,6 +8,10 @@ export const router = createBrowserRouter([
       { index: true, lazy: () => import("@/app/routes/jobs-route") },
       { path: "activity", lazy: () => import("@/app/routes/activity-route") },
       { path: "companies", lazy: () => import("@/app/routes/companies-route") },
+      {
+        path: "applications",
+        lazy: () => import("@/app/routes/applications-route"),
+      },
       { path: "profile", lazy: () => import("@/app/routes/profile-route") },
       { path: "research", lazy: () => import("@/app/routes/research-route") },
       {

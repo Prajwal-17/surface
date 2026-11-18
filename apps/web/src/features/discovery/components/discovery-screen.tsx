@@ -17,7 +17,7 @@ import { JobFilters } from "@/features/jobs/components/job-filters";
 import { JobList } from "@/features/jobs/components/job-list";
 import { JobStatusTabs } from "@/features/jobs/components/job-status-tabs";
 import { useJobs } from "@/features/jobs/hooks/use-jobs";
-import { useUpdateJobStatus } from "@/features/jobs/hooks/use-update-job-status";
+import { useTrackJob } from "@/features/applications/application-api";
 import { apiClient } from "@/lib/api-client";
 import { useReaderLayout } from "@/features/jobs/hooks/use-reader-layout";
 import {
@@ -50,7 +50,7 @@ export function DiscoveryScreen({
   }, []);
   const jobsQuery = useJobs(filters);
   const filterOptions = useJobFilterOptions();
-  const mutation = useUpdateJobStatus();
+  const mutation = useTrackJob();
   const selected = useQuery({
     queryKey: ["jobs", "detail", selectedId],
     queryFn: async () =>
@@ -119,7 +119,10 @@ export function DiscoveryScreen({
       ),
   );
   function statusChange(job: Job, status: JobStatus) {
-    mutation.mutate({ id: job.id, status, previousStatus: job.status });
+    mutation.mutate({
+      id: job.id,
+      status: status === "dismissed" ? "ignored" : "queued",
+    });
   }
   return (
     <section
@@ -304,8 +307,6 @@ export function DiscoveryScreen({
           job={selected.data ?? null}
           loading={!!selectedId && selected.isPending}
           onClose={closeReader}
-          onStatusChange={statusChange}
-          isUpdating={mutation.isPending}
         />
       )}
     </section>

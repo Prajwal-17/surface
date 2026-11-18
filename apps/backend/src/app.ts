@@ -11,6 +11,7 @@ import {
   rawQuery,
 } from "./infrastructure/database/client";
 import { discoveryRoutes } from "./modules/discovery";
+import { applicationRoutes } from "./modules/applications/applications.routes";
 import { jobsRoutes } from "./modules/jobs";
 import { profileRoutes } from "./modules/profile";
 import { handleError } from "./shared/http/error-handler";
@@ -160,6 +161,7 @@ app.route("/api", researchRoutes);
 app.route("/api/company-discovery", companyDiscoveryRoutes);
 app.route("/api/discovery", discoveryRoutes);
 app.route("/api/jobs", jobsRoutes);
+app.route("/api", applicationRoutes);
 app.route("/api/profile", profileRoutes);
 app.route("/api", workspaceRoutes);
 app.route("/api", collectionRoutes);

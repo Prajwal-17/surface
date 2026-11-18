@@ -3,6 +3,7 @@ import { profileDetailsSchema } from "@surface/contracts";
 import { useEffect, useSyncExternalStore } from "react";
 import {
   BriefcaseBusiness,
+  ClipboardList,
   Building2,
   Activity,
   UserRound,
@@ -32,6 +33,7 @@ import { useDesktopChannel } from "@/lib/desktop-channel";
 const destinations = [
   { href: "/", label: "Jobs", icon: BriefcaseBusiness },
   { href: "/companies", label: "Companies", icon: Building2 },
+  { href: "/applications", label: "Applications", icon: ClipboardList },
 ] as const;
 const referenceDestinations = [
   { href: "/schema", label: "Schema", icon: Database },

@@ -5,6 +5,7 @@ export function WorkspaceLayout() {
   const { pathname } = useLocation();
   const fullBleed =
     pathname === "/" ||
+    pathname === "/applications" ||
     pathname === "/schema" ||
     /^\/research\/[^/]+\/?$/.test(pathname);
 

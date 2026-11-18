@@ -1,80 +1,73 @@
-import type { Job, JobStatus } from "@surface/contracts";
+import type { Job } from "@surface/contracts";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowUpRight, Check, ListPlus, X } from "lucide-react";
+import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
-import { ArchiveX, Bookmark, Inbox } from "lucide-react";
+import {
+  applicationLabels,
+  getJobApplication,
+  jobApplicationKey,
+  useTrackJob,
+} from "@/features/applications/application-api";
 
-interface JobActionsProps {
-  job: Job;
-  onChange: (status: JobStatus) => void;
-  isPending: boolean;
-  compact?: boolean;
-}
-
-export function JobActions({
-  job,
-  onChange,
-  isPending,
-  compact = false,
-}: JobActionsProps) {
-  if (job.status === "dismissed") {
-    return (
-      <Button
-        type="button"
-        variant="outline"
-        size={compact ? "icon" : "default"}
-
-        disabled={isPending}
-        title="Restore to Inbox"
-        onClick={() => onChange("inbox")}
-      >
-        <Inbox />
-        <span className={compact ? "sr-only" : undefined}>Restore</span>
-      </Button>
-    );
+export function JobActions({ job }: { job: Job }) {
+  const mutation = useTrackJob();
+  const query = useQuery({
+    queryKey: jobApplicationKey(job.id),
+    queryFn: () => getJobApplication(job.id),
+  });
+  const linked = query.data;
+  const pending = mutation.isPending || query.isPending;
+  function track(status: "queued" | "applied" | "ignored") {
+    mutation.mutate({ id: job.id, status });
   }
-
   return (
-    <div
-      className={compact ? "flex items-center gap-0.5" : "flex flex-wrap gap-2"}
-    >
-      {job.status !== "saved" ? (
-        <Button
-          type="button"
-          variant="secondary"
-          size={compact ? "icon" : "default"}
-
-          disabled={isPending}
-          title="Save job"
-          onClick={() => onChange("saved")}
-        >
-          <Bookmark />
-          <span className={compact ? "sr-only" : undefined}>Save</span>
-        </Button>
-      ) : (
-        <Button
-          type="button"
-          variant="outline"
-          size={compact ? "icon" : "default"}
-
-          disabled={isPending}
-          title="Move to Inbox"
-          onClick={() => onChange("inbox")}
-        >
-          <Inbox />
-          <span className={compact ? "sr-only" : undefined}>Inbox</span>
+    <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-border pb-3">
+      {linked && (
+        <Button size="sm" variant="secondary" asChild>
+          <Link
+            to={`/applications?application=${encodeURIComponent(linked.id)}`}
+          >
+            {applicationLabels[linked.status]}
+            {linked.archivedAt && " · Archived"} <ArrowUpRight />
+          </Link>
         </Button>
       )}
-      <Button
-        type="button"
-        variant="ghost"
-        size={compact ? "icon" : "default"}
-
-        disabled={isPending}
-        title="Dismiss job"
-        onClick={() => onChange("dismissed")}
-      >
-        <ArchiveX />
-        <span className={compact ? "sr-only" : undefined}>Dismiss</span>
-      </Button>
+      {(!linked || linked.status === "ignored") && (
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={pending}
+          onClick={() => track("queued")}
+        >
+          <ListPlus /> Add to queue
+        </Button>
+      )}
+      {(!linked || ["queued", "ignored"].includes(linked.status)) && (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending}
+          onClick={() => track("applied")}
+        >
+          <Check /> Mark as applied
+        </Button>
+      )}
+      {(!linked || linked.status === "queued") && (
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={pending}
+          onClick={() => track("ignored")}
+        >
+          <X /> Ignore
+        </Button>
+      )}
+      {query.error && (
+        <p className="text-xs text-destructive" role="alert">
+          {query.error.message}
+        </p>
+      )}
     </div>
   );
 }
