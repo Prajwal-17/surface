@@ -153,7 +153,7 @@ async function mainCheck(): Promise<void> {
   });
   assert.equal(profile.revision, 1);
   const readProfile = await findProfile();
-  assert.equal(readProfile?.context.constraints.countries[0], "India");
+  assert.equal(readProfile?.context.constraints.countries[0], "IN");
   assert.equal(readProfile?.context.projects[0]?.title, "Surface");
   check(
     "profile JSON",

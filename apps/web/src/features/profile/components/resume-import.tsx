@@ -2,7 +2,10 @@ import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FileText, Upload, ArrowRight } from "lucide-react";
 import { AiLoadingState } from "@/components/ai/loading-state";
-import { resumeResponseSchema, type ResumeDraft } from "@surface/contracts";
+import {
+  resumeImportResponseSchema,
+  type ResumeDraft,
+} from "@surface/contracts";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -89,9 +92,15 @@ export function ResumeImport({
         data.append("file", input);
         body = data;
       }
-      return resumeResponseSchema.parse(
+      const result = resumeImportResponseSchema.parse(
         await apiClient("/api/profile/resume", { method: "POST", body }),
       );
+      if ("needsText" in result) {
+        setPaste(true);
+        setText(result.sourceText);
+        throw new Error(result.message);
+      }
+      return result;
     },
     onSuccess: (data) =>
       setSelected(
@@ -149,9 +158,7 @@ export function ResumeImport({
               <span className="method-icon" aria-hidden="true">
                 <FileText />
               </span>
-              <span className="text-sm font-medium">
-                Your experience, ready to review
-              </span>
+              <span className="text-sm font-medium">Upload a résumé</span>
               <span className="text-xs text-muted-foreground">
                 Text-based PDF · up to 10 MB · 30 pages max
               </span>
@@ -212,7 +219,7 @@ export function ResumeImport({
             )}
             <p className="border-t pt-4 text-xs leading-5 text-muted-foreground">
               Only extracted text is sent to your AI provider, using one request
-              through OpenCode Go. Your PDF is not stored.
+              through OpenCode Go. Surface processes the PDF in memory.
             </p>
           </>
         )}
@@ -280,6 +287,24 @@ export function ResumeImport({
                         display(mutation.data!.draft[key])
                       )}
                     </p>
+                    {key === "skills" &&
+                      Boolean(mutation.data?.skillEvidence?.length) && (
+                        <details className="mt-2 text-xs text-muted-foreground">
+                          <summary className="cursor-pointer">
+                            Skill excerpts from your résumé
+                          </summary>
+                          <ul className="mt-2 list-disc space-y-1 pl-4">
+                            {mutation.data?.skillEvidence?.map(
+                              ({ skill, evidence }, index) => (
+                                <li key={index}>
+                                  <span className="font-medium">{skill}</span> ·{" "}
+                                  {evidence}
+                                </li>
+                              ),
+                            )}
+                          </ul>
+                        </details>
+                      )}
                   </div>
                 ))}
             </div>

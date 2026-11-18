@@ -4,12 +4,7 @@ import { profileInputSchema } from "@surface/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
-import {
-  countries,
-  searchCities,
-  cityOption,
-  validateProfileLocations,
-} from "./locations";
+import { countries, searchCities, cityOption } from "./locations";
 import { pdfText, prefillResume } from "./resume";
 import { HttpError } from "../../shared/errors/http-error";
 import { Hono } from "hono";
@@ -31,17 +26,7 @@ profileRoutes.put(
   ),
   async (c) => {
     const { expectedRevision, ...input } = c.req.valid("json");
-    const previous = await findProfile();
-    if (
-      expectedRevision !== undefined &&
-      expectedRevision !== (previous?.revision ?? 0)
-    )
-      throw new HttpError(
-        409,
-        "Your profile changed in another tab. Reload the page to review the latest version before saving.",
-      );
-    validateProfileLocations(input, previous);
-    return c.json({ profile: await saveProfile(input) });
+    return c.json({ profile: await saveProfile(input, expectedRevision) });
   },
 );
 
@@ -99,6 +84,14 @@ profileRoutes.post(
       if (!(body.file instanceof File))
         throw new HttpError(400, "Choose a PDF file.");
       text = await pdfText(body.file);
+      if (text.replace(/\s/g, "").length < 40) {
+        return c.json({
+          needsText: true,
+          sourceText: text,
+          message:
+            "Very little text could be recovered. Use a text-readable résumé, edit the recovered text below, or fill your profile manually.",
+        });
+      }
     } else {
       const input = z
         .object({ text: z.string().min(40).max(100000) })
