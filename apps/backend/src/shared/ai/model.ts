@@ -3,6 +3,18 @@ import { aiConfigured, getRuntimeSettings } from "../../config/runtime";
 import { HttpError } from "../errors/http-error";
 
 export function getWritingModel(conversationId?: string) {
+  return getConfiguredModel(conversationId);
+}
+
+/**
+ * Lead discovery uses the same OpenAI-compatible provider. The run ID acts as
+ * the stable request/session key, mirroring writing conversations.
+ */
+export function getAgentModel(runId: string) {
+  return getConfiguredModel(runId);
+}
+
+function getConfiguredModel(conversationId?: string) {
   const settings = { ...getRuntimeSettings() };
   if (!aiConfigured(settings)) {
     throw new HttpError(
@@ -24,4 +36,13 @@ export function getWritingModel(conversationId?: string) {
         : undefined,
   });
   return { model: provider.chatModel(settings.model), settings };
+}
+
+export function reasoningProviderOptions(settings: {
+  provider: string;
+  reasoning: "default" | "low" | "medium" | "high";
+}) {
+  return settings.reasoning === "default"
+    ? undefined
+    : { [settings.provider]: { reasoningEffort: settings.reasoning } };
 }

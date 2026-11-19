@@ -14,6 +14,7 @@ import { readSession } from "./modules/auth/session";
 import { trackerRoutes } from "./modules/tracker/routes";
 import { desktopRoutes } from "./modules/desktop/routes";
 import { writingRoutes } from "./modules/writing";
+import { leadRoutes } from "./modules/leads";
 
 export const app = new Hono();
 
@@ -75,6 +76,7 @@ app.route("/api/profile", profileRoutes);
 app.route("/api/tracker", trackerRoutes);
 app.route("/api/desktop", desktopRoutes);
 app.route("/api/writing", writingRoutes);
+app.route("/api/leads", leadRoutes);
 
 if (env.WEB_DIST_DIR && existsSync(resolve(env.WEB_DIST_DIR, "index.html"))) {
   const root = resolve(env.WEB_DIST_DIR);

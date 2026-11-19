@@ -16,7 +16,9 @@
     "desktop:build:dev": "bun --cwd apps/desktop build:dev",
     "changelog": "node scripts/changelog.mjs",
     "desktop:package": "bun --cwd apps/desktop package",
-    "desktop:package:dev": "bun --cwd apps/desktop package:dev"
+    "desktop:package:dev": "bun --cwd apps/desktop package:dev",
+    "searxng:start": "docker/searxng/start.sh",
+    "searxng:stop": "docker/searxng/stop.sh"
   },
   "devDependencies": {
     "oxlint": "1.89.0",

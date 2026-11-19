@@ -76,8 +76,10 @@ type Company = {
   name: string;
   website: string;
   location: string;
+  description: string;
   status: string;
   notes: string;
+  tags: string[];
   applicationCount: number;
   createdAt: string;
   updatedAt: string;
@@ -118,6 +120,8 @@ type StatusTarget = {
   status: string;
 };
 const companyStatuses = ["Listed", "Archived"];
+const companyTagFilters = ["Lead", "Research"];
+const companyFilters = [...companyStatuses, ...companyTagFilters];
 const applicationStatuses = [
   "To apply",
   "Applied",
@@ -181,6 +185,20 @@ const companyViews: TrackerView[] = [
     label: "Listed",
     status: "Listed",
     sortKey: "applications",
+    direction: "desc",
+  },
+  {
+    id: "leads",
+    label: "Leads",
+    status: "Lead",
+    sortKey: "recent",
+    direction: "desc",
+  },
+  {
+    id: "research",
+    label: "Research",
+    status: "Research",
+    sortKey: "recent",
     direction: "desc",
   },
   {
@@ -258,10 +276,18 @@ function getPageTokens(currentPage: number, totalPages: number): PageToken[] {
   ];
 }
 function statusTone(status: string) {
-  if (["Applied", "In conversation"].includes(status))
-    return "tone-mint";
+  if (["Applied", "In conversation"].includes(status)) return "tone-mint";
   if (status === "To apply") return "tone-blue";
   return "tone-muted";
+}
+function companyMatchesFilter(company: Company, filter: string) {
+  if (filter === "All statuses") return true;
+  if (filter === "Lead") return company.tags.includes("lead");
+  if (filter === "Research") return company.tags.includes("research");
+  return company.status === filter;
+}
+function companyTagLabel(tag: string) {
+  return tag === "lead" ? "Lead" : tag === "research" ? "Research" : tag;
 }
 function dateLabel(value: string | null) {
   if (!value) return "—";
@@ -627,20 +653,19 @@ export function TrackerWorkspace({
     }
 
     return companies.filter((company) => {
-      const searchable = `${company.name} ${company.website} ${company.location} ${company.status} ${company.notes}`;
+      const searchable = `${company.name} ${company.website} ${company.location} ${company.description} ${company.status} ${company.notes} ${company.tags.join(" ")}`;
       return (
         searchable.toLowerCase().includes(normalizedQuery) &&
-        (view.status === "All statuses" || company.status === view.status)
+        companyMatchesFilter(company, view.status)
       );
     }).length;
   };
   const filteredCompanies = companies
     .filter(
       (c) =>
-        `${c.name} ${c.website} ${c.location} ${c.status} ${c.notes}`
+        `${c.name} ${c.website} ${c.location} ${c.description} ${c.status} ${c.notes} ${c.tags.join(" ")}`
           .toLowerCase()
-          .includes(normalizedQuery) &&
-        (filter === "All statuses" || c.status === filter),
+          .includes(normalizedQuery) && companyMatchesFilter(c, filter),
     )
     .toSorted((a, b) => {
       const left =
@@ -731,7 +756,7 @@ export function TrackerWorkspace({
       ? companyQuery.data === undefined || applicationQuery.data === undefined
       : companyQuery.data === undefined);
   const statuses =
-    page === "applications" ? applicationStatuses : companyStatuses;
+    page === "applications" ? applicationStatuses : companyFilters;
   const columns: {
     label: string;
     width: string;
@@ -754,6 +779,7 @@ export function TrackerWorkspace({
           { label: "Website", width: "min-w-[180px]" },
           { label: "Location", width: "min-w-[180px]" },
           { label: "Status", width: "min-w-[150px]" },
+          { label: "Tags", width: "min-w-[150px]" },
           {
             label: "Applications",
             width: "min-w-[160px]",
@@ -1134,7 +1160,7 @@ export function TrackerWorkspace({
                 "aria-label": `${page === "applications" ? "Applications" : "Companies"} table. Scroll horizontally to view all columns.`,
                 className: "min-h-0 flex-1 overflow-auto",
               }}
-              className={`w-full ${page === "applications" ? "min-w-[900px]" : "min-w-[1050px]"}`}
+              className={`w-full ${page === "applications" ? "min-w-[900px]" : "min-w-[1200px]"}`}
             >
               <TableCaption className="sr-only">
                 {page === "applications"
@@ -1417,6 +1443,25 @@ export function TrackerWorkspace({
                         </TableCell>
                         <TableCell className={gridCell}>
                           <StatusBadge status={company.status} />
+                        </TableCell>
+                        <TableCell className={gridCell}>
+                          {company.tags.length ? (
+                            <div className="flex flex-wrap gap-1">
+                              {company.tags.map((tag) => (
+                                <Badge
+                                  key={tag}
+                                  variant="outline"
+                                  className={`status-pill ${
+                                    tag === "lead" ? "tone-blue" : "tone-mint"
+                                  }`}
+                                >
+                                  {companyTagLabel(tag)}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell className={gridCell}>
                           <Link
@@ -2351,10 +2396,18 @@ function CompanyEditorSheet({
           name: item.name,
           website: item.website,
           location: item.location,
+          description: item.description,
           status: item.status,
           notes: item.notes,
         }
-      : { name: "", website: "", location: "", status: "Listed", notes: "" },
+      : {
+          name: "",
+          website: "",
+          location: "",
+          description: "",
+          status: "Listed",
+          notes: "",
+        },
   );
   const [error, setError] = useState("");
   const primaryInputRef = useRef<HTMLInputElement>(null);
@@ -2365,6 +2418,7 @@ function CompanyEditorSheet({
       name: form.name.trim(),
       website: form.website.trim(),
       location: form.location.trim(),
+      description: form.description.trim(),
       status: form.status,
       notes: form.notes.trim(),
     };
@@ -2469,6 +2523,18 @@ function CompanyEditorSheet({
                   </Select>
                 </label>
               </div>
+              <label className="grid gap-2 text-sm font-medium">
+                Description
+                <Textarea
+                  className={touchTextareaClass}
+                  value={form.description}
+                  onChange={(event) =>
+                    setForm({ ...form, description: event.target.value })
+                  }
+                  rows={3}
+                  placeholder="What the company does, if known."
+                />
+              </label>
               <div className="border-b border-border/70 pb-3 pt-2">
                 <h3 className="text-sm font-semibold">Notes</h3>
                 <p className="mt-1 text-xs text-muted-foreground">

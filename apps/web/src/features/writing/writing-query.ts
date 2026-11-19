@@ -22,6 +22,7 @@ export interface WritingConversation {
   id: string;
   title: string;
   company: string;
+  companyId: string | null;
   recipientName: string;
   recipientEmail: string;
   role: string;

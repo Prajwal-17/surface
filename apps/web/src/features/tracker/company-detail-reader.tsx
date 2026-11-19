@@ -17,14 +17,17 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CompanyResearchPanel } from "@/features/leads/company-research-panel";
 
 type CompanyDetail = {
   id: string;
   name: string;
   website: string;
   location: string;
+  description: string;
   status: string;
   notes: string;
+  tags?: string[];
   applicationCount: number;
   createdAt: string;
   updatedAt: string;
@@ -164,6 +167,16 @@ function ReaderBody({
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <Badge variant="outline">{company.status}</Badge>
+            {(company.tags ?? []).includes("lead") ? (
+              <Badge variant="outline" className="status-pill tone-blue">
+                Lead
+              </Badge>
+            ) : null}
+            {(company.tags ?? []).includes("research") ? (
+              <Badge variant="outline" className="status-pill tone-mint">
+                Research
+              </Badge>
+            ) : null}
             <span className="text-xs text-muted-foreground">
               {company.applicationCount}{" "}
               {company.applicationCount === 1 ? "application" : "applications"}
@@ -212,7 +225,18 @@ function ReaderBody({
               value={company.status}
             />
           </dl>
+          {company.description.trim() ? (
+            <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+              {company.description}
+            </p>
+          ) : null}
         </section>
+
+        <CompanyResearchPanel
+          companyId={company.id}
+          companyName={company.name}
+          companyTags={company.tags ?? []}
+        />
 
         <section aria-labelledby="company-applications-heading" className="p-4">
           <div className="mb-3 flex items-baseline justify-between gap-3">

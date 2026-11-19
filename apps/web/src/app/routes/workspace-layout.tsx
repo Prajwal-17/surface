@@ -6,7 +6,8 @@ export function WorkspaceLayout() {
   const fullBleed =
     pathname === "/" ||
     pathname === "/applications" ||
-    pathname === "/companies";
+    pathname === "/companies" ||
+    pathname === "/leads";
   const isWriting = pathname === "/writing";
 
   return (

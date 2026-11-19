@@ -10,6 +10,7 @@ import {
   PanelLeft,
   LogOut,
   PenLine,
+  Sparkles,
 } from "lucide-react";
 import {
   Sidebar,
@@ -32,6 +33,7 @@ import { useDesktopChannel } from "@/lib/desktop-channel";
 const destinations = [
   { href: "/applications", label: "Applications", icon: ClipboardList },
   { href: "/companies", label: "Companies", icon: Building2 },
+  { href: "/leads", label: "Find leads", icon: Sparkles },
   { href: "/writing", label: "Writing", icon: PenLine },
 ] as const;
 const referenceDestinations = [

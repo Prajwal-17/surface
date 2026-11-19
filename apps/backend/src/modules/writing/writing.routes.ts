@@ -45,6 +45,7 @@ const exampleSchema = z
 const conversationInputSchema = z
   .object({
     company: z.string().trim().max(300).default(""),
+    companyId: z.string().max(64).nullable().optional().default(null),
     recipientName: z.string().trim().max(200).default(""),
     recipientEmail: z.union([z.email().max(254), z.literal("")]).default(""),
     role: z.string().trim().max(300).default(""),

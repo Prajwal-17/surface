@@ -2,6 +2,11 @@ import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { executeStatement } from "../../infrastructure/database/client";
 import { HttpError } from "../../shared/errors/http-error";
+import {
+  isCompanyTag,
+  setCompanyTags,
+  type CompanyTag,
+} from "../leads/leads.repository";
 
 export const trackerRoutes = new Hono();
 const applicationStatuses = [
@@ -46,9 +51,21 @@ const companyInput = z.object({
   name: z.string().trim().min(1).max(200),
   website: httpUrl,
   location: optionalText,
+  description: optionalText,
   status: z.enum(companyStatuses).default("Listed"),
   notes: optionalText,
 });
+const companyTagsInput = z
+  .object({
+    tags: z
+      .array(z.string().trim().max(40))
+      .max(10)
+      .refine(
+        (tags) => tags.every((tag) => isCompanyTag(tag)),
+        "Tags must be lead or research.",
+      ),
+  })
+  .strict();
 const applicationInput = z.object({
   title: z.string().trim().min(1).max(200),
   companyId: z.string().min(1),
@@ -102,29 +119,37 @@ async function readBody(context: Context) {
 
 trackerRoutes.get("/companies", async (c) =>
   c.json(
-    await executeStatement(
-      `SELECT c.id,c.name,c.website,c.location,c.status,c.notes,c.created_at AS createdAt,c.updated_at AS updatedAt,COUNT(a.id) AS applicationCount FROM tracker_companies c LEFT JOIN tracker_applications a ON a.company_id=c.id GROUP BY c.id ORDER BY c.updated_at DESC, c.id`,
-    ),
+    (
+      await executeStatement<Record<string, unknown>>(
+        `SELECT c.id,c.name,c.website,c.location,c.description,c.status,c.notes,c.created_at AS createdAt,c.updated_at AS updatedAt,COUNT(a.id) AS applicationCount,COALESCE((SELECT GROUP_CONCAT(t.tag) FROM company_tags t WHERE t.company_id=c.id),'') AS tags FROM tracker_companies c LEFT JOIN tracker_applications a ON a.company_id=c.id GROUP BY c.id ORDER BY c.updated_at DESC, c.id`,
+      )
+    ).map(withCompanyTags),
   ),
 );
+trackerRoutes.get("/companies/:id", async (c) => {
+  const company = await oneCompany(c.req.param("id"));
+  if (!company) throw new HttpError(404, "Company not found.");
+  return c.json(company);
+});
 trackerRoutes.post("/companies", async (c) => {
   const input = parse(companyInput, await readBody(c));
   const timestamp = now();
   const key = id();
   await executeStatement(
-    `INSERT INTO tracker_companies(id,name,website,location,status,notes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)`,
+    `INSERT INTO tracker_companies(id,name,website,location,description,status,notes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,
     [
       key,
       input.name,
       input.website,
       input.location,
+      input.description,
       input.status,
       input.notes,
       timestamp,
       timestamp,
     ],
   );
-  return c.json({ ...(await oneCompany(key)) }, 201);
+  return c.json(await oneCompany(key), 201);
 });
 trackerRoutes.patch("/companies/:id", async (c) => {
   const key = c.req.param("id");
@@ -135,6 +160,7 @@ trackerRoutes.patch("/companies/:id", async (c) => {
     name: "name",
     website: "website",
     location: "location",
+    description: "description",
     status: "status",
     notes: "notes",
   };
@@ -146,6 +172,19 @@ trackerRoutes.patch("/companies/:id", async (c) => {
     [...entries.map(([, value]) => value), now(), key],
   );
   return c.json(await oneCompany(key));
+});
+trackerRoutes.put("/companies/:id/tags", async (c) => {
+  const key = c.req.param("id");
+  const current = await oneCompany(key);
+  if (!current) throw new HttpError(404, "Company not found.");
+  const input = parse(companyTagsInput, await readBody(c));
+  const tags = await setCompanyTags(
+    key,
+    [...new Set(input.tags)].filter((tag): tag is CompanyTag =>
+      isCompanyTag(tag),
+    ),
+  );
+  return c.json({ ...current, tags });
 });
 trackerRoutes.delete("/companies/:id", async (c) => {
   const key = c.req.param("id");
@@ -249,12 +288,21 @@ trackerRoutes.delete("/applications/:id", async (c) => {
   return c.json({ ok: true });
 });
 async function oneCompany(key: string) {
-  return (
-    await executeStatement<Record<string, unknown>>(
-      `SELECT c.id,c.name,c.website,c.location,c.status,c.notes,c.created_at AS createdAt,c.updated_at AS updatedAt,COUNT(a.id) AS applicationCount FROM tracker_companies c LEFT JOIN tracker_applications a ON a.company_id=c.id WHERE c.id=? GROUP BY c.id`,
-      [key],
-    )
-  )[0];
+  return withCompanyTags(
+    (
+      await executeStatement<Record<string, unknown>>(
+        `SELECT c.id,c.name,c.website,c.location,c.description,c.status,c.notes,c.created_at AS createdAt,c.updated_at AS updatedAt,COUNT(a.id) AS applicationCount,COALESCE((SELECT GROUP_CONCAT(t.tag) FROM company_tags t WHERE t.company_id=c.id),'') AS tags FROM tracker_companies c LEFT JOIN tracker_applications a ON a.company_id=c.id WHERE c.id=? GROUP BY c.id`,
+        [key],
+      )
+    )[0],
+  );
+}
+function withCompanyTags(row: Record<string, unknown> | undefined) {
+  if (!row) return row;
+  const tags = String(row.tags ?? "")
+    .split(",")
+    .filter((tag): tag is CompanyTag => isCompanyTag(tag));
+  return { ...row, tags };
 }
 async function oneApplication(key: string) {
   return (

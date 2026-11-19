@@ -1,0 +1,28 @@
+name: surface-searxng
+
+services:
+  searxng:
+    container_name: surface-searxng
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SEARXNG_VERSION: ${SEARXNG_VERSION:-latest}
+    image: surface-searxng:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?Set SEARXNG_SECRET in docker/searxng/.env}
+      SEARXNG_BASE_URL: http://127.0.0.1:${SEARXNG_PORT:-8080}/
+      SEARXNG_LIMITER: "false"
+      SEARXNG_IMAGE_PROXY: "false"
+    ports:
+      - "127.0.0.1:${SEARXNG_PORT:-8080}:8080"
+    volumes:
+      - searxng-cache:/var/cache/searxng
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  searxng-cache:

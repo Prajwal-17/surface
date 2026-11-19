@@ -5,6 +5,7 @@ import { writingConversations, writingMessages } from "./writing.tables";
 
 export type ConversationInput = {
   company: string;
+  companyId: string | null;
   recipientName: string;
   recipientEmail: string;
   role: string;

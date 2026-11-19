@@ -3,6 +3,7 @@ import { serve } from "@hono/node-server";
 import { app } from "./app";
 import { env } from "./config/env";
 import { closeDatabase, sqliteHandle } from "./infrastructure/database/client";
+import { initializeLeadTables, LEAD_TABLES } from "./modules/leads";
 
 export interface SurfaceServer {
   port: number;
@@ -22,6 +23,7 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
     "writing_conversations",
     "writing_messages",
     "scheduled_emails",
+    ...LEAD_TABLES,
   ]);
   database.exec("PRAGMA foreign_keys = OFF");
   for (const { name } of database
@@ -31,13 +33,11 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
     database.exec(`DROP TABLE IF EXISTS "${name.replaceAll('"', '""')}"`);
   }
   database.exec("PRAGMA foreign_keys = ON");
-  database.exec(
-    `UPDATE tracker_companies SET status='Listed' WHERE status IN ('To research','Outreach')`,
-  );
   database.exec(`
     CREATE TABLE IF NOT EXISTS tracker_companies (
       id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, website TEXT NOT NULL DEFAULT '',
-      location TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'Listed', notes TEXT NOT NULL DEFAULT '',
+      location TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'Listed', notes TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS tracker_applications (
@@ -68,7 +68,7 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
     );
     CREATE TABLE IF NOT EXISTS writing_conversations (
       id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, company TEXT NOT NULL DEFAULT '',
-      recipient_name TEXT NOT NULL DEFAULT '', recipient_email TEXT NOT NULL DEFAULT '',
+      company_id TEXT, recipient_name TEXT NOT NULL DEFAULT '', recipient_email TEXT NOT NULL DEFAULT '',
       role TEXT NOT NULL DEFAULT '', why_now TEXT NOT NULL DEFAULT '', context_link TEXT NOT NULL DEFAULT '',
       output_type TEXT NOT NULL DEFAULT 'cold-email', draft_subject TEXT NOT NULL DEFAULT '',
       draft_body TEXT NOT NULL DEFAULT '', draft_updated_at TEXT, model TEXT,
@@ -88,6 +88,22 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
       error TEXT, sent_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );
   `);
+  initializeLeadTables(database);
+  const companyColumns = new Set(
+    (
+      database.prepare("PRAGMA table_info(tracker_companies)").all() as {
+        name: string;
+      }[]
+    ).map((column) => column.name),
+  );
+  if (!companyColumns.has("description")) {
+    database.exec(
+      "ALTER TABLE tracker_companies ADD COLUMN description TEXT NOT NULL DEFAULT ''",
+    );
+  }
+  database.exec(
+    `UPDATE tracker_companies SET status='Listed' WHERE status IN ('To research','Outreach')`,
+  );
   const writingConversationColumns = new Set(
     (
       database.prepare("PRAGMA table_info(writing_conversations)").all() as {
@@ -99,6 +115,7 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
     ["draft_subject", "TEXT NOT NULL DEFAULT ''"],
     ["draft_body", "TEXT NOT NULL DEFAULT ''"],
     ["draft_updated_at", "TEXT"],
+    ["company_id", "TEXT"],
   ] as const) {
     if (!writingConversationColumns.has(name)) {
       database.exec(
@@ -106,6 +123,15 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
       );
     }
   }
+  // Workers live in this process. A run left queued or running by a previous
+  // process cannot resume, so make it explicit and safe to retry.
+  database.exec(
+    `UPDATE discovery_runs
+     SET state='failed',
+         error='The app closed before this run finished. Start a new run to retry.',
+         completed_at=updated_at
+     WHERE state IN ('queued','running')`,
+  );
   console.info("Database ready.");
 
   const server = serve({

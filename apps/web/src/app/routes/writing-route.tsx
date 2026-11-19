@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUpRight,
@@ -18,7 +18,7 @@ import {
   Settings2,
   X,
 } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -56,6 +56,7 @@ const blankConversation: WritingConversation = {
   id: "",
   title: "New conversation",
   company: "",
+  companyId: null,
   recipientName: "",
   recipientEmail: "",
   role: "",
@@ -164,7 +165,16 @@ export function Component() {
   });
   const development = appInfo.data?.channel === "development";
   const schedule = useWritingSchedule();
-  const selectedId = activeId ?? conversations[0]?.id ?? null;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedCompanyId = searchParams.get("company");
+  const requestedCompanyConversation = requestedCompanyId
+    ? conversations.find((thread) => thread.companyId === requestedCompanyId)
+    : undefined;
+  const selectedId =
+    activeId ??
+    requestedCompanyConversation?.id ??
+    conversations[0]?.id ??
+    null;
   const active =
     conversations.find((thread) => thread.id === selectedId) ??
     blankConversation;
@@ -185,10 +195,10 @@ export function Component() {
     }));
   }
   const createConversation = useMutation({
-    mutationFn: () =>
+    mutationFn: (input?: { companyId?: string; company?: string }) =>
       apiClient<WritingConversation>("/api/writing/conversations", {
         method: "POST",
-        body: JSON.stringify({}),
+        body: JSON.stringify(input ?? {}),
       }),
     onSuccess: async (conversation) => {
       await client.invalidateQueries({ queryKey: writingConversationsKey });
@@ -197,6 +207,71 @@ export function Component() {
     },
     onError: (error) => toast.error(error.message),
   });
+  const draftCompanyHandled = useRef<string | null>(null);
+  const companyOptions = useQuery({
+    queryKey: ["tracker", "companies", "draft-options"],
+    enabled: Boolean(requestedCompanyId),
+    queryFn: () =>
+      apiClient<Array<{ id: string; name: string; website: string }>>(
+        "/api/tracker/companies",
+      ),
+  });
+  useEffect(() => {
+    if (
+      !requestedCompanyId ||
+      draftCompanyHandled.current === requestedCompanyId
+    ) {
+      return;
+    }
+    const existing = conversations.find(
+      (thread) => thread.companyId === requestedCompanyId,
+    );
+    if (existing) {
+      draftCompanyHandled.current = requestedCompanyId;
+      // oxlint-disable-next-line react/set-state-in-effect -- selecting the conversation that was requested by URL
+      setActiveId(existing.id);
+      const next = new URLSearchParams(searchParams);
+      next.delete("company");
+      setSearchParams(next, { replace: true });
+      return;
+    }
+    if (companyOptions.isLoading) return;
+    const company = companyOptions.data?.find(
+      (candidate) => candidate.id === requestedCompanyId,
+    );
+    draftCompanyHandled.current = requestedCompanyId;
+    if (!company) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("company");
+      setSearchParams(next, { replace: true });
+      toast.error("That company is no longer in the tracker.");
+      return;
+    }
+    createConversation.mutate(
+      { companyId: company.id, company: company.name },
+      {
+        onSuccess: () => {
+          toast.success(`Draft conversation ready for ${company.name}`);
+          const next = new URLSearchParams(searchParams);
+          next.delete("company");
+          setSearchParams(next, { replace: true });
+        },
+        onError: () => {
+          const next = new URLSearchParams(searchParams);
+          next.delete("company");
+          setSearchParams(next, { replace: true });
+        },
+      },
+    );
+  }, [
+    companyOptions.data,
+    companyOptions.isLoading,
+    conversations,
+    createConversation,
+    requestedCompanyId,
+    searchParams,
+    setSearchParams,
+  ]);
   const updateConversation = useMutation({
     mutationFn: ({
       id,
@@ -309,7 +384,7 @@ export function Component() {
   }
   function newThread() {
     setContextOpen(false);
-    createConversation.mutate();
+    createConversation.mutate(undefined);
   }
   function saveContextField(
     field: "company" | "recipientName" | "role" | "whyNow" | "contextLink",

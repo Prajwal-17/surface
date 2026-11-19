@@ -20,6 +20,7 @@ export const writingConversations = sqliteTable("writing_conversations", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
   company: text("company").notNull().default(""),
+  companyId: text("company_id"),
   recipientName: text("recipient_name").notNull().default(""),
   recipientEmail: text("recipient_email").notNull().default(""),
   role: text("role").notNull().default(""),
