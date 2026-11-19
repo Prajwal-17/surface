@@ -32,7 +32,7 @@ import { useDesktopChannel } from "@/lib/desktop-channel";
 const destinations = [
   { href: "/applications", label: "Applications", icon: ClipboardList },
   { href: "/companies", label: "Companies", icon: Building2 },
-  { href: "/writing", label: "Writing assistant", icon: PenLine },
+  { href: "/writing", label: "Writing", icon: PenLine },
 ] as const;
 const referenceDestinations = [
   { href: "/settings", label: "Settings", icon: Settings2 },
@@ -160,7 +160,7 @@ export function AppHeader() {
                 tooltip="My profile"
               >
                 <Link
-                  to="/writing/profile"
+                  to="/profile"
                   onClick={() => setOpenMobile(false)}
                   aria-label="View your profile"
                   aria-current={pathname === "/profile" ? "page" : undefined}

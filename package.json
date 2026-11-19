@@ -5,6 +5,8 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "bun --cwd apps/desktop dev",
+    "db:studio:dev": "bun --cwd apps/backend db:studio:dev",
+    "db:studio:prod": "bun --cwd apps/backend db:studio:prod",
     "lint": "turbo run lint",
     "lint:fix": "oxlint --fix .",
     "format": "prettier --write .",

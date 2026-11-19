@@ -71,7 +71,7 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
       recipient_name TEXT NOT NULL DEFAULT '', recipient_email TEXT NOT NULL DEFAULT '',
       role TEXT NOT NULL DEFAULT '', why_now TEXT NOT NULL DEFAULT '', context_link TEXT NOT NULL DEFAULT '',
       output_type TEXT NOT NULL DEFAULT 'cold-email', draft_subject TEXT NOT NULL DEFAULT '',
-      draft_body TEXT NOT NULL DEFAULT '', draft_updated_at TEXT, model TEXT, archived INTEGER NOT NULL DEFAULT 0,
+      draft_body TEXT NOT NULL DEFAULT '', draft_updated_at TEXT, model TEXT,
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS writing_messages (

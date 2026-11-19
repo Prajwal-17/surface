@@ -136,11 +136,11 @@ export async function createScheduledEmail(input: {
   timezone: string;
 }) {
   const conversation = await db
-    .select({ id: writingConversations.id, archived: writingConversations.archived })
+    .select({ id: writingConversations.id })
     .from(writingConversations)
     .where(eq(writingConversations.id, input.conversationId))
     .limit(1);
-  if (!conversation[0] || conversation[0].archived) {
+  if (!conversation[0]) {
     throw new HttpError(404, "Writing conversation not found.");
   }
   const scheduledTimestamp = Date.parse(input.scheduledAt);
@@ -176,7 +176,9 @@ export async function cancelScheduledEmail(id: string) {
   const changed = await db
     .update(scheduledEmails)
     .set({ status: "cancelled", updatedAt: timestamp })
-    .where(and(eq(scheduledEmails.id, id), eq(scheduledEmails.status, "queued")))
+    .where(
+      and(eq(scheduledEmails.id, id), eq(scheduledEmails.status, "queued")),
+    )
     .returning({ id: scheduledEmails.id });
   if (!changed[0]) {
     const existing = await db
@@ -202,7 +204,9 @@ export async function retryScheduledEmail(id: string) {
       sentAt: null,
       updatedAt: timestamp,
     })
-    .where(and(eq(scheduledEmails.id, id), eq(scheduledEmails.status, "failed")))
+    .where(
+      and(eq(scheduledEmails.id, id), eq(scheduledEmails.status, "failed")),
+    )
     .returning({ id: scheduledEmails.id });
   if (!changed[0]) {
     const existing = await db
@@ -324,5 +328,5 @@ export async function recordScheduledEmailResult(
       updatedAt: now.toISOString(),
     })
     .where(eq(scheduledEmails.id, id));
-  return { status: terminal ? "failed" as const : "queued" as const };
+  return { status: terminal ? ("failed" as const) : ("queued" as const) };
 }

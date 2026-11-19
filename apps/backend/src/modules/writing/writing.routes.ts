@@ -6,7 +6,6 @@ import { z } from "zod";
 import { hasDesktopToken } from "../auth/session";
 import { getWritingModel } from "../../shared/ai/model";
 import {
-  archiveConversation,
   createConversation,
   getConversation,
   getMessageHistory,
@@ -186,11 +185,6 @@ writingRoutes.patch(
       ),
     ),
 );
-
-writingRoutes.delete("/conversations/:id", async (context) => {
-  await archiveConversation(context.req.param("id"));
-  return context.json({ archived: true });
-});
 
 writingRoutes.get("/conversations/:id/messages", async (context) =>
   context.json(

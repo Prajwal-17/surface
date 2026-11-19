@@ -1,10 +1,8 @@
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { z } from "zod";
 import { SUPPORTED_AI_PROVIDERS } from "../shared/ai/constants";
+import { appDataDirectory } from "./app-data";
 
-const currentDirectory = dirname(fileURLToPath(import.meta.url));
-const workspaceDirectory = resolve(currentDirectory, "../../../..");
 const defaultAppEnvironment =
   process.env.APP_ENV === "production" || process.env.NODE_ENV === "production"
     ? "production"
@@ -46,19 +44,16 @@ const envSchema = z.object({
 });
 
 const parsedEnvironment = envSchema.parse(process.env);
-const appEnvironment = parsedEnvironment.APP_ENV;
-const dataDirectory =
-  parsedEnvironment.DATA_DIR ??
-  resolve(
-    workspaceDirectory,
-    "data",
-    ...(appEnvironment === "production" ? [] : [appEnvironment]),
-  );
+const appDataRoot = appDataDirectory(parsedEnvironment.APP_ENV);
+const dataDirectory = parsedEnvironment.DATA_DIR ?? join(appDataRoot, "data");
+const databaseFile =
+  parsedEnvironment.SQLITE_DATABASE_FILE?.trim() ||
+  (parsedEnvironment.DATA_DIR
+    ? join(dataDirectory, "surface.sqlite3")
+    : join(appDataRoot, "surface.sqlite3"));
 
 export const env = {
   ...parsedEnvironment,
-  SQLITE_DATABASE_FILE:
-    parsedEnvironment.SQLITE_DATABASE_FILE?.trim() ||
-    resolve(dataDirectory, "surface.sqlite3"),
+  SQLITE_DATABASE_FILE: databaseFile,
   DATA_DIR: dataDirectory,
 };

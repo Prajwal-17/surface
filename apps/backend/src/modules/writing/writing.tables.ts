@@ -30,7 +30,6 @@ export const writingConversations = sqliteTable("writing_conversations", {
   draftBody: text("draft_body").notNull().default(""),
   draftUpdatedAt: text("draft_updated_at"),
   model: text("model"),
-  archived: integer("archived", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

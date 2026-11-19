@@ -38,9 +38,6 @@ yarn-error.log*
 
 references/
 
-# Local application data
-data/*
-!data/.gitkeep
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal

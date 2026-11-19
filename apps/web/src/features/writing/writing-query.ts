@@ -32,7 +32,6 @@ export interface WritingConversation {
   draftBody: string;
   draftUpdatedAt: string | null;
   model: string | null;
-  archived: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,12 +45,7 @@ export interface WritingScheduledEmail {
   scheduledAt: string;
   timezone: string;
   status:
-    | "queued"
-    | "processing"
-    | "sent"
-    | "failed"
-    | "uncertain"
-    | "cancelled";
+    "queued" | "processing" | "sent" | "failed" | "uncertain" | "cancelled";
   attempts: number;
   error: string | null;
   sentAt: string | null;
@@ -81,8 +75,7 @@ export function useWritingConversations() {
 export function useWritingSchedule() {
   return useQuery({
     queryKey: writingScheduleKey,
-    queryFn: () =>
-      apiClient<WritingScheduledEmail[]>("/api/writing/schedule"),
+    queryFn: () => apiClient<WritingScheduledEmail[]>("/api/writing/schedule"),
     refetchInterval: 15_000,
   });
 }

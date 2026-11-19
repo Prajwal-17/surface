@@ -7,6 +7,8 @@
     "dev": "APP_ENV=development NODE_ENV=development node --import tsx --watch src/index.ts",
     "start": "APP_ENV=production NODE_ENV=production node dist/index.mjs",
     "build": "node scripts/build.mjs",
+    "db:studio:dev": "APP_ENV=development drizzle-kit studio",
+    "db:studio:prod": "APP_ENV=production drizzle-kit studio",
     "check-types": "tsc --noEmit",
     "lint": "oxlint --config ../../.oxlintrc.json ."
   },
@@ -26,6 +28,7 @@
     "@types/bun": "latest",
     "@types/node": "26.3.0",
     "@types/sanitize-html": "^2.16.1",
+    "drizzle-kit": "0.31.11",
     "esbuild": "^0.28.2",
     "tsx": "^4.23.15",
     "typescript": "npm:typescript@6.0.2"

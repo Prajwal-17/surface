@@ -12,7 +12,6 @@ import {
   Pencil,
   Plus,
   Save,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -153,12 +152,12 @@ export function WritingProfileScreen() {
           to="/writing"
           className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="size-3.5" /> Writing assistant
+          <ArrowLeft className="size-3.5" /> Writing
         </Link>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div className="mb-2 flex items-center gap-2 text-xs font-medium text-brand">
-              <Sparkles className="size-3.5" /> PERSONAL CONTEXT
+            <div className="mb-2 text-xs font-medium text-brand">
+              PERSONAL CONTEXT
             </div>
             <h1 className="text-2xl font-semibold tracking-tight">
               Your writing profile
