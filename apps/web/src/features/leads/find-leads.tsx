@@ -10,10 +10,13 @@ import {
   ExternalLink,
   History,
   LoaderCircle,
+  Play,
   RefreshCw,
   Search,
+  Server,
   Settings2,
   Sparkles,
+  Square,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +35,7 @@ import {
   type DiscoveryCriteria,
   type DiscoveryRun,
   type RunDetails,
+  type SearxngDockerStatus,
   isRunActive,
   parseRunCriteria,
   useCancelRun,
@@ -41,6 +45,9 @@ import {
   useLeadSettings,
   useRunDetails,
   useSaveLeadSettings,
+  useSearxngDockerStatus,
+  useStartSearxngDocker,
+  useStopSearxngDocker,
 } from "@/features/leads/leads-query";
 
 const blankCriteria: DiscoveryCriteria = {
@@ -92,6 +99,25 @@ function timeLabel(value: string | null | undefined) {
     hour: "numeric",
     minute: "2-digit",
   }).format(date);
+}
+
+function dockerStatusLabel(status: SearxngDockerStatus | undefined) {
+  if (!status) return "Checking Docker…";
+  if (!status.dockerAvailable) return "Docker unavailable";
+  if (!status.exists) return "Container not created yet";
+  switch (status.state) {
+    case "running":
+      return status.health ? `Running · ${status.health}` : "Running";
+    case "restarting":
+      return "Restarting";
+    case "paused":
+      return "Paused";
+    case "stopped":
+    case "exited":
+      return "Stopped";
+    default:
+      return "Unknown state";
+  }
 }
 
 export function FindLeadsWorkspace() {
@@ -174,10 +200,7 @@ export function FindLeadsWorkspace() {
       <div className="mt-4 grid min-h-0 flex-1 gap-4 overflow-y-auto pb-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:overflow-hidden">
         <div className="min-h-0 space-y-4 lg:overflow-y-auto lg:pr-1">
           {settingsQuery.data ? (
-            <LeadSettingsCard
-              key={settingsQuery.data.updatedAt}
-              settings={settingsQuery.data}
-            />
+            <LeadSettingsCard settings={settingsQuery.data} />
           ) : settingsQuery.isLoading ? (
             <Skeleton className="h-36 w-full rounded-lg" />
           ) : null}
@@ -337,6 +360,10 @@ function LeadSettingsCard({
   const [open, setOpen] = useState(!settings.searxngUrl);
   const saveSettings = useSaveLeadSettings();
   const checkConnection = useCheckSearxng();
+  const dockerStatus = useSearxngDockerStatus(open);
+  const startDocker = useStartSearxngDocker();
+  const stopDocker = useStopSearxngDocker();
+  const docker = dockerStatus.data;
   const dirty =
     searxngUrl.trim() !== settings.searxngUrl ||
     productContext.trim() !== settings.productContext;
@@ -377,6 +404,23 @@ function LeadSettingsCard({
     });
   }
 
+  function startLocalDocker() {
+    startDocker.mutate(undefined, {
+      onSuccess: (status) => {
+        setSearxngUrl(status.url);
+        toast.success("Local SearXNG started");
+      },
+      onError: (error) => toast.error(error.message),
+    });
+  }
+
+  function stopLocalDocker() {
+    stopDocker.mutate(undefined, {
+      onSuccess: () => toast.success("Local SearXNG stopped"),
+      onError: (error) => toast.error(error.message),
+    });
+  }
+
   return (
     <section className="rounded-lg border bg-card">
       <button
@@ -403,6 +447,101 @@ function LeadSettingsCard({
       {open ? (
         <form className="border-t px-4 py-4" onSubmit={save}>
           <div className="grid gap-4">
+            <div className="rounded-md border border-border/70 bg-muted/20 p-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 text-sm font-medium">
+                    <Server className="size-4 text-brand" />
+                    Local Docker SearXNG
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {dockerStatusLabel(docker)}
+                    {docker?.dockerVersion
+                      ? ` · Docker ${docker.dockerVersion}`
+                      : ""}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    aria-label="Refresh Docker status"
+                    title="Refresh Docker status"
+                    disabled={dockerStatus.isFetching}
+                    onClick={() => void dockerStatus.refetch()}
+                  >
+                    <RefreshCw
+                      className={
+                        dockerStatus.isFetching ? "animate-spin" : undefined
+                      }
+                    />
+                  </Button>
+                  {docker?.running ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      disabled={stopDocker.isPending}
+                      onClick={stopLocalDocker}
+                    >
+                      {stopDocker.isPending ? (
+                        <LoaderCircle className="animate-spin" />
+                      ) : (
+                        <Square />
+                      )}
+                      {stopDocker.isPending ? "Stopping…" : "Stop"}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8"
+                      disabled={
+                        !docker?.dockerAvailable ||
+                        dockerStatus.isLoading ||
+                        startDocker.isPending
+                      }
+                      onClick={startLocalDocker}
+                    >
+                      {startDocker.isPending ? (
+                        <LoaderCircle className="animate-spin" />
+                      ) : (
+                        <Play />
+                      )}
+                      {startDocker.isPending ? "Starting…" : "Start"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {dockerStatus.isError ? (
+                <p role="alert" className="mt-2 text-xs text-destructive">
+                  Could not check Docker: {dockerStatus.error.message}
+                </p>
+              ) : null}
+              {docker?.error ? (
+                <p className="mt-2 flex items-start gap-1.5 text-xs leading-5 text-muted-foreground">
+                  <CircleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
+                  {docker.error}
+                </p>
+              ) : null}
+              {docker?.dockerAvailable && !docker.exists ? (
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                  Start creates the container on port 8080 and pulls the image
+                  if it is not already installed. The first start can take a
+                  minute.
+                </p>
+              ) : null}
+              {docker?.running ? (
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                  Local search is available at{" "}
+                  <span className="font-mono">{docker.url}</span>. Starting also
+                  updates the saved instance URL.
+                </p>
+              ) : null}
+            </div>
             <label className="grid gap-1.5 text-sm font-medium">
               SearXNG instance URL
               <div className="flex flex-wrap gap-2">

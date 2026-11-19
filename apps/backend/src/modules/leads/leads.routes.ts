@@ -19,6 +19,11 @@ import {
   updateLeadSettings,
 } from "./leads.repository";
 import { checkSearxngConnection } from "./search";
+import {
+  getSearxngDockerStatus,
+  startSearxngDocker,
+  stopSearxngDocker,
+} from "./searxng-docker";
 
 export const leadRoutes = new Hono();
 
@@ -129,6 +134,18 @@ leadRoutes.post("/settings/check", async (context) => {
   }
   return context.json(await checkSearxngConnection(instanceUrl));
 });
+
+leadRoutes.get("/searxng/status", async (context) =>
+  context.json(await getSearxngDockerStatus()),
+);
+
+leadRoutes.post("/searxng/start", async (context) =>
+  context.json(await startSearxngDocker()),
+);
+
+leadRoutes.post("/searxng/stop", async (context) =>
+  context.json(await stopSearxngDocker()),
+);
 
 leadRoutes.get("/runs", async (context) => context.json(await listRuns()));
 

@@ -8,6 +8,27 @@ export type LeadSettings = {
   updatedAt: string;
 };
 
+export type SearxngDockerStatus = {
+  dockerAvailable: boolean;
+  dockerVersion: string | null;
+  containerName: string;
+  state:
+    | "docker-unavailable"
+    | "not-created"
+    | "running"
+    | "stopped"
+    | "paused"
+    | "restarting"
+    | "exited"
+    | "unknown";
+  health: string | null;
+  exists: boolean;
+  running: boolean;
+  url: string;
+  image: string | null;
+  error: string | null;
+};
+
 export type DiscoveryCriteria = {
   industry: string;
   geography: string;
@@ -205,6 +226,49 @@ export function useCheckSearxng() {
           body: JSON.stringify(searxngUrl ? { searxngUrl } : {}),
         },
       ),
+  });
+}
+
+export function useSearxngDockerStatus(enabled = true) {
+  return useQuery({
+    queryKey: ["leads", "searxng", "docker"],
+    queryFn: () => apiClient<SearxngDockerStatus>("/api/leads/searxng/status"),
+    enabled,
+    refetchInterval: 10_000,
+    retry: false,
+  });
+}
+
+export function useStartSearxngDocker() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiClient<SearxngDockerStatus>("/api/leads/searxng/start", {
+        method: "POST",
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["leads", "searxng", "docker"],
+        }),
+        queryClient.invalidateQueries({ queryKey: leadSettingsKey }),
+      ]);
+    },
+  });
+}
+
+export function useStopSearxngDocker() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiClient<SearxngDockerStatus>("/api/leads/searxng/stop", {
+        method: "POST",
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["leads", "searxng", "docker"],
+      });
+    },
   });
 }
 

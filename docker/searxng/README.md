@@ -11,9 +11,33 @@ backend's lead discovery module:
   are no host-directory permission problems with `/etc/searxng`.
 - The search cache lives in a named Docker volume.
 
-## Quick start
+## Start from inside the app
+
+Surface can start and stop this container for you:
+
+1. Open **Find leads**.
+2. Open **Web search and offer context**.
+3. Under **Local Docker SearXNG**, click **Start**.
+
+The app creates a compose-managed `surface-searxng` container on
+`http://127.0.0.1:8080`, waits for JSON search to respond, and saves that URL as
+the active instance. If the local image is not installed, it pulls
+`prajwalreddy17/surface-searxng:latest`. Click **Stop** in the same card to stop
+it.
+
+The generated runtime compose file lives in Surface's data directory as
+`searxng-docker-compose.yaml`. It uses the same project and container names as
+this directory, so the two start paths stay compatible.
+
+## Quick start from a terminal
 
 From the repository root:
+
+```bash
+bun run searxng:start
+```
+
+Or:
 
 ```bash
 docker/searxng/start.sh
@@ -103,15 +127,18 @@ registry needs a different image name at build time, change `image:` in
 ## Troubleshooting
 
 **Search returns HTML / "JSON is not enabled"**
+
 - Confirm the request includes `format=json`.
 - Confirm `config/settings.yml` still lists `json` under `search.formats`, then
   rebuild: `docker compose build --no-cache && docker compose up -d`.
 
 **Port 8080 is already in use**
+
 - Set `SEARXNG_PORT=8081` in `.env`, rerun `./start.sh`, and use
   `http://127.0.0.1:8081` in Surface.
 
 **Engines return CAPTCHAs or block requests**
+
 - This is an upstream engine behavior, not a Surface bug. Try another query,
   wait a few minutes, or configure a SearXNG engine/instance that permits your
   network. The backend reports upstream failures as run events.
