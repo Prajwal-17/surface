@@ -1,16 +1,16 @@
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, useLocation } from "react-router";
 import { profileDetailsSchema } from "@surface/contracts";
-import { useEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import {
-  BriefcaseBusiness,
+  ClipboardList,
   Building2,
-  Activity,
   UserRound,
   ChevronRight,
   Settings2,
   PanelLeft,
-  Database,
   LogOut,
+  PenLine,
+  Sparkles,
 } from "lucide-react";
 import {
   Sidebar,
@@ -21,6 +21,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -30,12 +31,12 @@ import { useAuth } from "@/features/auth/auth-context";
 import { useDesktopChannel } from "@/lib/desktop-channel";
 
 const destinations = [
-  { href: "/", label: "Jobs", icon: BriefcaseBusiness },
+  { href: "/applications", label: "Applications", icon: ClipboardList },
   { href: "/companies", label: "Companies", icon: Building2 },
-  { href: "/activity", label: "Activity", icon: Activity },
+  { href: "/leads", label: "Find leads", icon: Sparkles },
+  { href: "/writing", label: "Writing", icon: PenLine },
 ] as const;
 const referenceDestinations = [
-  { href: "/schema", label: "Schema", icon: Database },
   { href: "/settings", label: "Settings", icon: Settings2 },
 ] as const;
 const profileDestination = {
@@ -44,8 +45,7 @@ const profileDestination = {
   icon: UserRound,
 } as const;
 export function AppHeader() {
-  const location = useLocation();
-  const pathname = location.pathname;
+  const { pathname } = useLocation();
   const desktopChannel = useDesktopChannel();
   const { toggleSidebar, setOpenMobile, state } = useSidebar();
   const auth = useAuth();
@@ -69,54 +69,11 @@ export function AppHeader() {
   );
   const email =
     profile.data?.context.details?.email || auth.email || legacyEmail;
-  const navigate = useNavigate();
-  useEffect(() => {
-    if (pathname !== "/" || !profile.isSuccess || profile.data) return;
-    try {
-      if (localStorage.getItem("surface-onboarding-skipped")) return;
-    } catch {
-      return;
-    }
-    void navigate("/onboarding", { replace: true });
-  }, [pathname, profile.isSuccess, profile.data, navigate]);
-  const savedJobsUrl = useSyncExternalStore(
-    subscribe,
-    () => {
-      try {
-        return (
-          sessionStorage.getItem("surface-jobs-url") ||
-          sessionStorage.getItem("fieldwork-jobs-url") ||
-          "/"
-        );
-      } catch {
-        return "/";
-      }
-    },
-    () => "/",
-  );
-  const jobsUrl =
-    savedJobsUrl.startsWith("/") && !savedJobsUrl.startsWith("//")
-      ? savedJobsUrl
-      : "/";
-  useEffect(() => {
-    if (pathname === "/") {
-      const params = new URLSearchParams(location.search);
-      try {
-        sessionStorage.setItem(
-          "surface-jobs-url",
-          params.size ? `/?${params}` : "/",
-        );
-      } catch {
-        /* Navigation remains usable without browser storage. */
-      }
-      window.dispatchEvent(new Event("surface-navigation"));
-    }
-  }, [pathname, location.search]);
   const current = [
     ...destinations,
     ...referenceDestinations,
     profileDestination,
-  ].find((d) => d.href === pathname);
+  ].find((d) => pathname === d.href || pathname.startsWith(`${d.href}/`));
   return (
     <>
       <a
@@ -128,7 +85,7 @@ export function AppHeader() {
       <Sidebar collapsible="icon" variant="sidebar">
         <SidebarHeader className="h-11 justify-center border-b border-sidebar-border px-2 py-0">
           <Link
-            to={jobsUrl}
+            to="/applications"
             onClick={() => setOpenMobile(false)}
             aria-label={
               desktopChannel === "development"
@@ -159,7 +116,7 @@ export function AppHeader() {
                     tooltip={label}
                   >
                     <Link
-                      to={href === "/" ? jobsUrl : href}
+                      to={href}
                       onClick={() => setOpenMobile(false)}
                       aria-current={
                         destinationIsActive(pathname, href) ? "page" : undefined
@@ -232,6 +189,7 @@ export function AppHeader() {
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>
+        <SidebarRail />
       </Sidebar>
       <header
         className={`workspace-header fixed left-0 right-0 top-0 z-30 flex h-11 items-center gap-2 border-b border-border bg-background px-4 ${state === "collapsed" ? "md:left-[var(--sidebar-width-icon)]" : "md:left-[var(--sidebar-width)]"}`}
@@ -247,7 +205,7 @@ export function AppHeader() {
           <PanelLeft />
         </Button>
         <Link
-          to={jobsUrl}
+          to="/applications"
           className="hidden text-xs text-muted-foreground hover:text-foreground sm:inline"
         >
           Workspace
@@ -273,11 +231,6 @@ export function AppHeader() {
 function destinationIsActive(pathname: string, href: string) {
   return pathname === href;
 }
-function subscribe(callback: () => void) {
-  window.addEventListener("surface-navigation", callback);
-  return () => window.removeEventListener("surface-navigation", callback);
-}
-
 function subscribeAccount(callback: () => void) {
   window.addEventListener("storage", callback);
   return () => window.removeEventListener("storage", callback);

@@ -1,5 +1,35 @@
 # Changelog
 
+## desktop-v0.2.0 - 20 Nov 2026
+
+### Added
+
+- Lead discovery: a Find Leads workspace that searches configured sources,
+  keeps a local review queue, and hands accepted leads to the company tracker.
+  Discovery can be hardened with a rendered-page fallback when plain requests
+  are blocked.
+- Local SearXNG meta-search. `bun run searxng:start` / `searxng:stop` run a
+  bundled Docker Compose stack on loopback, and the Find Leads settings point
+  discovery at it. Requests to non-loopback SearXNG hosts are rejected.
+- An AI writing assistant with a per-conversation resume and job context, plus
+  a Gmail draft handoff. Generated emails open as Gmail drafts in the browser
+  instead of being sent automatically, and Gmail settings live in desktop
+  settings with a reconnect flow.
+- Desktop metadata generation (`scripts/build-metadata.mjs`) writes
+  `BUILD-INFO.json` and `SHA256SUMS` next to staged installers for CI, the
+  development channel, and production releases.
+
+### Changed
+
+- Merge company tags into company statuses so tracker entries carry one
+  status instead of parallel tag records.
+- Store desktop app data in the platform user-data directory and slim the
+  desktop packaging back to the tracker and profile surfaces, with
+  `electron-builder` producing the AppImage and Debian package directly.
+- Update the desktop CI, development build, and release workflows for the new
+  packaging: source checks are formatting, lint, and type-check only, and
+  release notes come from the matching `CHANGELOG.md` entry.
+
 ## desktop-v0.1.0 - 17 Nov 2026
 
 First Linux desktop release. Surface now ships as an Electron application for

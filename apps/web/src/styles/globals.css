@@ -1,4 +1,3 @@
-@import "@xyflow/react/dist/style.css" layer(base);
 @import "tailwindcss";
 @import "tw-animate-css";
 @custom-variant dark (&:is(.dark *));
@@ -62,7 +61,6 @@
   --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
-  --diagram-edge: #737373;
   --overlay: rgb(0 0 0 / 70%);
   --radius: 0.5rem;
   --control-radius: 6px;
@@ -96,7 +94,6 @@
   --warning: #92400e;
   --warning-background: rgb(146 64 14 / 8%);
   --info-background: rgb(29 78 216 / 8%);
-  --diagram-edge: #71717a;
   --overlay: rgb(0 0 0 / 40%);
 }
 @theme inline {
@@ -500,20 +497,90 @@
   container-type: inline-size;
   padding: 12px 16px 16px;
 }
-.inbox-header {
+.job-finder {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
   flex: none;
-  min-height: 32px;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
 }
-.inbox-status [role="tablist"] {
-  min-height: 32px;
-  gap: 16px;
+.job-finder-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
 }
-.inbox-status [role="tab"] {
-  min-height: 32px;
+.job-finder-heading h1 {
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+}
+.job-finder-heading p {
+  margin-top: 2px;
+  color: var(--muted-foreground);
+  font-size: var(--text-xs);
+}
+.job-finder-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.job-finder-form > :first-child {
+  flex: 1 1 240px;
+}
+.job-finder-form > :nth-child(2) {
+  flex: 0 1 180px;
+}
+.job-portals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.job-portals > span {
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+}
+.job-finder-toolbar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+.job-status-tabs {
+  display: flex;
+  gap: 2px;
+}
+.job-filter-search {
+  display: flex;
+  min-width: 180px;
+  max-width: 300px;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid var(--input);
+  border-radius: var(--control-radius);
+  background: var(--background);
+}
+.job-filter-search input {
+  min-width: 0;
+  flex: 1;
+  padding: 6px 0;
+  background: transparent;
   font-size: var(--text-sm);
+  outline: none;
+}
+.job-filter-search button {
+  display: grid;
+  place-items: center;
+  color: var(--muted-foreground);
 }
 .inbox-toolbar {
   display: flex;
@@ -618,9 +685,6 @@
 }
 .job-filters-sheet .job-filter-footer {
   padding-bottom: max(12px, env(safe-area-inset-bottom));
-}
-body:has(.job-filters-sheet) .environment-tag {
-  visibility: hidden;
 }
 @media (max-width: 767px), (pointer: coarse) {
   .ui-choice {
@@ -1007,11 +1071,6 @@ body:has(.job-filters-sheet) .environment-tag {
 .company-card:hover {
   background: var(--hover);
 }
-.research-markdown {
-  max-width: 76ch;
-  font-size: var(--text-prose);
-  line-height: 1.65;
-}
 
 @keyframes reader-enter {
   from {
@@ -1068,11 +1127,6 @@ body:has(.job-filters-sheet) .environment-tag {
 @media (max-width: 767px) {
   .discovery-inbox {
     padding: 8px 12px 12px;
-  }
-  .inbox-header,
-  .inbox-status [role="tablist"],
-  .inbox-status [role="tab"] {
-    min-height: 44px;
   }
   .inbox-toolbar {
     gap: 8px;
@@ -1595,8 +1649,7 @@ body:has(.job-filters-sheet) .environment-tag {
   .ui-button,
   [data-slot="input"],
   [data-slot="select-trigger"],
-  [role="tab"],
-  .inbox-status [role="tab"] {
+  [role="tab"] {
     min-height: 44px;
   }
   .ui-button:has(> svg:only-child) {
@@ -1677,31 +1730,6 @@ body:has(.job-filters-sheet) .environment-tag {
   font-size: var(--text-prose);
   line-height: 1.65;
 }
-.schema-flow {
-  --xy-background-color: var(--background);
-  --xy-controls-button-background-color: var(--card);
-  --xy-controls-button-background-color-hover: var(--hover);
-  --xy-controls-button-color: var(--foreground);
-  --xy-controls-button-border-color: var(--border);
-  --xy-minimap-background-color: var(--card);
-  --xy-edge-stroke-selected: var(--link);
-  --xy-selection-background-color: var(--info-background);
-  --xy-selection-border: 1px solid var(--link);
-}
-.schema-flow .react-flow__controls {
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: none;
-}
-.schema-flow .react-flow__controls-button {
-  width: 28px;
-  height: 28px;
-}
-.schema-flow .react-flow__node:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 4px;
-}
 @media (max-width: 1023px) {
   .source-row-main {
     flex-wrap: wrap;
@@ -1767,8 +1795,7 @@ body:has(.job-filters-sheet) .environment-tag {
   .source-details-toggle,
   [data-slot="sheet-content"] > button,
   [role="dialog"] > button,
-  .profile-chip button,
-  .schema-flow .react-flow__controls-button {
+  .profile-chip button {
     min-width: 44px;
     min-height: 44px;
   }
@@ -1797,11 +1824,6 @@ body:has(.job-filters-sheet) .environment-tag {
   }
 }
 
-/* A modal owns the top corner; keep the environment label clear of Close. */
-body:has([role="dialog"][data-state="open"]) .environment-tag {
-  top: auto;
-  bottom: 8px;
-}
 [data-sidebar="sidebar"][data-mobile="true"] > button {
   top: 0;
   right: 4px;
@@ -2060,6 +2082,79 @@ body:has([role="dialog"][data-state="open"]) .environment-tag {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+}
+.company-reader-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px 12px;
+  flex-shrink: 0;
+}
+.company-links {
+  border-bottom: 1px solid var(--border);
+  padding: 8px 20px;
+  flex-shrink: 0;
+}
+.company-links-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.company-links-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+.company-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--card);
+  color: var(--foreground);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.4;
+  text-decoration: none;
+  transition: background-color var(--duration-feedback);
+}
+.company-link:hover {
+  background: var(--hover);
+}
+.company-link > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.company-link > svg {
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+.company-links-empty {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+.company-links-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.company-links-checked {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-caption);
+  color: var(--muted-foreground);
 }
 .company-reader-body {
   flex: 1;
@@ -2333,8 +2428,4 @@ html[data-desktop="true"]
   .desktop-window-controls {
     transition: none;
   }
-}
-html[data-desktop="true"] .environment-tag {
-  top: 48px;
-  right: 10px;
 }

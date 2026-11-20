@@ -1,0 +1,30 @@
+use_default_settings: true
+
+general:
+  instance_name: "Surface SearXNG"
+  enable_metrics: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  favicon_resolver: ""
+  default_lang: "en"
+  # JSON is required by apps/backend/src/modules/leads/search.ts. Keep html for
+  # manual debugging in a browser.
+  formats:
+    - html
+    - json
+
+server:
+  # Local-only instance: the limiter is not needed and would get in the way of
+  # the backend's bounded search requests.
+  limiter: false
+  public_instance: false
+  image_proxy: false
+  # Overridden by SEARXNG_SECRET at runtime.
+  secret_key: "surface-local-placeholder-change-me"
+  base_url: false
+
+ui:
+  default_theme: simple
+  query_in_title: false

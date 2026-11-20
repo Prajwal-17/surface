@@ -14,15 +14,15 @@ import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Diagnostics {
-  crawler: { ok: boolean; status: number | null; error: string | null };
-  searxng: {
-    ok: boolean;
-    status: number | null;
-    error: string | null;
-    results?: number;
-  };
   ai: {
     reachable: { ok: boolean; status: number | null; error: string | null };
     modelAccess: {
@@ -31,7 +31,6 @@ interface Diagnostics {
       error: string | null;
     } | null;
   };
-  searxngConfigured: boolean;
   aiConfigured: boolean;
   aiKeyPresent: boolean;
 }
@@ -45,7 +44,6 @@ export function DesktopSettings() {
   const [settings, setSettings] = useState<DesktopSettingsSnapshot | null>(
     null,
   );
-  const [searxngUrl, setSearxngUrl] = useState("");
   const [aiProvider, setAiProvider] = useState("opencode-go");
   const [aiBaseUrl, setAiBaseUrl] = useState("");
   const [aiModel, setAiModel] = useState("");
@@ -74,7 +72,6 @@ export function DesktopSettings() {
       .getSettings()
       .then((value) => {
         setSettings(value);
-        setSearxngUrl(value.searxngUrl);
         setAiProvider(value.aiProvider);
         setAiBaseUrl(value.aiBaseUrl);
         setAiModel(value.aiModel);
@@ -100,10 +97,8 @@ export function DesktopSettings() {
           <ShieldCheck className="size-5 text-brand" /> Desktop services
         </h2>
         <p className="text-sm leading-6 text-muted-foreground">
-          SearXNG and AI URLs come from the backend environment in this browser
-          build. In the Surface desktop app they are saved under your user data
-          directory, with the OpenCode Go key protected by the OS keychain when
-          available.
+          AI settings are saved under your user data directory, with the
+          OpenCode Go key protected by the OS keychain when available.
         </p>
         <ServiceDiagnostics
           diagnostics={diagnostics.data}
@@ -120,7 +115,6 @@ export function DesktopSettings() {
     setSaving(true);
     try {
       const result = await desktop.saveSettings({
-        searxngUrl,
         aiProvider,
         aiBaseUrl,
         aiModel,
@@ -150,13 +144,12 @@ export function DesktopSettings() {
     <section className="max-w-3xl space-y-5">
       <div>
         <h2 className="flex items-center gap-2 text-base font-semibold">
-          <ShieldCheck className="size-5 text-brand" /> Research and AI services
+          <ShieldCheck className="size-5 text-brand" /> Services and AI
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          SearXNG is optional: without it, jobs, monitoring, snapshots and
-          company research from saved sources still work, while web search
-          reports a clear error. AI generation uses your OpenCode Go
-          subscription directly; no local model gateway is required.
+          AI generation uses your OpenCode Go subscription directly; no local
+          model gateway is required. Browser based research and web search are
+          disconnected for now.
         </p>
         {settings?.legacyOmniRouteConfigured ? (
           <p className="mt-2 rounded-md border border-warning/40 bg-warning/5 p-3 text-xs leading-5 text-muted-foreground">
@@ -177,18 +170,6 @@ export function DesktopSettings() {
       ) : (
         <form onSubmit={save} className="rounded-lg border bg-card p-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="space-y-1.5 text-sm">
-              <span className="font-medium">SearXNG URL</span>
-              <Input
-                type="url"
-                required
-                value={searxngUrl}
-                onChange={(event) => setSearxngUrl(event.target.value)}
-              />
-              <span className="block text-xs text-muted-foreground">
-                Example: http://127.0.0.1:8080
-              </span>
-            </label>
             <label className="space-y-1.5 text-sm">
               <span className="font-medium">AI provider</span>
               <Input required value={aiProvider} readOnly />
@@ -217,28 +198,31 @@ export function DesktopSettings() {
                 Choose a suggested model or enter another OpenCode Go model ID.
               </span>
             </label>
-            <label className="space-y-1.5 text-sm">
+            <div className="space-y-1.5 text-sm">
               <span className="font-medium">Reasoning effort</span>
-              <select
-                className="flex h-9 w-full rounded-md border bg-background px-3 text-sm"
+              <Select
                 value={aiReasoning}
-                onChange={(event) =>
+                onValueChange={(value) =>
                   setAiReasoning(
-                    event.target
-                      .value as DesktopSettingsSnapshot["aiReasoning"],
+                    value as DesktopSettingsSnapshot["aiReasoning"],
                   )
                 }
               >
-                <option value="default">Model default</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
+                <SelectTrigger aria-label="Reasoning effort" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Model default</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
               <span className="block text-xs text-muted-foreground">
                 Effort support depends on the selected model. Use model default
                 if unsupported.
               </span>
-            </label>
+            </div>
             <label className="space-y-1.5 text-sm sm:col-span-2">
               <span className="font-medium">AI base URL</span>
               <Input
@@ -368,22 +352,6 @@ function ServiceDiagnostics({
     );
   if (!diagnostics) return null;
   const rows = [
-    {
-      label: "Local crawler",
-      detail: "Playwright Chromium · required for page reading",
-      state: diagnostics.crawler,
-    },
-    {
-      label: "SearXNG search",
-      detail: diagnostics.searxng.ok
-        ? `JSON search is responding${
-            diagnostics.searxng.results !== undefined
-              ? ` (${diagnostics.searxng.results} results)`
-              : ""
-          }`
-        : "Optional · research without web search still uses saved sources",
-      state: diagnostics.searxng,
-    },
     {
       label: "OpenCode Go",
       detail: !diagnostics.aiKeyPresent

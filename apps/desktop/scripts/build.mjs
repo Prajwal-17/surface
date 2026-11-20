@@ -1,13 +1,6 @@
 import { build } from "esbuild";
 import { spawnSync } from "node:child_process";
-import {
-  copyFileSync,
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  rmSync,
-} from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,9 +9,7 @@ const desktopDir = resolve(here, "..");
 const root = resolve(desktopDir, "../..");
 const buildDir = join(desktopDir, "build");
 const backendDir = join(root, "apps/backend");
-const crawlerDir = join(root, "apps/crawler");
 const webDir = join(root, "apps/web");
-
 const channel = process.env.SURFACE_DESKTOP_CHANNEL ?? "production";
 if (channel !== "development" && channel !== "production") {
   throw new Error(
@@ -52,56 +43,10 @@ await step("backend", async () => {
     [],
     "esm",
   );
-  cpSync(join(backendDir, "drizzle-sqlite"), join(outdir, "drizzle-sqlite"), {
-    recursive: true,
-  });
   mkdirSync(join(outdir, "data"), { recursive: true });
   copyFileSync(
     join(backendDir, "src/modules/profile/data/locations.json.gz"),
     join(outdir, "data/locations.json.gz"),
-  );
-  const developmentSeed = process.env.SURFACE_DEV_SEED_DIR;
-  if (developmentSeed) {
-    if (channel !== "development")
-      throw new Error(
-        "SURFACE_DEV_SEED_DIR is only allowed for development builds.",
-      );
-    if (!existsSync(join(developmentSeed, "surface.sqlite3")))
-      throw new Error(
-        `Development seed directory ${developmentSeed} has no surface.sqlite3.`,
-      );
-    cpSync(developmentSeed, join(outdir, "dev-seed"), { recursive: true });
-    console.info(`Staged development seed from ${developmentSeed}`);
-  }
-});
-
-await step("crawler", async () => {
-  run("bun", ["run", "build"], { cwd: crawlerDir });
-  const target = join(buildDir, "crawler");
-  mkdirSync(target, { recursive: true });
-  copyFileSync(join(crawlerDir, "package.json"), join(target, "package.json"));
-  copyFileSync(
-    join(crawlerDir, "package-lock.json"),
-    join(target, "package-lock.json"),
-  );
-  cpSync(join(crawlerDir, "dist"), join(target, "dist"), {
-    recursive: true,
-  });
-  run(
-    "npm",
-    ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"],
-    { cwd: target },
-  );
-  run(
-    process.execPath,
-    [join(target, "node_modules/playwright/cli.js"), "install", "chromium"],
-    {
-      cwd: target,
-      env: {
-        ...process.env,
-        PLAYWRIGHT_BROWSERS_PATH: join(buildDir, "playwright"),
-      },
-    },
   );
 });
 
@@ -124,28 +69,16 @@ await step("verify build layout", async () => {
   const required = [
     "web/index.html",
     "backend/index.mjs",
-    "backend/drizzle-sqlite/meta/_journal.json",
-    "backend/drizzle-sqlite/0000_wide_wither.sql",
     "backend/data/locations.json.gz",
-    "crawler/dist/index.js",
-    "crawler/node_modules/playwright/package.json",
   ];
   const missing = required.filter((file) => !existsSync(join(buildDir, file)));
-  if (
-    process.env.SURFACE_DEV_SEED_DIR &&
-    !existsSync(join(buildDir, "backend/dev-seed/surface.sqlite3"))
-  )
-    missing.push("backend/dev-seed/surface.sqlite3");
+
   if (!existsSync(join(desktopDir, "resources/icon.png"))) {
     missing.push("resources/icon.png");
   }
   if (missing.length) {
     throw new Error(`Build is incomplete: ${missing.join(", ")}`);
   }
-  const browsers = readdirSync(join(buildDir, "playwright")).filter((name) =>
-    name.startsWith("chromium-"),
-  );
-  if (!browsers.length) throw new Error("Playwright Chromium was not staged.");
   console.info("Build layout verified.");
 });
 

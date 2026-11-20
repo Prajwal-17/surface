@@ -17,11 +17,3 @@ export function formatDate(value: string | null): string {
     year: "numeric",
   }).format(date);
 }
-
-export function formatCompensation(
-  value: import("@surface/contracts").Compensation | null,
-): string {
-  if (!value) return "Unknown";
-  if (value.min === null && value.max === null) return value.original;
-  return `${value.currency ?? "Currency unknown"} ${value.min?.toLocaleString() ?? "?"}–${value.max?.toLocaleString() ?? "?"} / ${value.period ?? "period unknown"}`;
-}

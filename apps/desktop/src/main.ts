@@ -9,13 +9,14 @@ import {
   type IpcMainInvokeEvent,
 } from "electron";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { desktopIdentity } from "./channel";
-import { applyDevelopmentSeed } from "./dev-seed";
+import { GmailConnection, type GmailDraft } from "./gmail";
 import { createLogSink, type LogSink } from "./logger";
 import { desktopPaths, type DesktopPaths } from "./paths";
 import { getFreePort } from "./ports";
+import { attachRenderChannel } from "./render-channel";
 import { startAndWait, type ManagedProcess } from "./processes";
 import {
   SettingsStore,
@@ -58,7 +59,6 @@ if (!gotLock) {
 
 let mainWindow: BrowserWindow | null = null;
 let backend: ManagedProcess | null = null;
-let crawler: ManagedProcess | null = null;
 let mainLog: LogSink | null = null;
 let paths: DesktopPaths | null = null;
 let backendUrl = "";
@@ -83,60 +83,16 @@ async function bootstrap(): Promise<void> {
   );
   startupLog.write(`userData=${paths.root}`);
   startupLog.write(`sqlite=${paths.database}`);
-  if (existsSync(paths.legacyDatabase)) {
-    startupLog.write(
-      "legacy pglite/ directory found; it is not read, migrated, overwritten, or deleted",
-    );
-  }
-  if (identity.channel === "development") {
-    const seeded = applyDevelopmentSeed({
-      seedDirectory: paths.devSeed,
-      database: paths.database,
-      data: paths.data,
-    });
-    startupLog.write(
-      seeded.applied
-        ? "development seed applied to a new profile"
-        : `development seed skipped: ${seeded.reason}`,
-    );
-  }
-
   try {
     const settings = await SettingsStore.create(paths.settings);
     const selected = settings.runtime();
     startupLog.write(
       `settings loaded secretStorage=${selected.secretStorage} aiConfigured=${Boolean(selected.aiApiKey)}`,
     );
-
-    const crawlerPort =
-      Number(process.env.SURFACE_DESKTOP_CRAWLER_PORT) || (await getFreePort());
-    let backendPort =
+    const backendPort =
       Number(process.env.SURFACE_DESKTOP_BACKEND_PORT) || (await getFreePort());
-    while (backendPort === crawlerPort) backendPort = await getFreePort();
     desktopToken = randomBytes(32).toString("base64url");
-    const crawlerUrl = `http://127.0.0.1:${crawlerPort}`;
     backendUrl = `http://127.0.0.1:${backendPort}`;
-
-    const crawlerLog = createLogSink(paths.logs, "crawler.log");
-    crawler = await startAndWait(
-      {
-        name: "crawler",
-        entry: paths.crawlerEntry,
-        log: crawlerLog,
-        env: {
-          ...process.env,
-          NODE_ENV: "production",
-          CRAWLER_HOST: "127.0.0.1",
-          CRAWLER_PORT: String(crawlerPort),
-          PLAYWRIGHT_BROWSERS_PATH: paths.playwrightBrowsers,
-        },
-        onUnexpectedExit: (name, code) => {
-          if (running) void childFailed(name, code);
-        },
-      },
-      `${crawlerUrl}/health`,
-      45_000,
-    );
 
     const backendLog = createLogSink(paths.logs, "backend.log");
     backend = await startAndWait(
@@ -151,25 +107,16 @@ async function bootstrap(): Promise<void> {
           HOST: "127.0.0.1",
           PORT: String(backendPort),
           SQLITE_DATABASE_FILE: paths.database,
-          SQLITE_MIGRATIONS_DIR: paths.backendMigrations,
           DATA_DIR: paths.data,
           WEB_DIST_DIR: paths.web,
-          LOCATIONS_DATA_FILE: join(
-            paths.backendMigrations,
-            "..",
-            "data",
-            "locations.json.gz",
-          ),
-          CRAWLER_BASE_URL: crawlerUrl,
-          SEARXNG_BASE_URL: selected.searxngUrl,
           AI_PROVIDER: selected.aiProvider,
           AI_BASE_URL: selected.aiBaseUrl,
           AI_MODEL: selected.aiModel,
           AI_REASONING: selected.aiReasoning,
           OPENCODE_GO_API_KEY: selected.aiApiKey,
+          LOCATIONS_DATA_FILE: join("..", "data", "locations.json.gz"),
           SURFACE_DESKTOP_TOKEN: desktopToken,
           SURFACE_SECRET_STORAGE: selected.secretStorage,
-          PLAYWRIGHT_BROWSERS_PATH: paths.playwrightBrowsers,
         },
         onUnexpectedExit: (name, code) => {
           if (running) void childFailed(name, code);
@@ -180,7 +127,10 @@ async function bootstrap(): Promise<void> {
     );
 
     await setDesktopCookie();
-    registerIpc(settings);
+    const gmail = new GmailConnection(paths.root);
+    await gmail.removeLegacySmtpCredentials();
+    registerIpc(settings, gmail);
+    if (backend) attachRenderChannel(backend.child, mainLog);
     createWindow();
     running = true;
     startupLog.write(
@@ -231,6 +181,7 @@ function createWindow(): void {
       spellcheck: false,
     },
   });
+  mainWindow.maximize();
   mainWindow.on("maximize", () => publishWindowState());
   mainWindow.on("unmaximize", () => publishWindowState());
   mainWindow.on("enter-full-screen", () => publishWindowState());
@@ -280,7 +231,13 @@ function createWindow(): void {
       toggleMaximize();
     }
   });
-  const allowedOrigin = new URL(backendUrl).origin;
+  const rendererOrigin = process.env.SURFACE_DESKTOP_RENDERER_URL
+    ? new URL(process.env.SURFACE_DESKTOP_RENDERER_URL).origin
+    : null;
+  const allowedOrigins = new Set([
+    new URL(backendUrl).origin,
+    ...(rendererOrigin ? [rendererOrigin] : []),
+  ]);
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
     return { action: "deny" };
@@ -293,7 +250,7 @@ function createWindow(): void {
       event.preventDefault();
       return;
     }
-    if (target.origin !== allowedOrigin) {
+    if (!allowedOrigins.has(target.origin)) {
       event.preventDefault();
       if (/^https?:$/i.test(target.protocol)) void shell.openExternal(url);
     }
@@ -322,111 +279,16 @@ function createWindow(): void {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
-  void mainWindow.loadURL(`${backendUrl}/`).catch(async (error) => {
+  const rendererUrl = process.env.SURFACE_DESKTOP_RENDERER_URL ?? backendUrl;
+  void mainWindow.loadURL(`${rendererUrl}/`).catch(async (error) => {
     await fatal(`${identity.productName} could not open its interface`, error);
   });
-  if (process.env.SURFACE_DESKTOP_SMOKE_TEST === "1") {
-    mainWindow.webContents.once("did-finish-load", () => {
-      void (async () => {
-        try {
-          const result = (await mainWindow?.webContents.executeJavaScript(
-            `(async () => {
-              const waitFor = async (selector, timeout = 10000) => {
-                const started = Date.now();
-                while (Date.now() - started < timeout) {
-                  const element = document.querySelector(selector);
-                  if (element) return element;
-                  await new Promise((resolve) => setTimeout(resolve, 100));
-                }
-                throw new Error("Timed out waiting for " + selector);
-              };
-              // A fresh profile opens onboarding, while an onboarded profile
-              // opens the workspace. Both routes render the frameless window
-              // controls, so wait for those and then pick whichever drag
-              // header the current route rendered.
-              await waitFor(".desktop-window-controls");
-              const header = await waitFor(
-                ".workspace-header, .onboarding-top",
-              );
-              const [health, auth, status, jobs, research, schema] =
-                await Promise.all([
-                  fetch("/api/health").then((response) => response.json()),
-                  fetch("/api/auth/session").then((response) => response.json()),
-                  fetch("/api/desktop/status").then((response) => response.json()),
-                  fetch("/api/jobs?page=1&relevance=all&limit=1").then((response) =>
-                    response.json(),
-                  ),
-                  fetch("/api/research?page=1").then((response) =>
-                    response.json(),
-                  ),
-                  fetch("/api/schema").then((response) => response.json()),
-                ]);
-              const appInfo = await window.surfaceDesktop.appInfo();
-              if (appInfo.channel === "development") {
-                await waitFor(".environment-tag");
-              }
-              const before = await window.surfaceDesktop.getSettings();
-              const saved = await window.surfaceDesktop.saveSettings({
-                searxngUrl: before.searxngUrl,
-                aiProvider: before.aiProvider,
-                aiBaseUrl: before.aiBaseUrl,
-                aiModel: before.aiModel,
-                aiReasoning: before.aiReasoning,
-                aiApiKey: "smoke-test-key",
-              });
-              const after = await window.surfaceDesktop.getSettings();
-              const windowBefore = await window.surfaceDesktop.getWindowState();
-              const maximized = await window.surfaceDesktop.toggleMaximize();
-              await new Promise((resolve) => setTimeout(resolve, 250));
-              const windowAfter = await window.surfaceDesktop.getWindowState();
-              await window.surfaceDesktop.toggleMaximize();
-              await new Promise((resolve) => setTimeout(resolve, 250));
-              const windowRestored = await window.surfaceDesktop.getWindowState();
-              return {
-                appInfo,
-                documentTitle: document.title,
-                health,
-                auth,
-                status,
-                jobs: { total: jobs.total, collectedTotal: jobs.collectedTotal },
-                researchCompanies: Array.isArray(research) ? research.length : null,
-                tables: Array.isArray(schema.tables) ? schema.tables.length : null,
-                saved,
-                after,
-                chrome: {
-                  controls: document.querySelectorAll(
-                    ".desktop-window-controls button",
-                  ).length,
-                  environmentTag: Boolean(
-                    document.querySelector(".environment-tag"),
-                  ),
-                  drag: getComputedStyle(header).getPropertyValue(
-                    "-webkit-app-region",
-                  ),
-                  windowBefore,
-                  maximized,
-                  windowAfter,
-                  windowRestored,
-                },
-              };
-            })()`,
-          )) as unknown;
-          mainLog?.write(
-            `SMOKE_READY ${JSON.stringify({ result, url: backendUrl })}`,
-          );
-          await delay(500);
-          await shutdown(0);
-        } catch (error) {
-          await fatal(`${identity.productName} smoke test failed`, error);
-        }
-      })();
-    });
-  }
 }
 
 async function setDesktopCookie(): Promise<void> {
+  const cookieOrigin = process.env.SURFACE_DESKTOP_RENDERER_URL ?? backendUrl;
   await session.defaultSession.cookies.set({
-    url: backendUrl,
+    url: cookieOrigin,
     name: "surface_desktop_token",
     value: desktopToken,
     httpOnly: true,
@@ -440,7 +302,47 @@ async function setDesktopCookie(): Promise<void> {
   session.defaultSession.setPermissionCheckHandler(() => false);
 }
 
-function registerIpc(settings: SettingsStore): void {
+function registerIpc(settings: SettingsStore, gmail: GmailConnection): void {
+  ipcMain.handle("desktop:gmail:status", (event) => {
+    assertTrustedSender(event);
+    return gmail.status();
+  });
+  ipcMain.handle("desktop:gmail:connect", (event) => {
+    assertTrustedSender(event);
+    return gmail.connect();
+  });
+  ipcMain.handle("desktop:gmail:disconnect", (event) => {
+    assertTrustedSender(event);
+    return gmail.disconnect();
+  });
+  ipcMain.handle(
+    "desktop:gmail:save-draft",
+    (event, input: unknown, confirmedEmail: unknown) => {
+      assertTrustedSender(event);
+      if (
+        !input ||
+        typeof input !== "object" ||
+        typeof confirmedEmail !== "string"
+      ) {
+        throw new Error("Review the recipient and message before saving.");
+      }
+      const draft = input as Partial<GmailDraft>;
+      if (
+        typeof draft.id !== "string" ||
+        typeof draft.to !== "string" ||
+        typeof draft.subject !== "string" ||
+        typeof draft.body !== "string" ||
+        typeof draft.updatedAt !== "string" ||
+        draft.id.length > 128 ||
+        draft.to.length > 254 ||
+        draft.subject.length > 500 ||
+        draft.body.length > 30000
+      ) {
+        throw new Error("Review the recipient and message before saving.");
+      }
+      return gmail.save(draft as GmailDraft, confirmedEmail, true, false);
+    },
+  );
   ipcMain.handle("desktop:settings:get", (event) => {
     assertTrustedSender(event);
     return settings.snapshot();
@@ -522,8 +424,14 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
   ) {
     throw new Error("Untrusted desktop IPC sender.");
   }
+  const trustedOrigins = new Set([
+    new URL(backendUrl).origin,
+    ...(process.env.SURFACE_DESKTOP_RENDERER_URL
+      ? [new URL(process.env.SURFACE_DESKTOP_RENDERER_URL).origin]
+      : []),
+  ]);
   const origin = new URL(frameUrl).origin;
-  if (origin !== new URL(backendUrl).origin) {
+  if (!trustedOrigins.has(origin)) {
     throw new Error("Untrusted desktop IPC sender.");
   }
 }
@@ -539,7 +447,6 @@ async function applyRuntimeSettings(
         "x-surface-desktop-token": desktopToken,
       },
       body: JSON.stringify({
-        searxngUrl: settings.searxngUrl,
         aiProvider: settings.aiProvider,
         aiBaseUrl: settings.aiBaseUrl,
         aiApiKey: settings.aiApiKey,
@@ -548,16 +455,14 @@ async function applyRuntimeSettings(
       }),
       signal: AbortSignal.timeout(5000),
     });
-    if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as {
-        error?: string;
-      };
-      return {
-        ok: false,
-        error: body.error ?? `Backend returned HTTP ${response.status}.`,
-      };
-    }
-    return { ok: true, error: null };
+    if (response.ok) return { ok: true, error: null };
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    return {
+      ok: false,
+      error: body.error ?? `Backend returned HTTP ${response.status}.`,
+    };
   } catch (error) {
     return {
       ok: false,
@@ -580,14 +485,10 @@ async function fatal(title: string, error: unknown): Promise<void> {
   if (shuttingDown) return;
   const message = error instanceof Error ? error.message : String(error);
   mainLog?.write(`[${new Date().toISOString()}] FATAL ${title}: ${message}`);
-  if (app.isReady() && process.env.SURFACE_DESKTOP_SMOKE_TEST !== "1") {
+  if (app.isReady()) {
     dialog.showErrorBox(title, `${message}\n\nLogs: ${paths?.logs ?? ""}`);
   }
   await shutdown(1, true);
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((settle) => setTimeout(settle, ms));
 }
 
 async function shutdown(exitCode: number, force = false): Promise<void> {
@@ -600,7 +501,6 @@ async function shutdown(exitCode: number, force = false): Promise<void> {
   mainLog?.write(`[${new Date().toISOString()}] shutdown requested`);
   try {
     await backend?.stop();
-    await crawler?.stop();
   } catch (error) {
     mainLog?.write(
       `[${new Date().toISOString()}] shutdown error: ${error instanceof Error ? error.message : String(error)}`,

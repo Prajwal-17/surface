@@ -1,20 +1,38 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, redirect } from "react-router";
 import { WorkspaceLayout } from "@/app/routes/workspace-layout";
+import { LoadingStatus } from "@/components/feedback/loading-state";
+
+function RouterHydrateFallback() {
+  return (
+    <main className="flex min-h-svh items-center justify-center bg-background">
+      <LoadingStatus>Loading workspace…</LoadingStatus>
+    </main>
+  );
+}
 
 export const router = createBrowserRouter([
   {
     Component: WorkspaceLayout,
+    HydrateFallback: RouterHydrateFallback,
     children: [
-      { index: true, lazy: () => import("@/app/routes/jobs-route") },
-      { path: "activity", lazy: () => import("@/app/routes/activity-route") },
-      { path: "companies", lazy: () => import("@/app/routes/companies-route") },
-      { path: "profile", lazy: () => import("@/app/routes/profile-route") },
-      { path: "research", lazy: () => import("@/app/routes/research-route") },
       {
-        path: "research/:companyId",
-        lazy: () => import("@/app/routes/company-research-route"),
+        index: true,
+        Component: () => null,
+        loader: ({ request }) =>
+          redirect(`/applications${new URL(request.url).search}`),
       },
-      { path: "schema", lazy: () => import("@/app/routes/schema-route") },
+      { path: "companies", lazy: () => import("@/app/routes/companies-route") },
+      { path: "leads", lazy: () => import("@/app/routes/leads-route") },
+      {
+        path: "applications",
+        lazy: () => import("@/app/routes/applications-route"),
+      },
+      { path: "profile", lazy: () => import("@/app/routes/profile-route") },
+      { path: "writing", lazy: () => import("@/app/routes/writing-route") },
+      {
+        path: "writing/profile",
+        lazy: () => import("@/app/routes/writing-profile-route"),
+      },
       { path: "settings", lazy: () => import("@/app/routes/settings-route") },
     ],
   },

@@ -23,7 +23,11 @@ export function startManagedProcess(
   options: StartProcessOptions,
 ): ManagedProcess {
   const child = utilityProcess.fork(options.entry, [], {
-    env: options.env,
+    env: Object.fromEntries(
+      Object.entries(options.env).filter(
+        (entry): entry is [string, string] => entry[1] !== undefined,
+      ),
+    ),
     stdio: "pipe",
     serviceName: `${desktopIdentity().executableName}-${options.name}`,
   });

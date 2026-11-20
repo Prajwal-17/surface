@@ -1,5 +1,4 @@
-import { CompaniesScreen } from "@/features/companies/components/companies-screen";
-
+import { TrackerWorkspace } from "@/features/tracker/demo";
 export function Component() {
-  return <CompaniesScreen />;
+  return <TrackerWorkspace page="companies" />;
 }

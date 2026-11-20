@@ -14,7 +14,6 @@ export const DEFAULT_AI_BASE_URL = "https://opencode.ai/inference/go/openai/v1";
 export const DEFAULT_AI_MODEL = "deepseek-v4.1-flash";
 
 export interface DesktopSettingsInput {
-  searxngUrl: string;
   aiProvider: string;
   aiBaseUrl: string;
   aiModel: string;
@@ -24,7 +23,6 @@ export interface DesktopSettingsInput {
 }
 
 export interface DesktopSettingsSnapshot {
-  searxngUrl: string;
   aiProvider: string;
   aiBaseUrl: string;
   aiModel: string;
@@ -44,6 +42,7 @@ type StoredKey =
 interface StoredSettingsV2 {
   version: 2;
   searxngUrl: string;
+  crawlerUrl?: string;
   aiProvider: string;
   aiBaseUrl: string;
   aiModel: string;
@@ -57,22 +56,32 @@ interface StoredSettingsV2 {
   };
 }
 
+interface StoredSettingsV3 {
+  version: 3;
+  aiProvider: string;
+  aiBaseUrl: string;
+  aiModel: string;
+  aiReasoning: "default" | "low" | "medium" | "high";
+  apiKey?: StoredKey;
+  legacyOmniRoute?: StoredSettingsV2["legacyOmniRoute"];
+}
+
 interface StoredSettingsV1 {
   version: 1;
-  searxngUrl: string;
+  searxngUrl?: string;
   omnirouteUrl: string;
   omnirouteModel: string;
   apiKey?: StoredKey;
 }
 
 export class SettingsStore {
-  private stored: StoredSettingsV2;
+  private stored: StoredSettingsV3;
   private apiKey: string;
   private secretStorage: SecretStorage;
 
   private constructor(
     private readonly file: string,
-    stored: StoredSettingsV2,
+    stored: StoredSettingsV3,
     apiKey: string,
     secretStorage: SecretStorage,
   ) {
@@ -90,7 +99,6 @@ export class SettingsStore {
 
   snapshot(): DesktopSettingsSnapshot {
     return {
-      searxngUrl: this.stored.searxngUrl,
       aiProvider: this.stored.aiProvider,
       aiBaseUrl: this.stored.aiBaseUrl,
       aiModel: this.stored.aiModel,
@@ -109,7 +117,6 @@ export class SettingsStore {
   }
 
   async save(input: DesktopSettingsInput): Promise<DesktopSettingsSnapshot> {
-    validateUrl(input.searxngUrl, "SearXNG URL");
     validateUrl(input.aiBaseUrl, "AI base URL");
     const provider = input.aiProvider.trim().toLowerCase();
     if (!provider) throw new Error("AI provider is required.");
@@ -124,10 +131,11 @@ export class SettingsStore {
     const nextKey = input.clearAiApiKey
       ? ""
       : input.aiApiKey?.trim() || this.apiKey;
-    const nextStored: StoredSettingsV2 = {
-      ...this.stored,
-      version: 2,
-      searxngUrl: normalizeUrl(input.searxngUrl),
+    const nextStored: StoredSettingsV3 = {
+      version: 3,
+      ...(this.stored.legacyOmniRoute
+        ? { legacyOmniRoute: this.stored.legacyOmniRoute }
+        : {}),
       aiProvider: provider,
       aiBaseUrl: normalizeUrl(input.aiBaseUrl),
       aiModel: model,
@@ -144,11 +152,10 @@ export class SettingsStore {
   }
 }
 
-function readStored(file: string): StoredSettingsV2 {
+function readStored(file: string): StoredSettingsV3 {
   if (!existsSync(file)) {
     return {
-      version: 2,
-      searxngUrl: "http://127.0.0.1:8080",
+      version: 3,
       aiProvider: DEFAULT_AI_PROVIDER,
       aiBaseUrl: DEFAULT_AI_BASE_URL,
       aiModel: DEFAULT_AI_MODEL,
@@ -157,16 +164,14 @@ function readStored(file: string): StoredSettingsV2 {
   }
   try {
     const parsed = JSON.parse(readFileSync(file, "utf8")) as
-      StoredSettingsV1 | StoredSettingsV2;
+      StoredSettingsV1 | StoredSettingsV2 | StoredSettingsV3;
     if (parsed.version === 1) {
-      validateUrl(parsed.searxngUrl, "SearXNG URL");
       validateUrl(parsed.omnirouteUrl, "OmniRoute URL");
       if (typeof parsed.omnirouteModel !== "string")
         throw new Error("unsupported settings format");
       backupVersionOne(file, parsed);
       return {
-        version: 2,
-        searxngUrl: parsed.searxngUrl,
+        version: 3,
         aiProvider: DEFAULT_AI_PROVIDER,
         aiBaseUrl: DEFAULT_AI_BASE_URL,
         aiModel: DEFAULT_AI_MODEL,
@@ -179,15 +184,13 @@ function readStored(file: string): StoredSettingsV2 {
       };
     }
     if (
-      parsed.version !== 2 ||
-      typeof parsed.searxngUrl !== "string" ||
+      (parsed.version !== 2 && parsed.version !== 3) ||
       typeof parsed.aiProvider !== "string" ||
       typeof parsed.aiBaseUrl !== "string" ||
       typeof parsed.aiModel !== "string"
     ) {
       throw new Error("unsupported settings format");
     }
-    validateUrl(parsed.searxngUrl, "SearXNG URL");
     validateUrl(parsed.aiBaseUrl, "AI base URL");
     if (parsed.aiProvider !== DEFAULT_AI_PROVIDER)
       throw new Error(
@@ -198,7 +201,17 @@ function readStored(file: string): StoredSettingsV2 {
       !["default", "low", "medium", "high"].includes(parsed.aiReasoning)
     )
       throw new Error("Invalid reasoning effort.");
-    return { ...parsed, aiReasoning: parsed.aiReasoning ?? "default" };
+    return {
+      version: 3,
+      aiProvider: parsed.aiProvider,
+      aiBaseUrl: parsed.aiBaseUrl,
+      aiModel: parsed.aiModel,
+      aiReasoning: parsed.aiReasoning ?? "default",
+      ...(parsed.apiKey ? { apiKey: parsed.apiKey } : {}),
+      ...(parsed.legacyOmniRoute
+        ? { legacyOmniRoute: parsed.legacyOmniRoute }
+        : {}),
+    };
   } catch (error) {
     throw new Error(
       `Cannot read desktop settings at ${file}: ${error instanceof Error ? error.message : "invalid file"}. Move the file aside to reset settings; the database and snapshots are not affected.`,
@@ -225,7 +238,7 @@ function backupVersionOne(file: string, parsed: StoredSettingsV1): void {
   }
 }
 
-function writeStored(file: string, settings: StoredSettingsV2): void {
+function writeStored(file: string, settings: StoredSettingsV3): void {
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
   const temporary = `${file}.${process.pid}.tmp`;
   writeFileSync(temporary, JSON.stringify(settings, null, 2), {
@@ -273,7 +286,7 @@ async function decryptKey(
 }
 
 async function storageBackend(
-  stored: StoredSettingsV2,
+  stored: StoredSettingsV2 | StoredSettingsV3,
 ): Promise<SecretStorage> {
   const key = stored.apiKey ?? stored.legacyOmniRoute?.apiKey;
   if (!key) {

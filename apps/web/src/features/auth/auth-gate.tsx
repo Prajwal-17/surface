@@ -119,7 +119,7 @@ function LoginScreen({
             Sign in to your workspace
           </h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Enter the email authorized for this workspace to continue.
+            Enter your email to open your workspace.
           </p>
         </div>
 
@@ -129,8 +129,8 @@ function LoginScreen({
         >
           {import.meta.env.DEV ? (
             <p className="mb-4 rounded-md border border-warning/20 bg-warning/5 px-3 py-2 text-xs leading-5 text-muted-foreground">
-              Development mode · isolated data; any valid email works unless
-              AUTH_EMAIL is configured
+              Development mode · isolated data; any valid email opens the
+              workspace
             </p>
           ) : null}
           <label

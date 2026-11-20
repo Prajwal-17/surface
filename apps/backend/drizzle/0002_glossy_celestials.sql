@@ -1,1 +1,0 @@
-ALTER TABLE "companies" ADD COLUMN "details_checked_at" text;

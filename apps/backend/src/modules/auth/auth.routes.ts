@@ -1,7 +1,5 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { env } from "../../config/env";
-import { findProfile } from "../profile/profile.repository";
 import { clearSession, createSession, readSession } from "./session";
 
 export const authRoutes = new Hono();
@@ -32,28 +30,6 @@ authRoutes.post("/login", async (context) => {
     );
   if (!parsedEmail.success) {
     return context.json({ error: "Enter a valid email address." }, 400);
-  }
-
-  const profileEmail = (await findProfile())?.context.details?.email
-    ?.trim()
-    .toLowerCase();
-  const allowedEmail = env.AUTH_EMAIL ?? (profileEmail || undefined);
-
-  if (!allowedEmail && env.APP_ENV !== "development") {
-    return context.json(
-      {
-        error:
-          "Login is not configured. Set AUTH_EMAIL or add an email to the saved profile.",
-      },
-      503,
-    );
-  }
-
-  if (allowedEmail && parsedEmail.data !== allowedEmail) {
-    return context.json(
-      { error: "That email does not match this workspace." },
-      401,
-    );
   }
 
   await createSession(context, parsedEmail.data);

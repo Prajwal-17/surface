@@ -4,6 +4,10 @@ import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LocationLabel, optionLabel } from "./profile-controls";
 import { type EditorProfile, type ProfileSection } from "./profile-sections";
+import {
+  personalContextSchema,
+  profileDetailsSchema,
+} from "@surface/contracts";
 function Entry({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="profile-review-entry">
@@ -36,8 +40,8 @@ export function ProfileOverview({
   form: EditorProfile;
   onEdit: (s: ProfileSection) => void;
 }) {
-  const d = form.context.details,
-    c = form.context,
+  const c = personalContextSchema.parse(form.context);
+  const d = profileDetailsSchema.parse(c.details ?? {}),
     req = c.constraints;
   const hasBackground = !!(
     d.name ||

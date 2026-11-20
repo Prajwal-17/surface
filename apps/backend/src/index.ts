@@ -1,6 +1,10 @@
-// oxlint-disable-next-line import/no-unassigned-import -- load .env before configuration is evaluated
-import "dotenv/config";
+// oxlint-disable-next-line import/no-unassigned-import -- start Surface's HTTP server
 import { startSurfaceServer } from "./server";
+import { initDesktopRenderChannel } from "./modules/desktop/render-channel";
+
+// Runs under Electron only; attaches the backend end of the desktop channel
+// used for rendered page fetches. No-op in standalone development.
+initDesktopRenderChannel();
 
 const server = await startSurfaceServer();
 
