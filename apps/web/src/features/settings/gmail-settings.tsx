@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 const gmailKey = ["gmail-status"] as const;
 
 function cleanIpcError(error: Error) {
-  return error.message.replace(/^Error invoking remote method .*?: Error: /, "");
+  return error.message.replace(
+    /^Error invoking remote method .*?: Error: /,
+    "",
+  );
 }
 
 export function GmailSettings() {
@@ -87,7 +90,9 @@ export function GmailSettings() {
 
       {status.data?.available && (
         <div className="max-w-2xl space-y-2 rounded-lg border border-border bg-muted/20 p-3.5 text-xs leading-5">
-          <p className="font-medium text-foreground">Draft first, schedule in Gmail</p>
+          <p className="font-medium text-foreground">
+            Draft first, schedule in Gmail
+          </p>
           <p className="text-muted-foreground">
             Google OAuth lets Surface create and update drafts in your Gmail
             Drafts folder. After a draft opens, use Gmail’s Schedule send to

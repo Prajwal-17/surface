@@ -70,7 +70,10 @@ export async function resolvePublicAddresses(
   hostname: string,
   resolve: Resolver = defaultResolver,
 ): Promise<LookupAddress[] | null> {
-  const host = hostname.toLowerCase().replace(/\.$/, "").replace(/^\[|\]$/g, "");
+  const host = hostname
+    .toLowerCase()
+    .replace(/\.$/, "")
+    .replace(/^\[|\]$/g, "");
   if (!host) return null;
 
   let addresses: LookupAddress[];
@@ -98,9 +101,7 @@ export async function resolvePublicAddresses(
  * already checked, so the socket connects to an address the guard approved
  * and the runtime never resolves the host a second time.
  */
-export const pinnedLookup = (
-  addresses: LookupAddress[],
-): typeof dns.lookup =>
+export const pinnedLookup = (addresses: LookupAddress[]): typeof dns.lookup =>
   ((
     _hostname: string,
     opts: dns.LookupOptions,

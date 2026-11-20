@@ -1,285 +1,513 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Find leads — discovery form mockup</title>
-<style>
-  /* Static mockup of the new discovery form + run progress strip.
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Find leads — discovery form mockup</title>
+    <style>
+      /* Static mockup of the new discovery form + run progress strip.
      Tokens mirror apps/web/src/styles/globals.css (dark theme). */
-  :root {
-    color-scheme: dark;
-    --background: #0b0d10;
-    --card: #111318;
-    --border: rgb(255 255 255 / 9%);
-    --input: rgb(255 255 255 / 14%);
-    --foreground: #eceef2;
-    --muted: #9aa1ad;
-    --brand: #7fb4f2;
-    --hover: rgb(255 255 255 / 4%);
-    --selected: rgb(255 255 255 / 7%);
-    --warning: #e5b567;
-    --destructive: #e5484d;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--background);
-    color: var(--foreground);
-    font: 14px/1.45 "Geist", "Inter", system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-  .wrap { max-width: 760px; margin: 32px auto 64px; padding: 0 16px; }
-  h1 { font-size: 15px; font-weight: 600; margin: 0 0 16px; }
+      :root {
+        color-scheme: dark;
+        --background: #0b0d10;
+        --card: #111318;
+        --border: rgb(255 255 255 / 9%);
+        --input: rgb(255 255 255 / 14%);
+        --foreground: #eceef2;
+        --muted: #9aa1ad;
+        --brand: #7fb4f2;
+        --hover: rgb(255 255 255 / 4%);
+        --selected: rgb(255 255 255 / 7%);
+        --warning: #e5b567;
+        --destructive: #e5484d;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--foreground);
+        font:
+          14px/1.45 "Geist",
+          "Inter",
+          system-ui,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 760px;
+        margin: 32px auto 64px;
+        padding: 0 16px;
+      }
+      h1 {
+        font-size: 15px;
+        font-weight: 600;
+        margin: 0 0 16px;
+      }
 
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-  }
-  .card-head {
-    display: flex; align-items: center; gap: 8px;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
-    font-size: 14px; font-weight: 600;
-  }
-  .card-head .icon { color: var(--brand); font-size: 13px; }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .card-head .icon {
+        color: var(--brand);
+        font-size: 13px;
+      }
 
-  .rows { padding: 16px; display: grid; gap: 18px; }
+      .rows {
+        padding: 16px;
+        display: grid;
+        gap: 18px;
+      }
 
-  .row-head {
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  }
-  .row-label { font-size: 12px; font-weight: 500; color: var(--foreground); }
-  .row-sub { font-size: 11px; color: var(--muted); }
-  .row-toggle {
-    background: none; border: 0; padding: 2px 4px; cursor: pointer;
-    font-size: 12px; color: var(--muted); border-radius: 6px;
-  }
-  .row-toggle:hover { color: var(--foreground); background: var(--hover); }
+      .row-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .row-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--foreground);
+      }
+      .row-sub {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .row-toggle {
+        background: none;
+        border: 0;
+        padding: 2px 4px;
+        cursor: pointer;
+        font-size: 12px;
+        color: var(--muted);
+        border-radius: 6px;
+      }
+      .row-toggle:hover {
+        color: var(--foreground);
+        background: var(--hover);
+      }
 
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-  .chip {
-    display: inline-flex; align-items: center; gap: 4px;
-    min-height: 28px;
-    border: 1px solid var(--input); border-radius: 8px;
-    background: transparent; color: var(--foreground);
-    padding: 2px 6px 2px 8px; font-size: 12px;
-  }
-  .chip .x {
-    display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center;
-    border: 0; background: none; cursor: pointer; color: var(--muted);
-    border-radius: 4px; font-size: 11px; padding: 0;
-  }
-  .chip .x:hover { background: var(--hover); color: var(--foreground); }
-  .add {
-    display: inline-flex; align-items: center; gap: 4px;
-    min-height: 28px;
-    border: 1px dashed var(--input); border-radius: 8px;
-    background: none; color: var(--muted);
-    padding: 2px 8px; font-size: 12px; cursor: pointer;
-  }
-  .add:hover { background: var(--hover); color: var(--foreground); }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 6px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-height: 28px;
+        border: 1px solid var(--input);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--foreground);
+        padding: 2px 6px 2px 8px;
+        font-size: 12px;
+      }
+      .chip .x {
+        display: inline-flex;
+        width: 16px;
+        height: 16px;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        background: none;
+        cursor: pointer;
+        color: var(--muted);
+        border-radius: 4px;
+        font-size: 11px;
+        padding: 0;
+      }
+      .chip .x:hover {
+        background: var(--hover);
+        color: var(--foreground);
+      }
+      .add {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-height: 28px;
+        border: 1px dashed var(--input);
+        border-radius: 8px;
+        background: none;
+        color: var(--muted);
+        padding: 2px 8px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .add:hover {
+        background: var(--hover);
+        color: var(--foreground);
+      }
 
-  .sub { margin-top: 10px; }
-  .sub-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
-  .hint { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+      .sub {
+        margin-top: 10px;
+      }
+      .sub-label {
+        font-size: 11px;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      .hint {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 6px;
+        line-height: 1.4;
+      }
 
-  .goal-input {
-    width: 100%; margin-top: 6px;
-    background: transparent; border: 1px solid var(--input);
-    border-radius: 8px; color: var(--foreground);
-    padding: 8px 10px; font-size: 13px;
-  }
-  .goal-input::placeholder { color: var(--muted); }
+      .goal-input {
+        width: 100%;
+        margin-top: 6px;
+        background: transparent;
+        border: 1px solid var(--input);
+        border-radius: 8px;
+        color: var(--foreground);
+        padding: 8px 10px;
+        font-size: 13px;
+      }
+      .goal-input::placeholder {
+        color: var(--muted);
+      }
 
-  .collapsed {
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  }
-  .collapsed .label { font-size: 12px; font-weight: 500; }
-  .collapsed .summary { font-size: 12px; color: var(--muted); margin-left: 8px; }
+      .collapsed {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .collapsed .label {
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .collapsed .summary {
+        font-size: 12px;
+        color: var(--muted);
+        margin-left: 8px;
+      }
 
-  .footer {
-    display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
-    padding: 14px 16px; border-top: 1px solid var(--border);
-  }
-  .limit label { font-size: 12px; font-weight: 500; display: block; margin-bottom: 6px; }
-  .limit select {
-    background: transparent; border: 1px solid var(--input); border-radius: 8px;
-    color: var(--foreground); padding: 7px 8px; font-size: 13px;
-  }
-  .btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: #e8edf5; color: #0b0d10;
-    border: 0; border-radius: 8px; padding: 8px 14px;
-    font-size: 13px; font-weight: 600; cursor: pointer;
-  }
+      .footer {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 16px;
+        border-top: 1px solid var(--border);
+      }
+      .limit label {
+        font-size: 12px;
+        font-weight: 500;
+        display: block;
+        margin-bottom: 6px;
+      }
+      .limit select {
+        background: transparent;
+        border: 1px solid var(--input);
+        border-radius: 8px;
+        color: var(--foreground);
+        padding: 7px 8px;
+        font-size: 13px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #e8edf5;
+        color: #0b0d10;
+        border: 0;
+        border-radius: 8px;
+        padding: 8px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+      }
 
-  .warning {
-    margin: 0 16px 14px;
-    border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
-    background: color-mix(in srgb, var(--warning) 5%, transparent);
-    border-radius: 8px; padding: 10px 12px;
-    font-size: 12px; color: var(--muted);
-  }
-  .warning strong { color: var(--warning); font-weight: 500; }
+      .warning {
+        margin: 0 16px 14px;
+        border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+        background: color-mix(in srgb, var(--warning) 5%, transparent);
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .warning strong {
+        color: var(--warning);
+        font-weight: 500;
+      }
 
-  /* ---- run progress strip ---- */
-  .strip {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
-    font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
-  }
-  .strip .state { color: var(--brand); display: inline-flex; align-items: center; gap: 6px; }
-  .strip .sep { color: var(--border); }
-  .spinner {
-    width: 12px; height: 12px; border-radius: 50%;
-    border: 2px solid color-mix(in srgb, var(--brand) 30%, transparent);
-    border-top-color: var(--brand);
-    animation: spin 0.9s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+      /* ---- run progress strip ---- */
+      .strip {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+        font-size: 12px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .strip .state {
+        color: var(--brand);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .strip .sep {
+        color: var(--border);
+      }
+      .spinner {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid color-mix(in srgb, var(--brand) 30%, transparent);
+        border-top-color: var(--brand);
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
 
-  .summary { font-size: 14px; line-height: 1.55; color: var(--foreground); }
-  .notes { font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 4px; }
-</style>
-</head>
-<body>
-<div class="wrap">
-  <h1>Find leads · Discovery</h1>
+      .summary {
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--foreground);
+      }
+      .notes {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+        margin-top: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Find leads · Discovery</h1>
 
-  <!-- ================= form card ================= -->
-  <section class="card">
-    <div class="card-head"><span class="icon">⌕</span> Discovery criteria</div>
-    <div class="rows">
-
-      <div class="row">
-        <div class="row-head">
-          <span class="row-label">Where to look</span>
-          <button class="row-toggle">Hide</button>
+      <!-- ================= form card ================= -->
+      <section class="card">
+        <div class="card-head">
+          <span class="icon">⌕</span> Discovery criteria
         </div>
-        <div class="chips">
-          <span class="chip">YC companies <button class="x" aria-label="Remove YC companies">✕</button></span>
-          <span class="chip">Product Hunt <button class="x" aria-label="Remove Product Hunt">✕</button></span>
-          <span class="chip">Show HN <button class="x" aria-label="Remove Show HN">✕</button></span>
-          <button class="add">＋ Add source</button>
-        </div>
-        <p class="hint">Known directories the agent searches or reads first. Leave empty to let it choose its own searches.</p>
-      </div>
+        <div class="rows">
+          <div class="row">
+            <div class="row-head">
+              <span class="row-label">Where to look</span>
+              <button class="row-toggle">Hide</button>
+            </div>
+            <div class="chips">
+              <span class="chip"
+                >YC companies
+                <button class="x" aria-label="Remove YC companies">
+                  ✕
+                </button></span
+              >
+              <span class="chip"
+                >Product Hunt
+                <button class="x" aria-label="Remove Product Hunt">
+                  ✕
+                </button></span
+              >
+              <span class="chip"
+                >Show HN
+                <button class="x" aria-label="Remove Show HN">✕</button></span
+              >
+              <button class="add">＋ Add source</button>
+            </div>
+            <p class="hint">
+              Known directories the agent searches or reads first. Leave empty
+              to let it choose its own searches.
+            </p>
+          </div>
 
-      <div class="row">
-        <div class="row-head">
-          <span class="row-label">Who</span>
-          <button class="row-toggle">Hide</button>
-        </div>
-        <div class="sub">
-          <div class="sub-label">Industries</div>
-          <div class="chips">
-            <span class="chip">B2B developer tools <button class="x" aria-label="Remove">✕</button></span>
-            <span class="chip">DevOps and platform engineering <button class="x" aria-label="Remove">✕</button></span>
-            <button class="add">＋ Add</button>
+          <div class="row">
+            <div class="row-head">
+              <span class="row-label">Who</span>
+              <button class="row-toggle">Hide</button>
+            </div>
+            <div class="sub">
+              <div class="sub-label">Industries</div>
+              <div class="chips">
+                <span class="chip"
+                  >B2B developer tools
+                  <button class="x" aria-label="Remove">✕</button></span
+                >
+                <span class="chip"
+                  >DevOps and platform engineering
+                  <button class="x" aria-label="Remove">✕</button></span
+                >
+                <button class="add">＋ Add</button>
+              </div>
+            </div>
+            <div class="sub">
+              <div class="sub-label">Geographies</div>
+              <div class="chips">
+                <span class="chip"
+                  >United States
+                  <button class="x" aria-label="Remove">✕</button></span
+                >
+                <span class="chip"
+                  >Remote-first
+                  <button class="x" aria-label="Remove">✕</button></span
+                >
+                <button class="add">＋ Add</button>
+              </div>
+            </div>
+            <div class="sub">
+              <div class="sub-label">Company type</div>
+              <div class="chips">
+                <span class="chip"
+                  >Seed stage
+                  <button class="x" aria-label="Remove">✕</button></span
+                >
+                <span class="chip"
+                  >Hiring engineers
+                  <button class="x" aria-label="Remove">✕</button></span
+                >
+                <button class="add">＋ Add</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="row-head">
+              <span class="row-label">Signals</span>
+              <button class="row-toggle">Hide</button>
+            </div>
+            <div class="chips">
+              <span class="chip"
+                >Recently funded
+                <button class="x" aria-label="Remove">✕</button></span
+              >
+              <span class="chip"
+                >Hiring engineers
+                <button class="x" aria-label="Remove">✕</button></span
+              >
+              <button class="add">＋ Add signal</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="row-head">
+              <span class="row-label">Exclusions</span>
+              <button class="row-toggle">Hide</button>
+            </div>
+            <div class="chips">
+              <span class="chip"
+                >Agencies <button class="x" aria-label="Remove">✕</button></span
+              >
+              <span class="chip"
+                >Consultancies
+                <button class="x" aria-label="Remove">✕</button></span
+              >
+              <button class="add">＋ Add exclusion</button>
+            </div>
+          </div>
+
+          <!-- hidden row with a value collapses to a summary line -->
+          <div class="row">
+            <div class="collapsed">
+              <span
+                ><span class="label">Goal (optional)</span
+                ><span class="summary"
+                  >Leads for our CI observability launch outreach</span
+                ></span
+              >
+              <button class="row-toggle">Show</button>
+            </div>
           </div>
         </div>
-        <div class="sub">
-          <div class="sub-label">Geographies</div>
-          <div class="chips">
-            <span class="chip">United States <button class="x" aria-label="Remove">✕</button></span>
-            <span class="chip">Remote-first <button class="x" aria-label="Remove">✕</button></span>
-            <button class="add">＋ Add</button>
+
+        <div class="warning">
+          <strong>SearXNG not configured.</strong> Add an instance URL in the
+          settings card above before starting a run.
+        </div>
+
+        <div class="footer">
+          <div class="limit">
+            <label for="limit">Result limit</label>
+            <select id="limit">
+              <option>5 leads</option>
+              <option>3 leads</option>
+              <option>8 leads</option>
+              <option>10 leads</option>
+              <option>15 leads</option>
+            </select>
+          </div>
+          <button class="btn">✦ Start discovery run</button>
+        </div>
+      </section>
+
+      <h1 style="margin-top: 32px">Run detail · progress strip</h1>
+
+      <!-- ================= run detail card ================= -->
+      <section class="card">
+        <div class="card-head" style="justify-content: space-between">
+          <span style="display: flex; align-items: center; gap: 8px"
+            ><span class="icon">⌕</span> Discovery run
+            <span
+              style="
+                font-size: 11px;
+                font-weight: 500;
+                border: 1px solid var(--border);
+                border-radius: 999px;
+                padding: 2px 8px;
+                color: var(--brand);
+              "
+              >Running</span
+            >
+          </span>
+          <button class="row-toggle">Cancel run</button>
+        </div>
+        <div class="rows" style="gap: 12px">
+          <div class="strip">
+            <span class="state"><span class="spinner"></span> Searching</span>
+            <span class="sep">·</span><span>3/6 searches</span>
+            <span class="sep">·</span><span>5/10 pages</span>
+            <span class="sep">·</span><span>2 saved</span>
+            <span class="sep">·</span><span>1 skipped</span>
+            <span class="sep">·</span><span>1 rendered</span>
+          </div>
+
+          <!-- deterministic summary (composed from counters, not the model) -->
+          <p class="summary">
+            Saved 2 leads from 5 sources (1 rendered). Skipped 1 duplicate.
+          </p>
+
+          <!-- model's closing text as a muted note line -->
+          <p class="notes">
+            Note: two strongest matches were PostHog and Grafana; both
+            re-launched observability products this quarter.
+          </p>
+
+          <div
+            class="strip"
+            style="border-top: 1px solid var(--border); padding-top: 12px"
+          >
+            <span class="state" style="color: var(--muted)">✓ Completed</span>
+            <span class="sep">·</span><span>6/6 searches</span>
+            <span class="sep">·</span><span>10/10 pages</span>
+            <span class="sep">·</span><span>5 saved</span>
+            <span class="sep">·</span><span>2 skipped</span>
           </div>
         </div>
-        <div class="sub">
-          <div class="sub-label">Company type</div>
-          <div class="chips">
-            <span class="chip">Seed stage <button class="x" aria-label="Remove">✕</button></span>
-            <span class="chip">Hiring engineers <button class="x" aria-label="Remove">✕</button></span>
-            <button class="add">＋ Add</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="row-head">
-          <span class="row-label">Signals</span>
-          <button class="row-toggle">Hide</button>
-        </div>
-        <div class="chips">
-          <span class="chip">Recently funded <button class="x" aria-label="Remove">✕</button></span>
-          <span class="chip">Hiring engineers <button class="x" aria-label="Remove">✕</button></span>
-          <button class="add">＋ Add signal</button>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="row-head">
-          <span class="row-label">Exclusions</span>
-          <button class="row-toggle">Hide</button>
-        </div>
-        <div class="chips">
-          <span class="chip">Agencies <button class="x" aria-label="Remove">✕</button></span>
-          <span class="chip">Consultancies <button class="x" aria-label="Remove">✕</button></span>
-          <button class="add">＋ Add exclusion</button>
-        </div>
-      </div>
-
-      <!-- hidden row with a value collapses to a summary line -->
-      <div class="row">
-        <div class="collapsed">
-          <span><span class="label">Goal (optional)</span><span class="summary">Leads for our CI observability launch outreach</span></span>
-          <button class="row-toggle">Show</button>
-        </div>
-      </div>
-
+      </section>
     </div>
-
-    <div class="warning"><strong>SearXNG not configured.</strong> Add an instance URL in the settings card above before starting a run.</div>
-
-    <div class="footer">
-      <div class="limit">
-        <label for="limit">Result limit</label>
-        <select id="limit"><option>5 leads</option><option>3 leads</option><option>8 leads</option><option>10 leads</option><option>15 leads</option></select>
-      </div>
-      <button class="btn">✦ Start discovery run</button>
-    </div>
-  </section>
-
-  <h1 style="margin-top:32px">Run detail · progress strip</h1>
-
-  <!-- ================= run detail card ================= -->
-  <section class="card">
-    <div class="card-head" style="justify-content:space-between">
-      <span style="display:flex;align-items:center;gap:8px"><span class="icon">⌕</span> Discovery run
-        <span style="font-size:11px;font-weight:500;border:1px solid var(--border);border-radius:999px;padding:2px 8px;color:var(--brand)">Running</span>
-      </span>
-      <button class="row-toggle">Cancel run</button>
-    </div>
-    <div class="rows" style="gap:12px">
-
-      <div class="strip">
-        <span class="state"><span class="spinner"></span> Searching</span>
-        <span class="sep">·</span><span>3/6 searches</span>
-        <span class="sep">·</span><span>5/10 pages</span>
-        <span class="sep">·</span><span>2 saved</span>
-        <span class="sep">·</span><span>1 skipped</span>
-        <span class="sep">·</span><span>1 rendered</span>
-      </div>
-
-      <!-- deterministic summary (composed from counters, not the model) -->
-      <p class="summary">Saved 2 leads from 5 sources (1 rendered). Skipped 1 duplicate.</p>
-
-      <!-- model's closing text as a muted note line -->
-      <p class="notes">Note: two strongest matches were PostHog and Grafana; both re-launched observability products this quarter.</p>
-
-      <div class="strip" style="border-top:1px solid var(--border);padding-top:12px">
-        <span class="state" style="color:var(--muted)">✓ Completed</span>
-        <span class="sep">·</span><span>6/6 searches</span>
-        <span class="sep">·</span><span>10/10 pages</span>
-        <span class="sep">·</span><span>5 saved</span>
-        <span class="sep">·</span><span>2 skipped</span>
-      </div>
-
-    </div>
-  </section>
-</div>
-</body>
+  </body>
 </html>

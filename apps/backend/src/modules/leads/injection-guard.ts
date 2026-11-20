@@ -28,7 +28,10 @@ export type ScreenedText = {
   flagged: number;
 };
 
-export function stripInjectionLines(input: string, maxLength = 7000): ScreenedText {
+export function stripInjectionLines(
+  input: string,
+  maxLength = 7000,
+): ScreenedText {
   if (!input) return { text: input, flagged: 0 };
   let flagged = 0;
   const kept = input.split("\n").filter((line) => {

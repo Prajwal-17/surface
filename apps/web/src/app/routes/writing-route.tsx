@@ -913,7 +913,9 @@ export function Component() {
           <DialogHeader className="pr-8 text-left">
             <DialogTitle>Review Gmail draft</DialogTitle>
             <DialogDescription>
-              Review the complete message before saving it to {gmailStatus.data?.email ?? "Gmail"}. Saving opens Gmail Drafts; choose Schedule send there when you are ready.
+              Review the complete message before saving it to{" "}
+              {gmailStatus.data?.email ?? "Gmail"}. Saving opens Gmail Drafts;
+              choose Schedule send there when you are ready.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4 text-xs">

@@ -22,10 +22,16 @@ export const resumeResponseSchema = z.object({
   draft: resumeDraftSchema,
   sourceText: z.string(),
   model: z.string(),
-  skillEvidence: z.array(z.object({ skill: z.enum(skillOptions), evidence: z.string() })).optional(),
+  skillEvidence: z
+    .array(z.object({ skill: z.enum(skillOptions), evidence: z.string() }))
+    .optional(),
 });
 export type ResumeDraft = z.infer<typeof resumeDraftSchema>;
 export const resumeImportResponseSchema = z.union([
   resumeResponseSchema,
-  z.object({ needsText: z.literal(true), sourceText: z.string(), message: z.string() }),
+  z.object({
+    needsText: z.literal(true),
+    sourceText: z.string(),
+    message: z.string(),
+  }),
 ]);

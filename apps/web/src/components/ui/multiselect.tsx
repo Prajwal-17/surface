@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Command } from "cmdk";
 import { Plus, X } from "lucide-react";
 import type { CatalogOption } from "@surface/contracts";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 /**

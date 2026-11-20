@@ -48,7 +48,6 @@ await step("backend", async () => {
     join(backendDir, "src/modules/profile/data/locations.json.gz"),
     join(outdir, "data/locations.json.gz"),
   );
-
 });
 
 await step("desktop shell", async () => {

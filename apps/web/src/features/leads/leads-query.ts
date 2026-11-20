@@ -160,7 +160,11 @@ export function parseRunCriteria(
 ): RunCriteria | LegacyDiscoveryCriteria | null {
   try {
     const parsed: unknown = JSON.parse(run.criteria);
-    if (typeof parsed === "object" && parsed !== null && "companyId" in parsed) {
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "companyId" in parsed
+    ) {
       return parsed as ResearchCriteria;
     }
     const normalized = normalizeDiscoveryCriteria(parsed);

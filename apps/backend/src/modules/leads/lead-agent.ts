@@ -526,8 +526,7 @@ async function runDiscoveryRun(runId: string) {
 
 function discoverySummary(budget: Budget) {
   const sources = budget.sources.size;
-  const leads =
-    budget.saved === 1 ? "1 lead" : `${budget.saved} leads`;
+  const leads = budget.saved === 1 ? "1 lead" : `${budget.saved} leads`;
   if (budget.saved === 0 && sources === 0) {
     return "No leads saved. No sources were fetched.";
   }

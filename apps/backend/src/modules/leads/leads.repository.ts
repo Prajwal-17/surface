@@ -156,7 +156,11 @@ export async function requireRun(runId: string): Promise<DiscoveryRun> {
 export function parseRunCriteria(run: DiscoveryRun): RunCriteria {
   try {
     const parsed: unknown = JSON.parse(run.criteria);
-    if (typeof parsed === "object" && parsed !== null && "companyId" in parsed) {
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "companyId" in parsed
+    ) {
       return parsed as ResearchCriteria;
     }
     const criteria = normalizeDiscoveryCriteria(parsed);
@@ -532,9 +536,7 @@ export async function getCompanyOverview(companyId: string) {
 }
 
 export async function getRunLeads(runId: string) {
-  const rows = await executeStatement<
-    Record<string, unknown> & { id: string }
-  >(
+  const rows = await executeStatement<Record<string, unknown> & { id: string }>(
     `SELECT c.id,c.name,c.website,c.location,c.description,c.status,c.updated_at AS updatedAt
      FROM lead_evidence e
      JOIN tracker_companies c ON c.id=e.company_id

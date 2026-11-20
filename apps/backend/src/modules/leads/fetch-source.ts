@@ -87,7 +87,10 @@ type SimpleResponse = {
  * private ranges, and the connection only ever uses the approved addresses.
  * Each redirect hop re-validates, so no hop can bypass the guard.
  */
-async function pinnedFetch(url: URL, signal: AbortSignal): Promise<SimpleResponse> {
+async function pinnedFetch(
+  url: URL,
+  signal: AbortSignal,
+): Promise<SimpleResponse> {
   const lookup = await validatedLookup(url.hostname);
   if (!lookup) {
     throw new SourceFetchError(
@@ -242,7 +245,10 @@ export async function fetchSourcePage(rawUrl: string): Promise<FetchedSource> {
   for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect++) {
     let response: SimpleResponse;
     try {
-      response = await pinnedFetch(current, AbortSignal.timeout(FETCH_TIMEOUT_MS));
+      response = await pinnedFetch(
+        current,
+        AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      );
     } catch (error) {
       if (error instanceof SourceFetchError) throw error;
       throw new SourceFetchError(
@@ -285,9 +291,15 @@ export async function fetchSourcePage(rawUrl: string): Promise<FetchedSource> {
     const isHtml =
       /html|xml/i.test(contentType) || /<html[\s>]/i.test(response.body);
     if (!isHtml) {
-      const excerpt = response.body.replace(/\s+/g, " ").trim().slice(0, MAX_EXCERPT);
+      const excerpt = response.body
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, MAX_EXCERPT);
       if (!excerpt) {
-        throw new SourceFetchError("The source page did not contain text.", true);
+        throw new SourceFetchError(
+          "The source page did not contain text.",
+          true,
+        );
       }
       return {
         url: current.toString(),

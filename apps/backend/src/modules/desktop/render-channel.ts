@@ -32,9 +32,8 @@ let port: MessagePort | null = null;
 let nextRequestId = 1;
 const pending = new Map<number, PendingRequest>();
 
-const parentPort = (
-  process as unknown as { parentPort?: ParentPortLike }
-).parentPort;
+const parentPort = (process as unknown as { parentPort?: ParentPortLike })
+  .parentPort;
 
 export function initDesktopRenderChannel(): void {
   if (!parentPort) return;

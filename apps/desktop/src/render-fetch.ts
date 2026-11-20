@@ -78,7 +78,10 @@ function isPrivateAddress(address: string) {
 }
 
 function isBlockedHostname(hostname: string) {
-  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+  const host = hostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.$/, "");
   return (
     !host ||
     host === "localhost" ||

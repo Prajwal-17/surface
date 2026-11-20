@@ -206,7 +206,7 @@ export const seedSourcesCatalog: { id: string; options: SeedSourceOption[] } = {
       "Who is hiring",
       "news.ycombinator.com",
       "search",
-      "site:news.ycombinator.com \"Who is hiring\" {criteria}",
+      'site:news.ycombinator.com "Who is hiring" {criteria}',
     ),
     seedSource(
       "Product Hunt",
@@ -247,12 +247,16 @@ export function seedSourceOptionForDomain(
 }
 
 /** Finds the catalog preset a stored seed came from, by id or domain. */
-export function seedSourcePresetFor(entry: SeedSource): SeedSourceOption | null {
+export function seedSourcePresetFor(
+  entry: SeedSource,
+): SeedSourceOption | null {
   return (
     (entry.id
       ? seedSourcesCatalog.options.find((preset) => preset.id === entry.id)
       : undefined) ??
-    seedSourcesCatalog.options.find((preset) => preset.domain === entry.domain) ??
+    seedSourcesCatalog.options.find(
+      (preset) => preset.domain === entry.domain,
+    ) ??
     null
   );
 }
@@ -292,9 +296,9 @@ export const discoveryCriteriaSchema = z
     (value) =>
       Boolean(
         value.industries.length ||
-          value.geographies.length ||
-          value.companyTypes.length ||
-          value.signals.length,
+        value.geographies.length ||
+        value.companyTypes.length ||
+        value.signals.length,
       ),
     "Add at least one search criterion.",
   );
@@ -363,7 +367,8 @@ export function normalizeDiscoveryCriteria(
         .slice(0, 5)
         .map((entry) => ({
           domain: String(entry.domain).trim().toLowerCase(),
-          mode: entry.mode === "fetch" ? ("fetch" as const) : ("search" as const),
+          mode:
+            entry.mode === "fetch" ? ("fetch" as const) : ("search" as const),
           id:
             typeof entry.id === "string" && entry.id.trim()
               ? entry.id.trim()
@@ -383,7 +388,9 @@ export function normalizeDiscoveryCriteria(
   };
 }
 
-export function isDiscoveryCriteria(value: unknown): value is DiscoveryCriteria {
+export function isDiscoveryCriteria(
+  value: unknown,
+): value is DiscoveryCriteria {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -393,9 +400,7 @@ export function isDiscoveryCriteria(value: unknown): value is DiscoveryCriteria 
 }
 
 /** Compact factual labels for badges and history rows. */
-export function discoveryCriteriaLabels(
-  criteria: DiscoveryCriteria,
-): string[] {
+export function discoveryCriteriaLabels(criteria: DiscoveryCriteria): string[] {
   const labels: string[] = [];
   if (criteria.industries.length)
     labels.push(`Industry: ${criteria.industries.join(", ")}`);
@@ -406,6 +411,8 @@ export function discoveryCriteriaLabels(
   if (criteria.signals.length)
     labels.push(`Signals: ${criteria.signals.join(", ")}`);
   if (criteria.seedSources.length)
-    labels.push(`Seeds: ${criteria.seedSources.map((s) => s.domain).join(", ")}`);
+    labels.push(
+      `Seeds: ${criteria.seedSources.map((s) => s.domain).join(", ")}`,
+    );
   return labels;
 }

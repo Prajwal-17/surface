@@ -12,10 +12,7 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { desktopIdentity } from "./channel";
-import {
-  GmailConnection,
-  type GmailDraft,
-} from "./gmail";
+import { GmailConnection, type GmailDraft } from "./gmail";
 import { createLogSink, type LogSink } from "./logger";
 import { desktopPaths, type DesktopPaths } from "./paths";
 import { getFreePort } from "./ports";

@@ -1,10 +1,7 @@
 import { asc, eq } from "drizzle-orm";
 import { db, transaction } from "../../infrastructure/database/client";
 import { HttpError } from "../../shared/errors/http-error";
-import {
-  writingExamples,
-  writingPreferences,
-} from "./writing.tables";
+import { writingExamples, writingPreferences } from "./writing.tables";
 
 const profileId = "me";
 
@@ -115,4 +112,3 @@ export async function reorderWritingExamples(ids: string[]) {
   });
   return { reordered: true };
 }
-

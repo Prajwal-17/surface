@@ -178,9 +178,11 @@ export function initializeLeadTables(database: DatabaseSync) {
   // Databases created before rendered fetch existed keep working: add the
   // column in place instead of requiring a migration runner.
   const leadSourceColumns = new Set(
-    (database.prepare("PRAGMA table_info(lead_sources)").all() as {
-      name: string;
-    }[]).map((column) => column.name),
+    (
+      database.prepare("PRAGMA table_info(lead_sources)").all() as {
+        name: string;
+      }[]
+    ).map((column) => column.name),
   );
   if (!leadSourceColumns.has("rendered")) {
     database.exec(

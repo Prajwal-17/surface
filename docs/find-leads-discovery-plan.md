@@ -34,15 +34,15 @@ New shape:
 
 ```ts
 type SeedSource = {
-  domain: string;              // e.g. "ycombinator.com"
-  mode: "search" | "fetch";    // search inside it vs fetch listing pages
+  domain: string; // e.g. "ycombinator.com"
+  mode: "search" | "fetch"; // search inside it vs fetch listing pages
 };
 
 type DiscoveryCriteria = {
-  goal: string;                // optional plain-language description
-  industries: string[];        // multi-select presets (+ custom)
+  goal: string; // optional plain-language description
+  industries: string[]; // multi-select presets (+ custom)
   geographies: string[];
-  companyTypes: string[];      // stage / size presets
+  companyTypes: string[]; // stage / size presets
   signals: string[];
   exclusions: string[];
   seedSources: SeedSource[];
@@ -80,14 +80,14 @@ type Catalog = { id: string; options: CatalogOption[] };
 
 Starter catalogs, all static data (~40–60 options each, single source of truth):
 
-| Catalog | Examples |
-|---|---|
-| Industries | B2B developer tools, Fintech, Healthtech, DevOps, Security, Data/AI infra… |
-| Geographies | United States, Europe, India, Remote-first, LATAM… |
-| Company types | Seed stage, Series A, 1–50 people, Open-source, Hiring now… |
-| Signals | Recently funded, Hiring engineers, New product launch, Launched on PH… |
-| Exclusions | Agencies, Consultancies, Marketplaces, Enterprise vendors… |
-| Seed sources | YC directory, Product Hunt, Show HN, Who-is-hiring, startups.gallery, AllTopStartups… |
+| Catalog       | Examples                                                                              |
+| ------------- | ------------------------------------------------------------------------------------- |
+| Industries    | B2B developer tools, Fintech, Healthtech, DevOps, Security, Data/AI infra…            |
+| Geographies   | United States, Europe, India, Remote-first, LATAM…                                    |
+| Company types | Seed stage, Series A, 1–50 people, Open-source, Hiring now…                           |
+| Signals       | Recently funded, Hiring engineers, New product launch, Launched on PH…                |
+| Exclusions    | Agencies, Consultancies, Marketplaces, Enterprise vendors…                            |
+| Seed sources  | YC directory, Product Hunt, Show HN, Who-is-hiring, startups.gallery, AllTopStartups… |
 
 Seed-source presets carry a `mode` and optional `queryHint`:
 
@@ -227,13 +227,13 @@ not generated text.
 
 ## 6. Milestones
 
-| # | Scope | Verify |
-|---|---|---|
-| M0 | HTML mockup of the new form + progress strip (static, existing `find-leads-mockup.html` replaced) | Visual review at real window sizes |
-| M1 | Criteria v2: zod schema, shared catalogs, legacy parse, agent instructions update | `bun run check-types`; API test: create run with arrays; legacy JSON still parses |
-| M2 | Form UI: `MultiSelect`, five rows, hide/collapse, chip summaries, localStorage | Manual run end-to-end: pick only presets, run completes |
-| M3 | Rendered fetch: desktop `renderFetch`, channel method, engine ladder, DNS pinning, injection guard, render budget | Run against `ycombinator.com` seed and one Framer site: run events show `rendered` sources with real titles |
-| M4 | Compact progress strip + deterministic summaries | Active run shows live counts; summary text contains no model prose |
+| #   | Scope                                                                                                             | Verify                                                                                                      |
+| --- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| M0  | HTML mockup of the new form + progress strip (static, existing `find-leads-mockup.html` replaced)                 | Visual review at real window sizes                                                                          |
+| M1  | Criteria v2: zod schema, shared catalogs, legacy parse, agent instructions update                                 | `bun run check-types`; API test: create run with arrays; legacy JSON still parses                           |
+| M2  | Form UI: `MultiSelect`, five rows, hide/collapse, chip summaries, localStorage                                    | Manual run end-to-end: pick only presets, run completes                                                     |
+| M3  | Rendered fetch: desktop `renderFetch`, channel method, engine ladder, DNS pinning, injection guard, render budget | Run against `ycombinator.com` seed and one Framer site: run events show `rendered` sources with real titles |
+| M4  | Compact progress strip + deterministic summaries                                                                  | Active run shows live counts; summary text contains no model prose                                          |
 
 M1–M2 are shippable without M3 (seeds work through SearXNG `site:` queries
 already); M3 makes JS-heavy seeds actually productive; M4 is polish but cheap
