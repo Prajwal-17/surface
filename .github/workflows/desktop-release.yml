@@ -4,24 +4,12 @@ on:
   push:
     tags:
       - "desktop-v*.*.*"
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: "Branch, commit, or desktop-v<version> tag to build"
-        required: true
-        default: master
-        type: string
-      publish:
-        description: "Publish an existing matching desktop-v<version> tag (tag pushes publish automatically)"
-        required: true
-        default: false
-        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
-  group: desktop-release-${{ github.event_name == 'push' && github.ref_name || inputs.ref }}
+  group: desktop-release-${{ github.ref_name }}
   cancel-in-progress: false
 
 env:
@@ -30,20 +18,19 @@ env:
 
 jobs:
   prepare:
-    name: Validate version and release intent
+    name: Validate tag and prepare draft release
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
-      contents: read
+      contents: write
     outputs:
       version: ${{ steps.metadata.outputs.version }}
       tag: ${{ steps.metadata.outputs.tag }}
-      publish: ${{ steps.metadata.outputs.publish }}
     steps:
-      - name: Check out release ref
+      - name: Check out the release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ github.ref }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -53,62 +40,35 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           package-manager-cache: false
 
-      - name: Resolve release metadata
+      - name: Validate the tag and changelog entry
         id: metadata
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          EVENT_REF_NAME: ${{ github.ref_name }}
-          REQUESTED_REF: ${{ inputs.ref }}
-          REQUESTED_PUBLISH: ${{ inputs.publish }}
         run: |
           set -euo pipefail
           version="$(node scripts/desktop-release.mjs version)"
-          publish=false
-          tag=""
+          tag="$GITHUB_REF_NAME"
+          expected="desktop-v$version"
 
-          if [[ "$EVENT_NAME" == "push" ]]; then
-            tag="$EVENT_REF_NAME"
-            publish=true
-          elif [[ "$REQUESTED_PUBLISH" == "true" ]]; then
-            tag="${REQUESTED_REF#refs/tags/}"
-            publish=true
+          if [[ "$tag" != "$expected" ]]; then
+            echo "::error::Tag $tag does not match $expected from apps/desktop/package.json."
+            exit 1
+          fi
+          if ! git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
+            echo "::error::Tag $tag does not exist in the checked out repository."
+            exit 1
+          fi
+          if [[ "$(git rev-parse "refs/tags/$tag^{commit}")" != "$(git rev-parse HEAD)" ]]; then
+            echo "::error::Tag $tag does not point at the checked out commit."
+            exit 1
           fi
 
-          if [[ -n "$tag" ]]; then
-            expected="desktop-v$version"
-            if [[ "$tag" != "$expected" ]]; then
-              echo "::error::Tag $tag does not match $expected from apps/desktop/package.json."
-              exit 1
-            fi
-            if ! git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
-              echo "::error::Tag $tag does not exist in the checked out repository."
-              exit 1
-            fi
-            if [[ "$(git rev-parse "refs/tags/$tag^{commit}")" != "$(git rev-parse HEAD)" ]]; then
-              echo "::error::Tag $tag does not point at the checked out commit."
-              exit 1
-            fi
-          fi
-
+          node scripts/release-notes.mjs "$version" > release-notes.md
           {
             echo "version=$version"
             echo "tag=$tag"
-            echo "publish=$publish"
           } >> "$GITHUB_OUTPUT"
-          if [[ -n "$tag" ]]; then
-            echo "Release tag validated: $tag" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Build-only run for Surface $version; no release will be published." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Validate the changelog entry
-        if: steps.metadata.outputs.tag != ''
-        env:
-          VERSION: ${{ steps.metadata.outputs.version }}
-        run: node scripts/release-notes.mjs "$VERSION" > /dev/null
+          echo "Release tag validated: $tag" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Reject an already-published release
-        if: steps.metadata.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -119,19 +79,37 @@ jobs:
             exit 1
           fi
 
+      - name: Create or update the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.metadata.outputs.tag }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --json isDraft --jq '.isDraft' 2>/dev/null | grep -qx true; then
+            gh release edit "$TAG" --verify-tag --title "Surface $VERSION" --notes-file release-notes.md
+          elif gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Release $TAG is already published; refusing to overwrite it."
+            exit 1
+          else
+            gh release create "$TAG" --draft --verify-tag --title "Surface $VERSION" --notes-file release-notes.md
+          fi
+          echo "Draft release prepared: https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"
+
   build:
-    name: Build and verify Linux x64 desktop
+    name: Build, test, and attach Linux x64 installers
     needs: prepare
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
-      contents: read
+      contents: write
     steps:
-      - name: Check out release ref
+      - name: Check out the release tag
         id: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ github.ref }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -169,8 +147,7 @@ jobs:
           bun --cwd apps/crawler test
           bun run verify:sqlite
 
-      - name: Verify release version
-        if: needs.prepare.outputs.tag != ''
+      - name: Verify the release version
         env:
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         run: node scripts/desktop-release.mjs version --tag "$RELEASE_TAG"
@@ -179,63 +156,59 @@ jobs:
         env:
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           SURFACE_SOURCE_COMMIT: ${{ steps.checkout.outputs.commit }}
-          SURFACE_SOURCE_REF: ${{ inputs.ref || github.ref }}
-        run: |
-          if [[ -n "$RELEASE_TAG" ]]; then
-            node scripts/desktop-release.mjs package --tag "$RELEASE_TAG"
-          else
-            node scripts/desktop-release.mjs package
-          fi
+          SURFACE_SOURCE_REF: ${{ github.ref }}
+        run: node scripts/desktop-release.mjs package --tag "$RELEASE_TAG"
 
       - name: Verify staged Playwright Chromium
         run: node scripts/desktop-release.mjs verify-build
 
-      - name: Smoke-test packaged AppImage with a fresh profile
+      - name: Smoke-test the packaged AppImage with a fresh profile
         run: node scripts/desktop-release.mjs smoke
 
       - name: Show artifact checksums
         run: cat apps/desktop/release/SHA256SUMS
 
-      - name: Upload temporary release artifact
-        id: artifact
+      # Attach installers directly to the draft release. Production assets do
+      # not consume the shared Actions artifact storage allowance.
+      - name: Attach installers to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          gh release upload "$TAG" \
+            apps/desktop/release/Surface-*.AppImage \
+            apps/desktop/release/Surface-*.deb \
+            apps/desktop/release/BUILD-INFO.json \
+            apps/desktop/release/SHA256SUMS \
+            --clobber
+
+      - name: Upload release metadata
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: surface-desktop-release-linux-x64
+          name: surface-desktop-release-metadata
           path: |
-            apps/desktop/release/Surface-*.AppImage
-            apps/desktop/release/Surface-*.deb
             apps/desktop/release/BUILD-INFO.json
             apps/desktop/release/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
 
-      - name: Summarize build
+      - name: Summarize the build
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
           TAG: ${{ needs.prepare.outputs.tag }}
-          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
-          ARTIFACT_DIGEST: ${{ steps.artifact.outputs.artifact-digest }}
         run: |
           {
             echo "### Surface $VERSION Ubuntu desktop build"
             echo
             cat apps/desktop/release/SHA256SUMS
             echo
-            if [[ -n "$TAG" ]]; then
-              echo "Tag \`$TAG\` validated. Artifacts are ready for the publish job."
-            else
-              echo "Build-only run; no GitHub release will be created."
-              echo
-              echo "[Download the temporary artifact]($ARTIFACT_URL)"
-            fi
-            echo
-            echo "Artifact digest: \`$ARTIFACT_DIGEST\`"
+            echo "Installers were attached to the draft release: https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
           } >> "$GITHUB_STEP_SUMMARY"
 
   publish:
     name: Publish GitHub release
-    if: needs.prepare.outputs.publish == 'true'
     needs: [prepare, build]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -249,68 +222,45 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - name: Check out the release ref
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.ref || github.ref }}
-          persist-credentials: false
-
-      - name: Set up Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          package-manager-cache: false
-
-      - name: Download built artifacts
+      - name: Download release metadata
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: surface-desktop-release-linux-x64
-          path: release-assets
+          name: surface-desktop-release-metadata
+          path: release-metadata
 
-      - name: Verify artifact checksums
-        run: |
-          cd release-assets
-          sha256sum --check SHA256SUMS
-          ls -lh
-
-      - name: Generate release notes
-        env:
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: node scripts/release-notes.mjs "$VERSION" > release-notes.md
-
-      - name: Create or update draft release
+      - name: Verify the draft release assets
         env:
           TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
-          if gh release view "$TAG" --json isDraft --jq '.isDraft' 2>/dev/null | grep -qx true; then
-            gh release edit "$TAG" --verify-tag --title "Surface $VERSION" --notes-file release-notes.md
-          elif gh release view "$TAG" >/dev/null 2>&1; then
-            echo "::error::Release $TAG is already published; refusing to overwrite it."
-            exit 1
-          else
-            gh release create "$TAG" --draft --verify-tag --title "Surface $VERSION" --notes-file release-notes.md
-          fi
+          assets="$(gh release view "$TAG" --json assets --jq '.assets[].name')"
+          for required in \
+            "Surface-${VERSION}-x86_64.AppImage" \
+            "Surface-${VERSION}-amd64.deb" \
+            "BUILD-INFO.json" \
+            "SHA256SUMS"; do
+            if ! grep -qxF "$required" <<< "$assets"; then
+              echo "::error::Missing release asset $required on $TAG."
+              exit 1
+            fi
+          done
+          ls -lh release-metadata
+          cat release-metadata/SHA256SUMS
 
       - name: Attest release artifacts when enabled
         if: vars.DESKTOP_ATTESTATIONS == 'true'
         id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-checksums: release-assets/SHA256SUMS
+          subject-checksums: release-metadata/SHA256SUMS
 
-      - name: Upload release assets
-        env:
-          TAG: ${{ needs.prepare.outputs.tag }}
-        run: gh release upload "$TAG" release-assets/* --clobber
-
-      - name: Publish release
+      - name: Publish the release
         env:
           TAG: ${{ needs.prepare.outputs.tag }}
         run: gh release edit "$TAG" --verify-tag --draft=false --latest
 
-      - name: Summarize release
+      - name: Summarize the release
         env:
           TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -321,7 +271,7 @@ jobs:
             echo
             echo "Published https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
             echo
-            cat release-assets/SHA256SUMS
+            cat release-metadata/SHA256SUMS
             echo
             if [[ -n "$ATTESTATION_URL" ]]; then
               echo "Provenance attestation: $ATTESTATION_URL"

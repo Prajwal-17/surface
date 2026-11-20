@@ -15,7 +15,13 @@ process.env.APP_ENV = "test";
 process.env.NODE_ENV = "test";
 
 const originalFetch = globalThis.fetch;
-let requests: { url: string; body: any; authorization: string | null }[] = [];
+let requests: {
+  url: string;
+  body: any;
+  authorization: string | null;
+  userAgent: string | null;
+  session: string | null;
+}[] = [];
 let respond: (body: any) => Response = () =>
   new Response("unexpected", { status: 500 });
 
@@ -76,6 +82,7 @@ beforeEach(() => {
     baseUrl: "http://ai.test/v1",
     apiKey: "test-key",
     model: "client-model",
+    reasoning: "default",
   });
 });
 
@@ -96,6 +103,8 @@ globalThis.fetch = (async (
     url,
     body,
     authorization: headers.get("authorization"),
+    userAgent: headers.get("user-agent"),
+    session: headers.get("x-opencode-session"),
   });
   return respond(body);
 }) as typeof fetch;
@@ -153,12 +162,45 @@ describe("structured generation", () => {
     expect(requests[0]!.url).toBe("http://ai.test/v1/chat/completions");
     expect(requests[0]!.authorization).toBe("Bearer test-key");
     expect(requests[0]!.body.model).toBe("client-model");
+    expect(requests[0]!.body.reasoning_effort).toBeUndefined();
+    expect(requests[0]!.userAgent).toBe("surface/1.0");
+    expect(requests[0]!.session).toMatch(/^[\w-]{20,}$/);
     expect(requests[0]!.body.response_format.type).toBe("json_schema");
     expect(requests[0]!.body.response_format.json_schema.name).toBe(
       "surface_test",
     );
     expect(requests[0]!.body.stream).toBeUndefined();
     expect(activeModelRequests()).toBe(0);
+  });
+
+  test("applies the selected reasoning effort to provider requests", async () => {
+    respond = () => textResponse('{"text":"Hello"}');
+    updateRuntimeSettings({ model: "selected-model", reasoning: "high" });
+    await generateObject({
+      schema: z.object({ text: z.string() }),
+      name: "surface_test",
+      instructions: "Return JSON",
+      input: {},
+      maxOutputTokens: 100,
+      feature: "test",
+    });
+    expect(requests[0]!.body.model).toBe("selected-model");
+    expect(requests[0]!.body.reasoning_effort).toBe("high");
+  });
+
+  test("sends the requested session id and keeps it across retries", async () => {
+    respond = () => textResponse('{"text":"Hello"}');
+    await generateObject({
+      schema: z.object({ text: z.string() }),
+      name: "surface_test",
+      instructions: "Return JSON",
+      input: {},
+      maxOutputTokens: 100,
+      feature: "test",
+      sessionId: "research-run-42",
+    });
+    expect(requests[0]!.session).toBe("research-run-42");
+    expect(requests).toHaveLength(1);
   });
 
   test("rejects a missing key before reaching the provider", async () => {

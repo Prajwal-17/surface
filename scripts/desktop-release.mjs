@@ -508,9 +508,42 @@ async function smokeTest(channel) {
   const readyLine = output
     .split(/\r?\n/)
     .find((line) => line.includes("SMOKE_READY"));
-  console.log(readyLine?.trim() ?? "SMOKE_READY");
+  if (!readyLine) {
+    throw new Error("AppImage smoke test did not print a SMOKE_READY line.");
+  }
+  let ready;
+  try {
+    ready = JSON.parse(
+      readyLine.slice(readyLine.indexOf("SMOKE_READY") + "SMOKE_READY".length),
+    );
+  } catch (error) {
+    console.error(relevantOutput);
+    throw new Error(
+      `AppImage smoke test printed an unreadable SMOKE_READY payload: ${error.message}`,
+    );
+  }
+  const reportedChannel = ready?.result?.appInfo?.channel;
+  if (reportedChannel !== channel.name) {
+    throw new Error(
+      `AppImage reported channel "${reportedChannel ?? "missing"}", expected "${channel.name}".`,
+    );
+  }
+  const development = channel.name === "development";
+  const hasEnvironmentTag = ready?.result?.chrome?.environmentTag === true;
+  if (hasEnvironmentTag !== development) {
+    throw new Error(
+      `AppImage environment tag is ${hasEnvironmentTag ? "present" : "missing"} for the ${channel.name} channel.`,
+    );
+  }
+  const documentTitle = ready?.result?.documentTitle ?? "";
+  if (documentTitle.includes("Surface Dev") !== development) {
+    throw new Error(
+      `AppImage document title "${documentTitle}" does not match the ${channel.name} channel.`,
+    );
+  }
+  console.log(readyLine.trim());
   console.log(
-    "Packaged backend created a fresh SQLite database and the smoke test passed.",
+    `Packaged backend created a fresh SQLite database, reported the ${channel.name} channel, and ${hasEnvironmentTag ? "showed" : "hid"} the development tag.`,
   );
   rmSync(temporaryRoot, { recursive: true, force: true });
 }

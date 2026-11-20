@@ -87,13 +87,53 @@ logs live under Electron's user-data directory. The desktop database is a new
 `surface.sqlite3` file with its own from-scratch migrations in
 `apps/backend/drizzle-sqlite/`.
 
-The desktop build does not export, import, or automatically migrate PGlite or
-PostgreSQL data. Existing desktop `pglite/` files are left untouched and
+The desktop build never imports or migrates PGlite or PostgreSQL data
+automatically. Existing desktop `pglite/` files are left untouched and
 ignored. Start fresh by using a new `SURFACE_DESKTOP_USER_DATA` directory or by
 moving the old profile aside; never delete production backups. See
 [desktop](docs/desktop.md) and
 [desktop verification](docs/desktop-migration.md). The existing Docker Compose
 deployment and PostgreSQL data remain operational and unchanged.
+
+### Import existing PostgreSQL data
+
+An installed desktop profile can be filled from the production PostgreSQL
+database with an explicit, verified import. Quit Surface first. The command
+reads PostgreSQL in a repeatable-read, read-only transaction, creates a fresh
+staging SQLite profile, copies every table and referenced snapshot, compares
+per-table row digests, and only then replaces the desktop database. The previous
+`surface.sqlite3` is moved to `<userData>/import-backups/` and can be restored
+if needed.
+
+```sh
+# From the repository root, using PRODUCTION_DATABASE_URL from apps/backend/.env
+bun run desktop:import -- export --staging /secure/surface-import
+bun run desktop:import -- install \
+  --staging /secure/surface-import \
+  --target-profile "$HOME/.config/Surface" \
+  --replace
+
+# Or export and install in one run
+bun run desktop:import -- migrate --replace
+
+# Recheck the installed profile against its import report
+bun run desktop:import -- verify \
+  --target-profile "$HOME/.config/Surface" \
+  --report "$HOME/.config/Surface/import-backups/<timestamp>/import-report.json"
+```
+
+`--replace` is required when the desktop profile already has a database. The
+source database must be `surface-data` unless `--allow-any-database` is passed
+for a verified test database. Configuration such as the OpenCode Go key and
+SearXNG URL is stored in the desktop settings file, not PostgreSQL, and is not
+changed by the import.
+
+When the production backend ran in Docker as root, some files in `DATA_DIR/snapshots`
+can be root-owned. Copy them into a readable directory owned by your user first,
+or run with sufficient read access; the importer verifies every referenced
+snapshot against its content hash. See
+[desktop data import](docs/desktop-data-import.md) for the full procedure and
+rollback steps.
 
 ## Collect and review
 

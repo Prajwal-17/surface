@@ -49,6 +49,8 @@ export function DesktopSettings() {
   const [aiProvider, setAiProvider] = useState("opencode-go");
   const [aiBaseUrl, setAiBaseUrl] = useState("");
   const [aiModel, setAiModel] = useState("");
+  const [aiReasoning, setAiReasoning] =
+    useState<DesktopSettingsSnapshot["aiReasoning"]>("default");
   const [apiKey, setApiKey] = useState("");
   const [clearKey, setClearKey] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -56,6 +58,8 @@ export function DesktopSettings() {
   const [appInfo, setAppInfo] = useState<Awaited<
     ReturnType<NonNullable<Window["surfaceDesktop"]>["appInfo"]>
   > | null>(null);
+  const appName =
+    appInfo?.channel === "development" ? "Surface Dev" : "Surface";
 
   const diagnostics = useQuery({
     queryKey: ["desktop-diagnostics"],
@@ -74,6 +78,7 @@ export function DesktopSettings() {
         setAiProvider(value.aiProvider);
         setAiBaseUrl(value.aiBaseUrl);
         setAiModel(value.aiModel);
+        setAiReasoning(value.aiReasoning);
         if (value.secretStorage === "plaintext") {
           toast.warning(
             "OS encryption is unavailable. The AI key is stored with file permissions only.",
@@ -119,6 +124,7 @@ export function DesktopSettings() {
         aiProvider,
         aiBaseUrl,
         aiModel,
+        aiReasoning,
         ...(apiKey.trim() ? { aiApiKey: apiKey.trim() } : {}),
         clearAiApiKey: clearKey,
       });
@@ -129,7 +135,7 @@ export function DesktopSettings() {
         toast.success("Service settings saved and applied.");
       } else {
         toast.warning(
-          `Settings saved, but the running backend did not apply them: ${result.applied.error ?? "unknown error"}. Restart Surface to apply them.`,
+          `Settings saved, but the running backend did not apply them: ${result.applied.error ?? "unknown error"}. Restart ${appName} to apply them.`,
         );
       }
       void diagnostics.refetch();
@@ -185,11 +191,7 @@ export function DesktopSettings() {
             </label>
             <label className="space-y-1.5 text-sm">
               <span className="font-medium">AI provider</span>
-              <Input
-                required
-                value={aiProvider}
-                onChange={(event) => setAiProvider(event.target.value)}
-              />
+              <Input required value={aiProvider} readOnly />
               <span className="block text-xs text-muted-foreground">
                 Supported: opencode-go
               </span>
@@ -198,11 +200,43 @@ export function DesktopSettings() {
               <span className="font-medium">AI model</span>
               <Input
                 required
+                list="opencode-go-models"
                 value={aiModel}
                 onChange={(event) => setAiModel(event.target.value)}
               />
+              <datalist
+                id="opencode-go-models"
+                aria-label="Suggested OpenCode Go models"
+              >
+                <option value="deepseek-v4.1-flash">deepseek-v4.1-flash</option>
+                <option value="deepseek-v4-pro">deepseek-v4-pro</option>
+                <option value="kimi-k3">kimi-k3</option>
+                <option value="step-5-preview">step-5-preview</option>
+              </datalist>
               <span className="block text-xs text-muted-foreground">
-                Example: deepseek-v4.1-flash
+                Choose a suggested model or enter another OpenCode Go model ID.
+              </span>
+            </label>
+            <label className="space-y-1.5 text-sm">
+              <span className="font-medium">Reasoning effort</span>
+              <select
+                className="flex h-9 w-full rounded-md border bg-background px-3 text-sm"
+                value={aiReasoning}
+                onChange={(event) =>
+                  setAiReasoning(
+                    event.target
+                      .value as DesktopSettingsSnapshot["aiReasoning"],
+                  )
+                }
+              >
+                <option value="default">Model default</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+              <span className="block text-xs text-muted-foreground">
+                Effort support depends on the selected model. Use model default
+                if unsupported.
               </span>
             </label>
             <label className="space-y-1.5 text-sm sm:col-span-2">
@@ -293,7 +327,7 @@ export function DesktopSettings() {
       {appInfo ? (
         <div className="rounded-lg border bg-card p-3 text-xs leading-5 text-muted-foreground">
           <p className="flex items-center gap-1.5 font-medium text-foreground">
-            <Database className="size-4" /> Surface {appInfo.version} ·{" "}
+            <Database className="size-4" /> {appName} {appInfo.version} ·{" "}
             {appInfo.database} ·{" "}
             {appInfo.packaged ? "packaged app" : "development app"}
           </p>

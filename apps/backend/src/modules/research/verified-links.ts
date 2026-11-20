@@ -9,7 +9,7 @@ import {
 import { getAiSettings } from "../../config/runtime";
 import { withModelSlot } from "../../shared/ai/capacity";
 import { normalizeAiError } from "../../shared/ai/errors";
-import { aiModel } from "../../shared/ai/provider";
+import { aiModel, aiProviderOptions } from "../../shared/ai/provider";
 import { crawlPage } from "./tools";
 import {
   verifiedCompanyLinkSchema,
@@ -226,6 +226,7 @@ async function verify(
     ];
     const agent = new ToolLoopAgent({
       model: aiModel(settings),
+      providerOptions: aiProviderOptions(settings),
       instructions,
       tools,
       stopWhen,

@@ -17,6 +17,7 @@ const configSchema = z
     aiBaseUrl: z.string().url().max(2048).optional(),
     aiApiKey: z.string().max(4096).optional(),
     aiModel: z.string().trim().min(1).max(200).optional(),
+    aiReasoning: z.enum(["default", "low", "medium", "high"]).optional(),
   })
   .strict();
 
@@ -53,6 +54,7 @@ desktopRoutes.put("/config", async (context) => {
       baseUrl: parsed.data.aiBaseUrl,
       apiKey: parsed.data.aiApiKey,
       model: parsed.data.aiModel,
+      reasoning: parsed.data.aiReasoning,
     });
   } catch (error) {
     return context.json(
@@ -93,6 +95,7 @@ function statusPayload() {
     aiProvider: settings.provider,
     aiBaseUrl: settings.baseUrl,
     aiModel: settings.model,
+    aiReasoning: settings.reasoning,
     aiConfigured: aiConfigured(settings),
     aiKeyPresent: Boolean(settings.apiKey),
     secretStorage: process.env.SURFACE_SECRET_STORAGE ?? "environment",

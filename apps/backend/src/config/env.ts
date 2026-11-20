@@ -58,6 +58,7 @@ const envSchema = z.object({
     .url()
     .default("https://opencode.ai/inference/go/openai/v1"),
   AI_MODEL: z.string().trim().min(1).default("deepseek-v4.1-flash"),
+  AI_REASONING: z.enum(["default", "low", "medium", "high"]).default("default"),
   OPENCODE_GO_API_KEY: z
     .string()
     .trim()

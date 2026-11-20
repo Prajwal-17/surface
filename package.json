@@ -25,6 +25,7 @@
     "db:migrate": "bun --cwd apps/backend db:migrate",
     "db:migrate:sqlite": "bun --cwd apps/backend db:migrate:sqlite",
     "verify:sqlite": "bun --cwd apps/backend verify:sqlite",
+    "desktop:import": "cd apps/backend && node --import tsx scripts/import-desktop-data.ts",
     "db:studio": "bun --cwd apps/backend db:studio"
   },
   "devDependencies": {

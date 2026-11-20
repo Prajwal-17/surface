@@ -2228,7 +2228,11 @@ html[data-desktop="true"] .workspace-header,
 html[data-desktop="true"] .onboarding-top,
 html[data-desktop="true"] [data-sidebar="header"] {
   -webkit-app-region: drag;
+  app-region: drag;
   user-select: none;
+}
+.onboarding-top {
+  position: relative;
 }
 html[data-desktop="true"] .workspace-header,
 html[data-desktop="true"] .onboarding-top {
@@ -2247,14 +2251,28 @@ html[data-desktop="true"]
   [data-sidebar="header"]
   :is(a, button, input, select, textarea, [role="button"], [role="combobox"]) {
   -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+/* The caption buttons are fixed over the title bar. Reserve the same area as
+   a no-drag hole inside the draggable header so clicks reach the buttons
+   instead of starting a window drag. */
+html[data-desktop="true"] .desktop-caption-spacer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 118px;
+  height: 100%;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 .desktop-drag-region {
   display: none;
   position: fixed;
-  inset: 0 0 auto;
+  inset: 0 118px auto 0;
   height: var(--header-height);
   z-index: 60;
   -webkit-app-region: drag;
+  app-region: drag;
 }
 /* Sign-in, session checking and other full-canvas routes still need a window
    drag handle and caption buttons. */
@@ -2265,6 +2283,7 @@ html[data-desktop="true"]
 }
 .desktop-window-controls {
   -webkit-app-region: no-drag;
+  app-region: no-drag;
   position: fixed;
   top: 8px;
   right: 10px;
@@ -2282,6 +2301,7 @@ html[data-desktop="true"]
 }
 .desktop-caption-button {
   -webkit-app-region: no-drag;
+  app-region: no-drag;
   display: grid;
   width: 30px;
   height: 28px;

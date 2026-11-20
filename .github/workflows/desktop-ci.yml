@@ -154,10 +154,9 @@ jobs:
       - name: Show artifact checksums
         run: cat apps/desktop/release/SHA256SUMS
 
-      # The AppImage and Debian package together exceed the private
-      # repository's Actions artifact storage quota. CI validates the
-      # installers; downloadable development installers are published as
-      # prerelease assets by the Desktop Development Build workflow.
+      # CI validates the installers without keeping a second copy of them.
+      # Downloadable development installers are uploaded as the
+      # surface-desktop-dev-linux-x64 artifact by the development workflow.
       - name: Upload build metadata
         id: artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

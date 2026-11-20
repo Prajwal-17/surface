@@ -22,7 +22,7 @@ import {
 } from "../../shared/ai/capacity";
 import { assertUsableFinish, normalizeAiError } from "../../shared/ai/errors";
 import { generateObject, generateTextResult } from "../../shared/ai/generation";
-import { aiModel } from "../../shared/ai/provider";
+import { aiModel, aiProviderOptions } from "../../shared/ai/provider";
 import { HttpError } from "../../shared/errors/http-error";
 import {
   researchCandidateSchema,
@@ -547,7 +547,8 @@ async function executeResearch(
         })
       : {};
     const agent = new ToolLoopAgent({
-      model: aiModel(settings),
+      model: aiModel(settings, run.id),
+      providerOptions: aiProviderOptions(settings),
       instructions,
       tools,
       stopWhen: isStepCount(env.RESEARCH_MAX_ROUNDS),
@@ -645,6 +646,7 @@ async function executeResearch(
         signal,
         timeoutMs: 180_000,
         settings,
+        sessionId: run.id,
       });
       modelName = repair.model;
       answer = repair.text;

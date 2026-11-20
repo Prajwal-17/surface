@@ -18,6 +18,7 @@ export interface DesktopSettingsInput {
   aiProvider: string;
   aiBaseUrl: string;
   aiModel: string;
+  aiReasoning: "default" | "low" | "medium" | "high";
   aiApiKey?: string;
   clearAiApiKey?: boolean;
 }
@@ -27,6 +28,7 @@ export interface DesktopSettingsSnapshot {
   aiProvider: string;
   aiBaseUrl: string;
   aiModel: string;
+  aiReasoning: "default" | "low" | "medium" | "high";
   hasAiApiKey: boolean;
   legacyOmniRouteConfigured: boolean;
   secretStorage: SecretStorage;
@@ -45,6 +47,7 @@ interface StoredSettingsV2 {
   aiProvider: string;
   aiBaseUrl: string;
   aiModel: string;
+  aiReasoning: "default" | "low" | "medium" | "high";
   apiKey?: StoredKey;
   /** Old OmniRoute credentials are retained but never used for AI calls. */
   legacyOmniRoute?: {
@@ -91,6 +94,7 @@ export class SettingsStore {
       aiProvider: this.stored.aiProvider,
       aiBaseUrl: this.stored.aiBaseUrl,
       aiModel: this.stored.aiModel,
+      aiReasoning: this.stored.aiReasoning ?? "default",
       hasAiApiKey: Boolean(this.apiKey),
       legacyOmniRouteConfigured: Boolean(this.stored.legacyOmniRoute?.apiKey),
       secretStorage: this.secretStorage,
@@ -115,6 +119,8 @@ export class SettingsStore {
       );
     const model = input.aiModel.trim();
     if (!model) throw new Error("AI model is required.");
+    if (!["default", "low", "medium", "high"].includes(input.aiReasoning))
+      throw new Error("Invalid reasoning effort.");
     const nextKey = input.clearAiApiKey
       ? ""
       : input.aiApiKey?.trim() || this.apiKey;
@@ -125,6 +131,7 @@ export class SettingsStore {
       aiProvider: provider,
       aiBaseUrl: normalizeUrl(input.aiBaseUrl),
       aiModel: model,
+      aiReasoning: input.aiReasoning,
       ...(nextKey ? { apiKey: await encryptKey(nextKey) } : {}),
     };
     if (!nextKey) delete nextStored.apiKey;
@@ -145,6 +152,7 @@ function readStored(file: string): StoredSettingsV2 {
       aiProvider: DEFAULT_AI_PROVIDER,
       aiBaseUrl: DEFAULT_AI_BASE_URL,
       aiModel: DEFAULT_AI_MODEL,
+      aiReasoning: "default",
     };
   }
   try {
@@ -162,6 +170,7 @@ function readStored(file: string): StoredSettingsV2 {
         aiProvider: DEFAULT_AI_PROVIDER,
         aiBaseUrl: DEFAULT_AI_BASE_URL,
         aiModel: DEFAULT_AI_MODEL,
+        aiReasoning: "default",
         legacyOmniRoute: {
           baseUrl: parsed.omnirouteUrl,
           model: parsed.omnirouteModel,
@@ -184,7 +193,12 @@ function readStored(file: string): StoredSettingsV2 {
       throw new Error(
         `Unsupported AI provider "${parsed.aiProvider}". Use ${DEFAULT_AI_PROVIDER}.`,
       );
-    return parsed;
+    if (
+      parsed.aiReasoning !== undefined &&
+      !["default", "low", "medium", "high"].includes(parsed.aiReasoning)
+    )
+      throw new Error("Invalid reasoning effort.");
+    return { ...parsed, aiReasoning: parsed.aiReasoning ?? "default" };
   } catch (error) {
     throw new Error(
       `Cannot read desktop settings at ${file}: ${error instanceof Error ? error.message : "invalid file"}. Move the file aside to reset settings; the database and snapshots are not affected.`,
@@ -243,7 +257,7 @@ async function decryptKey(
   if (stored.scheme === "plaintext") return stored.value;
   if (!(await safeStorage.isAsyncEncryptionAvailable())) {
     throw new Error(
-      `The AI API key in ${file} is encrypted with the OS keychain, but secure storage is unavailable now. Unlock your keyring and restart Surface.`,
+      `The AI API key in ${file} is encrypted with the OS keychain, but secure storage is unavailable now. Unlock your keyring and restart ${app.getName()}.`,
     );
   }
   try {

@@ -35,6 +35,11 @@ Checked 2026-11-17 at <https://opencode.ai/inference/go/v1/models>:
 | Tools             | advertised, choices include `auto`, `none`, `tool` |
 | Reasoning         | supported with `reasoning_content`                 |
 
+Requests must also carry a stable `x-opencode-session` header and an
+identifying user agent (for example `surface/1.0`) or Go rejects them with
+HTTP 400 `MissingSessionID`. The shared provider sets both; see
+`apps/backend/src/shared/ai/provider.ts`.
+
 Installed versions: `ai` 7.0.173, `@ai-sdk/openai-compatible` 3.0.92.
 
 ## Local validation

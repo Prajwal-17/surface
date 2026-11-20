@@ -19,9 +19,11 @@ backup restore was performed.
 - SQLite uses a from-scratch Drizzle baseline in
   `apps/backend/drizzle-sqlite/`. PostgreSQL's `apps/backend/drizzle/` history is
   unchanged and still serves the deployed web path.
-- There is no export, import, conversion, or automatic migration from PGlite,
-  SQLite backups, or PostgreSQL. The former `--surface-data
-export|import|verify` command and bundled data CLI are removed.
+- There is no automatic import or migration from PGlite, SQLite backups, or
+  PostgreSQL. The former `--surface-data export|import|verify` command and
+  bundled data CLI are removed. An explicit, verified PostgreSQL importer is
+  available from the repository; see
+  [desktop data import](desktop-data-import.md).
 - A new profile uses `<Electron userData>/surface.sqlite3`. A previous `pglite/`
   directory is logged as ignored and is never opened, migrated, overwritten, or
   deleted.
@@ -261,4 +263,5 @@ mv ~/.config/Surface ~/.config/Surface-before-sqlite
 
 Or use `SURFACE_DESKTOP_USER_DATA=/path/to/new-profile`. Do not delete the old
 profile or production backups until the new desktop profile has been checked.
-There is no import command that can copy old data into the new database.
+To carry over the production PostgreSQL database instead, quit the app and run
+the explicit importer described in [desktop data import](desktop-data-import.md).

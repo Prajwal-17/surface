@@ -67,6 +67,10 @@ let shuttingDown = false;
 let shutdownComplete = false;
 let running = false;
 
+const zoomStep = 0.5;
+const minimumZoomLevel = -3;
+const maximumZoomLevel = 4;
+
 async function bootstrap(): Promise<void> {
   Menu.setApplicationMenu(null);
   paths = desktopPaths();
@@ -161,6 +165,7 @@ async function bootstrap(): Promise<void> {
           AI_PROVIDER: selected.aiProvider,
           AI_BASE_URL: selected.aiBaseUrl,
           AI_MODEL: selected.aiModel,
+          AI_REASONING: selected.aiReasoning,
           OPENCODE_GO_API_KEY: selected.aiApiKey,
           SURFACE_DESKTOP_TOKEN: desktopToken,
           SURFACE_SECRET_STORAGE: selected.secretStorage,
@@ -179,11 +184,25 @@ async function bootstrap(): Promise<void> {
     createWindow();
     running = true;
     startupLog.write(
-      `[${new Date().toISOString()}] Surface ready at ${backendUrl}`,
+      `[${new Date().toISOString()}] ${identity.productName} ready at ${backendUrl}`,
     );
   } catch (error) {
-    await fatal("Surface could not start", error);
+    await fatal(`${identity.productName} could not start`, error);
   }
+}
+
+function changeZoom(delta: number): void {
+  const contents = mainWindow?.webContents;
+  if (!contents) return;
+  const nextLevel = Math.min(
+    maximumZoomLevel,
+    Math.max(minimumZoomLevel, contents.getZoomLevel() + delta),
+  );
+  contents.setZoomLevel(nextLevel);
+}
+
+function resetZoom(): void {
+  mainWindow?.webContents.setZoomLevel(0);
 }
 
 function createWindow(): void {
@@ -226,6 +245,31 @@ function createWindow(): void {
       mainWindow.setFullScreen(!mainWindow.isFullScreen());
       publishWindowState();
       return;
+    }
+    if ((input.control || input.meta) && !input.alt) {
+      if (
+        input.key === "+" ||
+        input.key === "=" ||
+        input.code === "NumpadAdd"
+      ) {
+        event.preventDefault();
+        changeZoom(zoomStep);
+        return;
+      }
+      if (
+        input.key === "-" ||
+        input.key === "_" ||
+        input.code === "NumpadSubtract"
+      ) {
+        event.preventDefault();
+        changeZoom(-zoomStep);
+        return;
+      }
+      if (input.key === "0" || input.code === "Numpad0") {
+        event.preventDefault();
+        resetZoom();
+        return;
+      }
     }
     if (!input.alt) return;
     if (input.key === "F9") {
@@ -279,7 +323,7 @@ function createWindow(): void {
     mainWindow = null;
   });
   void mainWindow.loadURL(`${backendUrl}/`).catch(async (error) => {
-    await fatal("Surface could not open its interface", error);
+    await fatal(`${identity.productName} could not open its interface`, error);
   });
   if (process.env.SURFACE_DESKTOP_SMOKE_TEST === "1") {
     mainWindow.webContents.once("did-finish-load", () => {
@@ -317,12 +361,17 @@ function createWindow(): void {
                   ),
                   fetch("/api/schema").then((response) => response.json()),
                 ]);
+              const appInfo = await window.surfaceDesktop.appInfo();
+              if (appInfo.channel === "development") {
+                await waitFor(".environment-tag");
+              }
               const before = await window.surfaceDesktop.getSettings();
               const saved = await window.surfaceDesktop.saveSettings({
                 searxngUrl: before.searxngUrl,
                 aiProvider: before.aiProvider,
                 aiBaseUrl: before.aiBaseUrl,
                 aiModel: before.aiModel,
+                aiReasoning: before.aiReasoning,
                 aiApiKey: "smoke-test-key",
               });
               const after = await window.surfaceDesktop.getSettings();
@@ -334,6 +383,8 @@ function createWindow(): void {
               await new Promise((resolve) => setTimeout(resolve, 250));
               const windowRestored = await window.surfaceDesktop.getWindowState();
               return {
+                appInfo,
+                documentTitle: document.title,
                 health,
                 auth,
                 status,
@@ -366,7 +417,7 @@ function createWindow(): void {
           await delay(500);
           await shutdown(0);
         } catch (error) {
-          await fatal("Surface smoke test failed", error);
+          await fatal(`${identity.productName} smoke test failed`, error);
         }
       })();
     });
@@ -493,6 +544,7 @@ async function applyRuntimeSettings(
         aiBaseUrl: settings.aiBaseUrl,
         aiApiKey: settings.aiApiKey,
         aiModel: settings.aiModel,
+        aiReasoning: settings.aiReasoning,
       }),
       signal: AbortSignal.timeout(5000),
     });
@@ -521,7 +573,7 @@ async function childFailed(name: string, code: number | null): Promise<void> {
   if (shuttingDown) return;
   const message = `${name} stopped unexpectedly (exit ${code ?? "unknown"}). See ${paths?.logs ?? "the log directory"}.`;
   mainLog?.write(`[${new Date().toISOString()}] ${message}`);
-  await fatal("Surface stopped", new Error(message));
+  await fatal(`${identity.productName} stopped`, new Error(message));
 }
 
 async function fatal(title: string, error: unknown): Promise<void> {

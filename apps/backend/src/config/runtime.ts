@@ -11,6 +11,7 @@ export interface AiRuntimeSettings {
   baseUrl: string;
   apiKey: string;
   model: string;
+  reasoning: "default" | "low" | "medium" | "high";
 }
 
 export interface RuntimeSettings extends AiRuntimeSettings {
@@ -23,6 +24,7 @@ const runtime: RuntimeSettings = {
   baseUrl: env.AI_BASE_URL,
   apiKey: env.OPENCODE_GO_API_KEY ?? "",
   model: env.AI_MODEL,
+  reasoning: env.AI_REASONING,
 };
 
 /** Immutable-by-convention snapshot. An active call keeps this exact object. */
@@ -36,6 +38,7 @@ export function getAiSettings(): Readonly<AiRuntimeSettings> {
     baseUrl: runtime.baseUrl,
     apiKey: runtime.apiKey,
     model: runtime.model,
+    reasoning: runtime.reasoning,
   };
 }
 
@@ -59,6 +62,11 @@ export function updateRuntimeSettings(
   }
   if (input.model !== undefined) {
     runtime.model = normalizeModel(input.model);
+  }
+  if (input.reasoning !== undefined) {
+    if (!["default", "low", "medium", "high"].includes(input.reasoning))
+      throw new Error("Invalid reasoning effort.");
+    runtime.reasoning = input.reasoning;
   }
   if (input.apiKey !== undefined) {
     runtime.apiKey = input.apiKey.trim();

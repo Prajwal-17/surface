@@ -3,18 +3,21 @@ name: Desktop Development Build
 run-name: Surface development build (${{ inputs.ref || github.event.pull_request.head.ref || github.ref_name }})
 
 on:
+  push:
+    branches: ["**"]
   workflow_dispatch:
     inputs:
       ref:
-        description: "Branch, commit, or tag to build"
-        required: true
-        default: master
+        description: "Optional branch, commit, or tag; defaults to the selected workflow ref"
+        required: false
+        default: ""
         type: string
   pull_request:
     types: [labeled]
 
 permissions:
-  contents: write
+  contents: read
+  actions: write
 
 concurrency:
   group: desktop-dev-${{ inputs.ref || github.event.pull_request.head.sha || github.ref }}
@@ -29,6 +32,7 @@ jobs:
     name: Build development Linux x64
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
       (github.event.label.name == 'desktop-dev-build' &&
       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
@@ -38,7 +42,7 @@ jobs:
         id: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || github.event.pull_request.head.sha }}
+          ref: ${{ inputs.ref || github.event.pull_request.head.sha || github.ref }}
           persist-credentials: false
 
       - name: Set up Node
@@ -98,7 +102,7 @@ jobs:
       - name: Build development AppImage and Debian package
         env:
           SURFACE_SOURCE_COMMIT: ${{ steps.checkout.outputs.commit }}
-          SURFACE_SOURCE_REF: ${{ inputs.ref || github.event.pull_request.head.ref }}
+          SURFACE_SOURCE_REF: ${{ inputs.ref || github.event.pull_request.head.ref || github.ref_name }}
         run: node scripts/desktop-release.mjs package --channel development
 
       - name: Verify staged Playwright Chromium
@@ -110,76 +114,90 @@ jobs:
       - name: Show artifact checksums
         run: cat apps/desktop/release/dev/SHA256SUMS
 
-      # Developer installers are too large for the private repository's Actions
-      # storage quota (the AppImage and Debian package together exceed it).
-      # Publish them as prerelease assets, which are not subject to that quota.
-      - name: Publish development release assets
-        id: publish
+      # Keep only the newest development builds so the shared account storage
+      # allowance holds one current set of unarchived artifacts.
+      - name: Remove previous development artifacts
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: desktop-dev-${{ github.run_number }}
-          COMMIT: ${{ steps.checkout.outputs.commit }}
-          SOURCE_REF: ${{ inputs.ref || github.event.pull_request.head.ref || github.ref_name }}
         run: |
           set -euo pipefail
-          notes="$(mktemp)"
-          {
-            echo "Automated development build from \`$SOURCE_REF\`."
-            echo
-            echo "- Commit: \`$COMMIT\`"
-            echo "- Channel: development (\`Surface Dev\`)"
-            if [ -n "${SURFACE_DEV_SEED_DIR:-}" ]; then
-              echo "- Seeded with the packaged production-data snapshot for local testing."
-              echo "- A new profile applies the seed once; delete the Surface Dev profile to reapply it."
-            fi
-            echo
-            echo '```'
-            cat apps/desktop/release/dev/SHA256SUMS
-            echo '```'
-          } > "$notes"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --prerelease \
-              --title "Surface Dev build ${{ github.run_number }}" \
-              --notes-file "$notes"
-          else
-            gh release create "$TAG" --prerelease --target "$COMMIT" \
-              --title "Surface Dev build ${{ github.run_number }}" \
-              --notes-file "$notes"
-          fi
-          gh release upload "$TAG" \
-            apps/desktop/release/dev/Surface-Dev-*.AppImage \
-            apps/desktop/release/dev/Surface-Dev-*.deb \
-            apps/desktop/release/dev/BUILD-INFO.json \
-            apps/desktop/release/dev/SHA256SUMS \
-            --clobber
-          echo "url=https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG" >> "$GITHUB_OUTPUT"
+          gh api --paginate "repos/$GH_REPO/actions/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(
+              .name == "surface-desktop-dev-linux-x64" or
+              .name == "surface-desktop-dev-linux-x64-metadata" or
+              (.name | test("^Surface-Dev-")) or
+              .name == "BUILD-INFO.json" or
+              .name == "SHA256SUMS"
+            ) | .id' |
+            while read -r id; do
+              test -n "$id" || continue
+              gh api -X DELETE "repos/$GH_REPO/actions/artifacts/$id" || \
+                echo "::warning::Could not delete old development artifact $id."
+            done
 
-      - name: Upload development build metadata
-        id: artifact
+      # archive: false uploads each file as-is, without a ZIP wrapper. GitHub
+      # requires one upload per file in that mode.
+      - name: Upload development AppImage
+        id: appimage
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: surface-desktop-dev-linux-x64-metadata
-          path: |
-            apps/desktop/release/dev/BUILD-INFO.json
-            apps/desktop/release/dev/SHA256SUMS
+          name: surface-dev-appimage
+          path: apps/desktop/release/dev/Surface-Dev-*.AppImage
+          archive: false
+          overwrite: true
           if-no-files-found: error
           retention-days: 30
-          compression-level: 0
+
+      - name: Upload development Debian package
+        id: deb
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: surface-dev-deb
+          path: apps/desktop/release/dev/Surface-Dev-*.deb
+          archive: false
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload development build info
+        id: buildinfo
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: surface-dev-build-info
+          path: apps/desktop/release/dev/BUILD-INFO.json
+          archive: false
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload development checksums
+        id: checksums
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: surface-dev-checksums
+          path: apps/desktop/release/dev/SHA256SUMS
+          archive: false
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Summarize development build
         env:
-          RELEASE_URL: ${{ steps.publish.outputs.url }}
-          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+          APPIMAGE_URL: ${{ steps.appimage.outputs.artifact-url }}
+          DEB_URL: ${{ steps.deb.outputs.artifact-url }}
+          BUILD_INFO_URL: ${{ steps.buildinfo.outputs.artifact-url }}
+          CHECKSUMS_URL: ${{ steps.checksums.outputs.artifact-url }}
         run: |
           {
             echo "### Surface development build"
             echo
             cat apps/desktop/release/dev/SHA256SUMS
             echo
-            echo "[Download the development AppImage and Debian package]($RELEASE_URL)"
-            echo
-            echo "The large installers are prerelease assets because they exceed the private repository's Actions artifact storage quota. The [build metadata artifact]($ARTIFACT_URL) contains \`BUILD-INFO.json\` and \`SHA256SUMS\`."
+            echo "- [Download the AppImage]($APPIMAGE_URL)"
+            echo "- [Download the Debian package]($DEB_URL)"
+            echo "- [Download BUILD-INFO.json]($BUILD_INFO_URL)"
+            echo "- [Download SHA256SUMS]($CHECKSUMS_URL)"
             echo
             echo "Install the \`.deb\` with \`sudo apt install ./Surface-Dev-*.deb\`."
             echo "Run the AppImage directly, or with \`APPIMAGE_EXTRACT_AND_RUN=1\` when FUSE is unavailable."

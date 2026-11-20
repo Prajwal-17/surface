@@ -15,7 +15,7 @@ import {
   describeUsage,
   normalizeAiError,
 } from "./errors";
-import { aiModel, assertAiConfigured } from "./provider";
+import { aiModel, aiProviderOptions, assertAiConfigured } from "./provider";
 
 export interface AiResult<T> {
   output: T;
@@ -36,6 +36,12 @@ interface BaseGenerationOptions<T> {
   timeoutMs?: number;
   retries?: number;
   settings?: Readonly<AiRuntimeSettings>;
+  /**
+   * Stable OpenCode Go session id for this conversation. Callers should pass a
+   * shared id when one generation logically continues another, such as a
+   * research run and its citation repair.
+   */
+  sessionId?: string;
 }
 
 function abortContext(signal: AbortSignal | undefined, timeoutMs: number) {
@@ -85,8 +91,7 @@ export interface AiTextResult {
   usage: LanguageModelUsage | undefined;
 }
 
-/** Plain-text generation used for bounded continuations such as citation repair. */
-export async function generateTextResult(options: {
+interface TextGenerationOptions {
   instructions: string;
   prompt?: string;
   messages?: ModelMessage[];
@@ -96,7 +101,13 @@ export async function generateTextResult(options: {
   timeoutMs?: number;
   retries?: number;
   settings?: Readonly<AiRuntimeSettings>;
-}): Promise<AiTextResult> {
+  sessionId?: string;
+}
+
+/** Plain-text generation used for bounded continuations such as citation repair. */
+export async function generateTextResult(
+  options: TextGenerationOptions,
+): Promise<AiTextResult> {
   const settings = options.settings ?? getAiSettings();
   assertAiConfigured(settings);
   const slot = acquireModelSlot();
@@ -105,7 +116,8 @@ export async function generateTextResult(options: {
   let failed = true;
   try {
     const result = await generateText({
-      model: aiModel(settings),
+      model: aiModel(settings, options.sessionId),
+      providerOptions: aiProviderOptions(settings),
       instructions: options.instructions,
       ...(options.messages
         ? { messages: options.messages }
@@ -161,7 +173,8 @@ export async function generateObject<T>(
   let failed = true;
   try {
     const result = await generateText({
-      model: aiModel(settings),
+      model: aiModel(settings, options.sessionId),
+      providerOptions: aiProviderOptions(settings),
       instructions: options.instructions,
       prompt: JSON.stringify(options.input),
       output: Output.object({
@@ -226,7 +239,8 @@ export async function streamObject<T>(
   let streamError: unknown;
   try {
     const result = streamText({
-      model: aiModel(settings),
+      model: aiModel(settings, options.sessionId),
+      providerOptions: aiProviderOptions(settings),
       instructions: options.instructions,
       prompt: JSON.stringify(options.input),
       output: Output.object({

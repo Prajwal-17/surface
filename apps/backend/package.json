@@ -15,7 +15,8 @@
     "db:migrate:sqlite": "node --import tsx scripts/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "test": "bun run scripts/test-postgres.ts",
-    "verify:sqlite": "node --import tsx scripts/verify-sqlite.ts"
+    "verify:sqlite": "node --import tsx scripts/verify-sqlite.ts",
+    "import:desktop": "node --import tsx scripts/import-desktop-data.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "3.0.92",

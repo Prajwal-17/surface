@@ -83,14 +83,10 @@ node scripts/desktop-release.mjs package --channel development
 
 Development artifacts are written to `apps/desktop/release/dev` and carry the
 `Surface-Dev-` prefix. The manual **Desktop Development Build** workflow builds
-this channel and publishes the AppImage, Debian package, manifest, and checksums
-as assets on a `desktop-dev-<run number>` prerelease. It also keeps
-`BUILD-INFO.json` and `SHA256SUMS` in a small Actions artifact.
-
-The installers are published as release assets instead of Actions artifacts
-because the AppImage and `.deb` together exceed the private repository's
-Actions storage quota. Release assets have a separate per-file limit and are
-not subject to that quota.
+this channel and uploads the AppImage, Debian package, manifest, and checksums
+as the `surface-desktop-dev-linux-x64` Actions artifact. It never creates a git
+tag or GitHub release. The workflow deletes the previous development artifact
+before uploading, so the account keeps one current development build.
 
 You can inspect and verify the helper independently:
 
@@ -138,9 +134,9 @@ the version and generates checksums.
 | `SHA256SUMS`                            | Standard `sha256sum` file for every channel artifact.               |
 
 No blockmaps, updater feeds, macOS images, Windows installers, or Linux ARM
-packages are produced or published. Development installers are published as
-prerelease assets, and production installers are published on the versioned
-release; both carry `BUILD-INFO.json` and `SHA256SUMS`.
+packages are produced or published. Development installers stay in Actions
+artifacts. Only the tag-driven production workflow publishes installers on a
+GitHub release; both paths carry `BUILD-INFO.json` and `SHA256SUMS`.
 
 Verify a downloaded release:
 
@@ -199,24 +195,30 @@ reviewed before relying on this workflow.
 `.github/workflows/desktop-dev-build.yml` builds only the development channel
 for Ubuntu x64. It runs the same source checks, Playwright dependency setup,
 packaging, staged-Chromium verification, and fresh-profile AppImage smoke test
-as CI. It can be started in two ways:
+as CI. It can be started in three ways:
 
-- manually with `workflow_dispatch` and a branch, commit, or tag;
+- with the **Run workflow** button on the **Desktop Development Build**
+  Actions page, picking a branch, commit, or tag;
+- automatically on every branch push;
 - by adding the `desktop-dev-build` label to a pull request from this
   repository.
 
-It publishes:
+The **Run workflow** button is available once the workflow exists on the
+default branch. Push builds use the pushed commit and are serialized per ref.
+
+It uploads each file as a separate, unarchived artifact with 30-day retention:
 
 - `Surface-Dev-<version>-x86_64.AppImage`
 - `Surface-Dev-<version>-amd64.deb`
 - `BUILD-INFO.json`
 - `SHA256SUMS`
 
-to a `desktop-dev-<run number>` prerelease, and uploads the manifest and
-checksums as the `surface-desktop-dev-linux-x64-metadata` Actions artifact.
-Development builds never create a stable tag or publish a production release.
-Use them when you want a downloadable installer before a versioned release
-exists.
+GitHub requires `archive: false` uploads to contain one file each, so the
+installers appear individually in the run's Artifacts section instead of inside
+a ZIP. The workflow removes the previous development artifacts before uploading
+so successive builds do not exhaust the account storage allowance. Development
+builds never create a git tag, prerelease, or release. Production packaging and
+publishing stay in the separate tag-driven **Desktop Linux Release** workflow.
 
 ## Changelog and release notes
 
@@ -251,13 +253,10 @@ node scripts/changelog.mjs --bump patch --notes-file notes.md --dry-run
 
 ## Versioned production release
 
-`.github/workflows/desktop-release.yml` supports two intentional modes.
-
-### Tag release
-
-Push a tag named `desktop-v<version>` after the matching version is committed
-to `apps/desktop/package.json`. For tag pushes, use a commit that already
-contains this release workflow:
+`.github/workflows/desktop-release.yml` is tag-only. Push a tag named
+`desktop-v<version>` after the matching version is committed to
+`apps/desktop/package.json`. The tag must point at a commit that already
+contains the release workflow:
 
 ```sh
 git tag desktop-v0.1.0
@@ -265,43 +264,29 @@ git push origin desktop-v0.1.0
 ```
 
 The workflow checks that the tag exists, points at the checked-out commit, and
-matches `desktop-v<apps/desktop/package.json version>` exactly. It then runs
-the same checks and packaging as CI, writes `BUILD-INFO.json`, creates a draft
-GitHub release, optionally attests the checksummed assets, uploads the
-AppImage, the `.deb`, `BUILD-INFO.json`, and `SHA256SUMS`, and publishes the
-release only after every step succeeds. A tag release never uses a long-lived
-Actions artifact as the published source.
+matches `desktop-v<apps/desktop/package.json version>` exactly. It then:
 
-### Manual build or publish
+1. validates the matching `CHANGELOG.md` entry and creates or updates a draft
+   GitHub release with those reviewed notes;
+2. runs the same source checks and production packaging as CI, writes
+   `BUILD-INFO.json` and `SHA256SUMS`, smoke-tests the AppImage, and attaches
+   the AppImage, `.deb`, manifest, and checksums directly to the draft release;
+3. verifies the draft assets, optionally attests the checksums, and publishes
+   the release.
 
-Run **Desktop Linux Release** from the Actions tab:
+Production installers never use Actions artifact storage. The `prepare` and
+`build` jobs have `contents: write` so they can create the draft and upload
+assets; `publish` additionally has `id-token: write` and `attestations: write`.
+The publish job runs in the optional `desktop-release` GitHub environment.
+Release jobs are serialized per tag and are not cancelled in progress.
 
-- `ref`: branch, commit, or tag to build. The default is `master`.
-- `publish`: `false` builds and uploads a temporary
-  `surface-desktop-release-linux-x64` Actions artifact without creating a
-  release. `true` requires `ref` to be an existing, matching
-  `desktop-v<version>` tag and publishes it after the build succeeds.
-
-Manual publishing does not create or move tags. A published release is never
-overwritten: if the tag already has a published release, the run fails. Reruns
-may update an existing **draft** release and replace its assets. A draft
-release has no public installers until the final publish step succeeds.
-
-Only the final publish job has `contents: write`, `id-token: write`, and
-`attestations: write`; the build jobs are read-only. The publish job runs in
-the `desktop-release` GitHub environment; its protection rules are optional, so
-repository owners can add required reviewers there without blocking ordinary
-PR builds. Release jobs are serialized per ref and are not cancelled in
-progress. If GitHub attestations are unavailable for this private repository,
-leave `DESKTOP_ATTESTATIONS` unset; `BUILD-INFO.json` and `SHA256SUMS` are still
-published on every release.
-
-Release notes come from the reviewed `CHANGELOG.md` entry, not from generated
-commit lists. The workflow verifies the entry before packaging, creates or
-updates a draft release with those notes, uploads the checksummed assets, and
-publishes the draft only after the upload succeeds. The workflow does not
-create or delete git tags, does not modify the repository, and does not use
-application secrets. Do not run production releases from pull request code.
+A published release is never overwritten: if the tag already has a published
+release, the run fails. Reruns update an existing **draft** release and replace
+its assets. A draft release has no public installers until the final publish
+step succeeds. Release notes come from the reviewed `CHANGELOG.md` entry, not
+from generated commit lists. The workflow does not create or delete git tags,
+does not modify the repository, and does not use application secrets. Do not
+run production releases from pull request code.
 
 ## Remaining constraints
 
@@ -317,17 +302,18 @@ application secrets. Do not run production releases from pull request code.
   production volumes, or production data.
 - The desktop SQLite path is fresh-only. No export, import, backup restore, or
   PGlite/PostgreSQL migration runs in CI, packaging, or the smoke test.
-- The AppImage is large because it bundles Chromium for the crawler. The
-  AppImage and `.deb` together exceed this private repository's 500 MiB Actions
-  artifact quota, so installers are published as prerelease or release assets
-  and only build metadata uses Actions artifacts.
+- The AppImage is large because it bundles Chromium for the crawler and the
+  development seed snapshot. The development artifact replaces the previous
+  one on each run so the shared account storage allowance holds one current
+  build. CI still uploads build metadata only.
 - The hosted **Desktop Linux CI** and **Desktop Development Build** workflows
-  ran successfully for commit `c88a0f3` on 17 Nov 2026. The development build
-  passed the source checks, Playwright verification, fresh-profile AppImage
-  smoke test, and published `desktop-dev-1` with the AppImage, `.deb`,
-  `BUILD-INFO.json`, and `SHA256SUMS`.
+  ran successfully for the desktop migration. The development workflow uploads
+  the AppImage, `.deb`, `BUILD-INFO.json`, and `SHA256SUMS` as separate
+  unarchived artifacts with 30-day retention. The repository artifact retention
+  maximum is set to 30 days for this storage allowance. Production installers
+  are release assets and do not use Actions artifact storage.
 
-If a release fails before publishing, fix the cause and rerun the same tag or
-manual publish. If it fails after creating a draft, the next run updates that
-draft. Never force-push or delete a published release tag to work around a
-failed build.
+If a release fails before publishing, fix the cause and rerun the same tag
+workflow. If it fails after creating a draft, the next run updates that draft.
+Never force-push or delete a published release tag to work around a failed
+build.

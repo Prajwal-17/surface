@@ -85,20 +85,40 @@ The native window frame and application menu are removed. Surface draws its own
   route, including sign-in, session checks and onboarding,
 - the maximize/restore button reflects live window state from Electron and uses
   accessible labels plus `aria-pressed`,
-- `F11` toggles fullscreen, `Alt+F9` minimizes, `Alt+F10` maximizes/restores,
+- `Ctrl+=` zooms in, `Ctrl+-` zooms out, and `Ctrl+0` resets the page zoom;
+  `F11` toggles fullscreen, `Alt+F9` minimizes, `Alt+F10` maximizes/restores,
   and the caption buttons work with Tab, Enter and Space,
 - all IPC is validated against the main window, its main frame and the backend
   origin. The renderer remains sandboxed with context isolation and no Node
   integration.
 
-The `DEV` environment badge is rendered only when Vite's actual development flag
-is set (`import.meta.env.DEV`). Production builds, including the packaged
-AppImage and `.deb`, render no environment badge.
+The `DEV` environment badge is rendered when Vite's development flag is set
+(`import.meta.env.DEV`) or when the packaged app reports the `development`
+channel. A packaged development build therefore shows a `Surface Dev` brand
+plus a `DEV` pill in the sidebar and a floating `DEV` marker, and its window
+title is `Surface Dev — Your career workspace`. Production builds render no
+environment badge.
+
+Development and production are separate applications, not two modes of the same
+install:
+
+- development: product `Surface Dev`, executable `surface-dev`, app id
+  `dev.surface.desktop.dev`, desktop file `surface-dev.desktop`, Debian package
+  `surface-dev`, child process names `surface-dev-backend` and
+  `surface-dev-crawler`;
+- production: product `Surface`, executable `surface`, app id
+  `dev.surface.desktop`, desktop file `surface.desktop`, Debian package
+  `surface`, child process names `surface-backend` and `surface-crawler`.
+
+They use different `userData` directories, databases, settings, logs, session
+cookies, keyring entries, desktop entries, and Installer identities, so both can
+run and be installed at the same time.
 
 ### Data locations
 
 Electron's `app.getPath("userData")` is used. On Linux this is normally
-`~/.config/Surface/`:
+`~/.config/Surface/` for production and `~/.config/Surface Dev/` for the
+development channel:
 
 - `surface.sqlite3` — SQLite database (WAL mode),
 - `surface.sqlite3-wal`, `surface.sqlite3-shm` — SQLite journal files while open,
