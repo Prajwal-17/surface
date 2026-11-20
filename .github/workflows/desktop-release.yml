@@ -62,7 +62,7 @@ jobs:
           fi
 
           notes="$(awk -v header="## desktop-v$version" '
-            !found && $0 == header { found = 1; next }
+            !found && index($0, header) == 1 { found = 1; next }
             found && /^## / { exit }
             found && !started { if ($0 ~ /^[[:space:]]*$/) next; started = 1 }
             found { print }
