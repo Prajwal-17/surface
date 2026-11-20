@@ -2,21 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUpRight,
-  CalendarClock,
   Check,
   CircleAlert,
-  CircleCheck,
-  Clock3,
   Copy,
   FileText,
   LoaderCircle,
   Mail,
   MessagesSquare,
   Plus,
-  RotateCcw,
   Search,
   Settings2,
-  X,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -43,13 +38,10 @@ import { copyToClipboard } from "@/lib/clipboard";
 import { ConversationChat } from "@/features/writing/conversation-chat";
 import {
   type WritingConversation,
-  type WritingScheduledEmail,
   writingConversationsKey,
-  writingScheduleKey,
   useWritingContext,
   useWritingConversations,
   useWritingMessages,
-  useWritingSchedule,
 } from "@/features/writing/writing-query";
 
 const blankConversation: WritingConversation = {
@@ -72,20 +64,6 @@ const blankConversation: WritingConversation = {
 };
 
 const emptyConversations: WritingConversation[] = [];
-
-function localDateTimeValue(date: Date) {
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
-    .toISOString()
-    .slice(0, 16);
-}
-
-function defaultScheduleTime() {
-  return localDateTimeValue(new Date(Date.now() + 60 * 60_000));
-}
-
-function localTimezone() {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
-}
 
 function compactConversationDate(value: string) {
   const date = new Date(value);
@@ -115,23 +93,6 @@ function conversationSummary(
   );
 }
 
-function scheduledStatusLabel(status: WritingScheduledEmail["status"]) {
-  switch (status) {
-    case "processing":
-      return "Sending";
-    case "sent":
-      return "Sent";
-    case "failed":
-      return "Needs attention";
-    case "uncertain":
-      return "Check Gmail";
-    case "cancelled":
-      return "Cancelled";
-    default:
-      return "Scheduled";
-  }
-}
-
 export function Component() {
   const client = useQueryClient();
   const conversationsQuery = useWritingConversations();
@@ -149,9 +110,6 @@ export function Component() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
   const [conversationsOpen, setConversationsOpen] = useState(false);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [scheduleLocal, setScheduleLocal] = useState(defaultScheduleTime);
-  const [scheduleMin, setScheduleMin] = useState("");
   const desktop = window.surfaceDesktop;
   const gmailStatus = useQuery({
     queryKey: ["gmail-status"],
@@ -164,7 +122,6 @@ export function Component() {
     queryFn: () => desktop!.appInfo(),
   });
   const development = appInfo.data?.channel === "development";
-  const schedule = useWritingSchedule();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedCompanyId = searchParams.get("company");
   const requestedCompanyConversation = requestedCompanyId
@@ -284,8 +241,18 @@ export function Component() {
         method: "PATCH",
         body: JSON.stringify(values),
       }),
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: writingConversationsKey });
+    onSuccess: (updated) => {
+      client.setQueryData<WritingConversation[]>(
+        writingConversationsKey,
+        (current) =>
+          current
+            ?.map((conversation) =>
+              conversation.id === updated.id ? updated : conversation,
+            )
+            .toSorted((left, right) =>
+              right.updatedAt.localeCompare(left.updatedAt),
+            ),
+      );
     },
     onError: (error) => toast.error(error.message),
   });
@@ -298,7 +265,7 @@ export function Component() {
       return desktop.saveGmailDraft(
         {
           id: active.id,
-          to: recipientEmail,
+          to: development ? (email ?? "") : recipientEmail,
           subject,
           body: draft,
           updatedAt,
@@ -308,66 +275,13 @@ export function Component() {
     },
     onSuccess: ({ email }) => {
       setReviewOpen(false);
-      toast.success(`Gmail draft saved for ${email}`);
+      toast.success(`Draft saved for ${email}. Choose Schedule send in Gmail.`);
     },
     onError: (error) => toast.error(error.message),
   });
   const deliveryRecipient = development
     ? (gmailStatus.data?.email ?? "")
     : recipientEmail.trim();
-  const scheduleEmail = useMutation({
-    mutationFn: () => {
-      if (!active.id || !gmailStatus.data?.email || !desktop) {
-        throw new Error("Connect Gmail before scheduling a message.");
-      }
-      const scheduledAt = new Date(scheduleLocal);
-      if (!Number.isFinite(scheduledAt.getTime())) {
-        throw new Error("Choose a valid date and time.");
-      }
-      return apiClient<WritingScheduledEmail>("/api/writing/schedule", {
-        method: "POST",
-        body: JSON.stringify({
-          conversationId: active.id,
-          recipient: deliveryRecipient,
-          subject,
-          body: draft,
-          scheduledAt: scheduledAt.toISOString(),
-          timezone: localTimezone(),
-        }),
-      });
-    },
-    onSuccess: async () => {
-      setScheduleOpen(false);
-      setReviewOpen(false);
-      await client.invalidateQueries({ queryKey: writingScheduleKey });
-      toast.success("Email scheduled");
-    },
-    onError: (error) => toast.error(error.message),
-  });
-  const cancelScheduledEmail = useMutation({
-    mutationFn: (id: string) =>
-      apiClient<{ cancelled: boolean }>(
-        `/api/writing/schedule/${encodeURIComponent(id)}/cancel`,
-        { method: "POST" },
-      ),
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: writingScheduleKey });
-      toast.success("Scheduled email cancelled");
-    },
-    onError: (error) => toast.error(error.message),
-  });
-  const retryScheduledEmail = useMutation({
-    mutationFn: (id: string) =>
-      apiClient<{ queued: boolean }>(
-        `/api/writing/schedule/${encodeURIComponent(id)}/retry`,
-        { method: "POST" },
-      ),
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: writingScheduleKey });
-      toast.success("Email queued to retry in one minute");
-    },
-    onError: (error) => toast.error(error.message),
-  });
   const visibleThreads = useMemo(
     () =>
       conversations.filter((thread) =>
@@ -614,7 +528,7 @@ export function Component() {
                   >
                     {label}
                     <Input
-                      key={`${active.id}-${field}-${value}`}
+                      key={`${active.id}-${field}`}
                       defaultValue={value}
                       placeholder={`Add ${label.toLowerCase()}`}
                       aria-label={label}
@@ -630,7 +544,7 @@ export function Component() {
                 <label className="min-w-0 space-y-1.5 text-[11px] font-medium text-muted-foreground">
                   Why this opportunity, why now?
                   <Textarea
-                    key={`${active.id}-why-${active.whyNow}`}
+                    key={`${active.id}-why`}
                     defaultValue={active.whyNow}
                     maxLength={5000}
                     onBlur={(event) =>
@@ -647,7 +561,7 @@ export function Component() {
                 <label className="min-w-0 space-y-1.5 text-[11px] font-medium text-muted-foreground">
                   Relevant link
                   <Input
-                    key={`${active.id}-link-${active.contextLink}`}
+                    key={`${active.id}-link`}
                     defaultValue={active.contextLink}
                     type="url"
                     onBlur={(event) =>
@@ -791,14 +705,8 @@ export function Component() {
                     }
                     className="h-8 px-2 text-[11px]"
                   >
-                    {gmailStatus.data.connectionType === "smtp" ? (
-                      <CalendarClock className="size-3" />
-                    ) : (
-                      <Mail className="size-3" />
-                    )}
-                    {gmailStatus.data.connectionType === "smtp"
-                      ? "Review to schedule"
-                      : "Review for Gmail"}
+                    <Mail className="size-3" />
+                    Review for Gmail
                   </Button>
                 ) : (
                   <Button
@@ -816,13 +724,18 @@ export function Component() {
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
               <div className="mx-auto max-w-2xl">
-                <div className="mb-4 space-y-2 rounded-xl border border-border bg-card p-4">
-                  <label className="grid grid-cols-[48px_1fr] items-center gap-2 text-xs">
+                <div className="mb-4 overflow-hidden rounded-xl border border-border bg-card transition-[border-color,box-shadow] focus-within:border-primary/45 focus-within:shadow-sm">
+                  <label className="grid grid-cols-[48px_minmax(0,1fr)] items-center gap-2 border-b border-border px-4 py-2.5 text-xs">
                     <span className="text-muted-foreground">To</span>
-                    <span className="flex items-center gap-2 border-b border-border pb-2">
-                      <span className="shrink-0">
-                        {active.recipientName || "Add recipient"}
-                      </span>
+                    <span className="flex min-w-0 items-center gap-2">
+                      {active.recipientName ? (
+                        <span
+                          className="max-w-40 shrink-0 truncate text-foreground/80"
+                          title={active.recipientName}
+                        >
+                          {active.recipientName}
+                        </span>
+                      ) : null}
                       <Input
                         type="email"
                         value={recipientEmail}
@@ -838,17 +751,29 @@ export function Component() {
                         }
                         placeholder="Add email address"
                         aria-label="Recipient email address"
-                        className="h-8 border-0 bg-transparent px-1 text-xs shadow-none focus-visible:ring-0"
+                        className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
                       />
                     </span>
                   </label>
                   {development && gmailStatus.data?.email ? (
-                    <p className="pl-[50px] text-[10px] leading-4 text-warning">
-                      Scheduled test messages go only to{" "}
-                      {gmailStatus.data.email}.
-                    </p>
+                    <div className="grid grid-cols-[48px_minmax(0,1fr)] gap-2 px-4 pt-2">
+                      <span aria-hidden="true" />
+                      <p className="flex items-start gap-1.5 pb-2 text-[11px] leading-4 text-muted-foreground">
+                        <CircleAlert className="mt-0.5 size-3 shrink-0 text-warning" />
+                        <span>
+                          <span className="font-medium text-warning">
+                            Test mode
+                          </span>
+                          {" · Drafts are addressed to "}
+                          <span className="font-medium text-foreground/80">
+                            {gmailStatus.data.email}
+                          </span>
+                          .
+                        </span>
+                      </p>
+                    </div>
                   ) : null}
-                  <label className="grid grid-cols-[48px_1fr] items-center gap-2 text-xs">
+                  <label className="grid grid-cols-[48px_minmax(0,1fr)] items-center gap-2 border-t border-border px-4 py-2.5 text-xs">
                     <span className="text-muted-foreground">Subject</span>
                     <Input
                       value={subject}
@@ -857,23 +782,16 @@ export function Component() {
                       }
                       placeholder="Add a subject"
                       aria-label="Email subject"
-                      className="h-8 border-0 bg-transparent px-1 text-xs shadow-none focus-visible:ring-0"
+                      className="h-8 min-w-0 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
                     />
                   </label>
-                </div>
-                <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                  <div className="flex items-center justify-end border-b border-border px-4 py-2.5">
-                    <span className="text-[11px] text-muted-foreground">
-                      {draft.length} characters
-                    </span>
-                  </div>
                   <Textarea
                     value={draft}
                     onChange={(event) => {
                       updateEditor({ draft: event.target.value, saved: false });
                     }}
                     aria-label="Editable email draft"
-                    className="min-h-[360px] resize-y rounded-none border-0 bg-transparent px-5 py-4 text-sm leading-[1.9] shadow-none focus-visible:ring-0"
+                    className="min-h-[360px] resize-y rounded-none border-0 border-t border-border bg-transparent px-5 py-4 text-sm leading-7 shadow-none focus-visible:ring-0"
                   />
                 </div>
                 <Link
@@ -886,119 +804,6 @@ export function Component() {
                     : "Set writing preferences"}
                   <ArrowUpRight className="size-3" />
                 </Link>
-                <section
-                  aria-labelledby="scheduled-emails-heading"
-                  className="mt-7 border-t border-border pt-4"
-                >
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <h3
-                      id="scheduled-emails-heading"
-                      className="flex items-center gap-2 text-xs font-semibold"
-                    >
-                      <CalendarClock className="size-3.5 text-brand" />
-                      Scheduled email
-                    </h3>
-                    <span className="text-[11px] text-muted-foreground">
-                      {schedule.data?.filter((item) => item.status === "queued")
-                        .length ?? 0}{" "}
-                      queued
-                    </span>
-                  </div>
-                  <p className="mb-3 text-[11px] leading-5 text-muted-foreground">
-                    Surface sends while the desktop app is open. Due messages
-                    retry after a restart.
-                  </p>
-                  {schedule.isLoading ? (
-                    <p className="py-3 text-[11px] text-muted-foreground">
-                      Loading schedule…
-                    </p>
-                  ) : schedule.error ? (
-                    <p
-                      role="alert"
-                      className="py-3 text-[11px] text-destructive"
-                    >
-                      {schedule.error.message}
-                    </p>
-                  ) : (schedule.data?.length ?? 0) === 0 ? (
-                    <p className="py-3 text-[11px] text-muted-foreground">
-                      Nothing scheduled yet. Review a draft to choose a send
-                      time.
-                    </p>
-                  ) : (
-                    <ul className="divide-y divide-border">
-                      {schedule.data!.slice(0, 8).map((item) => {
-                        const statusIcon =
-                          item.status === "sent" ? (
-                            <CircleCheck className="size-3.5 text-success" />
-                          ) : item.status === "failed" ? (
-                            <CircleAlert className="size-3.5 text-destructive" />
-                          ) : item.status === "uncertain" ? (
-                            <CircleAlert className="size-3.5 text-warning" />
-                          ) : item.status === "queued" ? (
-                            <Clock3 className="size-3.5 text-warning" />
-                          ) : (
-                            <CalendarClock className="size-3.5 text-muted-foreground" />
-                          );
-                        return (
-                          <li key={item.id} className="py-2.5 first:pt-1">
-                            <div className="flex items-start gap-2">
-                              <span className="mt-0.5 shrink-0">
-                                {statusIcon}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-start justify-between gap-2">
-                                  <p className="truncate text-[11px] font-medium">
-                                    {item.subject}
-                                  </p>
-                                  <span className="shrink-0 text-[10px] text-muted-foreground">
-                                    {scheduledStatusLabel(item.status)}
-                                  </span>
-                                </div>
-                                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                                  {item.status === "sent" && item.sentAt
-                                    ? `Sent ${new Date(item.sentAt).toLocaleString()}`
-                                    : `To ${item.recipient} · ${new Date(item.scheduledAt).toLocaleString()}`}
-                                </p>
-                                {item.error ? (
-                                  <p className="mt-1 text-[10px] leading-4 text-destructive">
-                                    {item.error}
-                                  </p>
-                                ) : null}
-                              </div>
-                              {item.status === "queued" ? (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="-mr-1 -mt-1 size-6"
-                                  aria-label={`Cancel scheduled email: ${item.subject}`}
-                                  title="Cancel scheduled email"
-                                  disabled={cancelScheduledEmail.isPending}
-                                  onClick={() =>
-                                    cancelScheduledEmail.mutate(item.id)
-                                  }
-                                >
-                                  <X className="size-3" />
-                                </Button>
-                              ) : item.status === "failed" ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="-mr-1 -mt-1 h-7 px-1.5 text-[10px]"
-                                  disabled={retryScheduledEmail.isPending}
-                                  onClick={() =>
-                                    retryScheduledEmail.mutate(item.id)
-                                  }
-                                >
-                                  <RotateCcw className="size-3" /> Retry
-                                </Button>
-                              ) : null}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </section>
               </div>
             </div>
           </SheetContent>
@@ -1106,31 +911,19 @@ export function Component() {
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader className="pr-8 text-left">
-            <DialogTitle>
-              {gmailStatus.data?.connectionType === "smtp"
-                ? "Review scheduled email"
-                : "Review Gmail draft"}
-            </DialogTitle>
+            <DialogTitle>Review Gmail draft</DialogTitle>
             <DialogDescription>
-              {gmailStatus.data?.connectionType === "smtp"
-                ? "Review the destination and message. App password mode keeps this draft in Surface; scheduling sends it through Gmail SMTP."
-                : `Review the complete message before saving it to ${gmailStatus.data?.email ?? "Gmail"}. Creating a draft does not send it.`}
+              Review the complete message before saving it to {gmailStatus.data?.email ?? "Gmail"}. Saving opens Gmail Drafts; choose Schedule send there when you are ready.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4 text-xs">
             <p>
-              <span className="font-medium">
-                {gmailStatus.data?.connectionType === "smtp"
-                  ? "Schedule recipient:"
-                  : "Draft recipient:"}
-              </span>{" "}
-              {(gmailStatus.data?.connectionType === "smtp"
-                ? deliveryRecipient
-                : recipientEmail) || "Add a recipient"}
+              <span className="font-medium">Draft recipient:</span>{" "}
+              {deliveryRecipient || "Add a recipient"}
             </p>
             {development && gmailStatus.data?.connectionType === "oauth" ? (
               <p className="text-warning">
-                Scheduled test messages will go to {gmailStatus.data?.email}.
+                Development drafts are addressed to {gmailStatus.data?.email}.
               </p>
             ) : null}
             <p>
@@ -1145,26 +938,6 @@ export function Component() {
             <Button variant="ghost" onClick={() => setReviewOpen(false)}>
               Back to edit
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setReviewOpen(false);
-                setScheduleLocal(defaultScheduleTime());
-                setScheduleMin(
-                  localDateTimeValue(new Date(Date.now() + 60_000)),
-                );
-                setScheduleOpen(true);
-              }}
-              disabled={
-                !gmailStatus.data?.email ||
-                !appInfo.data ||
-                !deliveryRecipient ||
-                !subject.trim() ||
-                !draft.trim()
-              }
-            >
-              <CalendarClock /> Schedule email
-            </Button>
             {gmailStatus.data?.connectionType === "oauth" ? (
               <Button
                 onClick={() =>
@@ -1173,82 +946,16 @@ export function Component() {
                 disabled={
                   createGmailDraft.isPending ||
                   !gmailStatus.data?.email ||
-                  !recipientEmail.trim() ||
+                  !deliveryRecipient ||
                   !subject.trim() ||
                   !draft.trim()
                 }
               >
                 {createGmailDraft.isPending
                   ? "Saving to Gmail…"
-                  : "Create Gmail draft"}
+                  : "Save to Gmail & open Drafts"}
               </Button>
             ) : null}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
-          <DialogHeader className="pr-8 text-left">
-            <DialogTitle>Schedule email</DialogTitle>
-            <DialogDescription>
-              Confirm the destination and send time. Surface will send this
-              message from {gmailStatus.data?.email ?? "your connected Gmail"}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4 text-xs">
-            <div className="space-y-1.5">
-              <p className="font-medium">Send to</p>
-              <p className="break-all text-muted-foreground">
-                {deliveryRecipient || "Connect Gmail to schedule a message"}
-              </p>
-              {development ? (
-                <p className="text-[10px] leading-4 text-warning">
-                  Development safety is on. This test email is locked to your
-                  connected address.
-                </p>
-              ) : null}
-            </div>
-            <label className="block space-y-1.5">
-              <span className="font-medium">Send at</span>
-              <Input
-                type="datetime-local"
-                value={scheduleLocal}
-                min={scheduleMin}
-                onChange={(event) => setScheduleLocal(event.target.value)}
-                aria-label="Scheduled send date and time"
-                className="max-w-xs"
-              />
-              <span className="block text-[10px] text-muted-foreground">
-                {localTimezone()} · Keep Surface open at the send time.
-              </span>
-            </label>
-            <div className="space-y-2 border-t border-border pt-3">
-              <p>
-                <span className="font-medium">Subject:</span> {subject}
-              </p>
-              <pre className="max-h-56 overflow-auto whitespace-pre-wrap font-sans leading-5 text-muted-foreground">
-                {draft}
-              </pre>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setScheduleOpen(false)}>
-              Back to draft
-            </Button>
-            <Button
-              onClick={() => scheduleEmail.mutate()}
-              disabled={
-                scheduleEmail.isPending ||
-                !gmailStatus.data?.email ||
-                !appInfo.data ||
-                !deliveryRecipient ||
-                !subject.trim() ||
-                !draft.trim() ||
-                !scheduleLocal
-              }
-            >
-              {scheduleEmail.isPending ? "Scheduling…" : "Confirm schedule"}
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

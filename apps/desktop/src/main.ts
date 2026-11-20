@@ -13,14 +13,13 @@ import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { desktopIdentity } from "./channel";
 import {
-  GmailDeliveryUncertainError,
   GmailConnection,
   type GmailDraft,
-  type ScheduledGmailMessage,
 } from "./gmail";
 import { createLogSink, type LogSink } from "./logger";
 import { desktopPaths, type DesktopPaths } from "./paths";
 import { getFreePort } from "./ports";
+import { attachRenderChannel } from "./render-channel";
 import { startAndWait, type ManagedProcess } from "./processes";
 import {
   SettingsStore,
@@ -67,7 +66,6 @@ let mainLog: LogSink | null = null;
 let paths: DesktopPaths | null = null;
 let backendUrl = "";
 let desktopToken = "";
-let stopScheduleWorker: (() => void) | null = null;
 let shuttingDown = false;
 let shutdownComplete = false;
 let running = false;
@@ -132,12 +130,10 @@ async function bootstrap(): Promise<void> {
     );
 
     await setDesktopCookie();
-    const gmail = new GmailConnection(
-      paths.root,
-      identity.channel === "development",
-    );
+    const gmail = new GmailConnection(paths.root);
+    await gmail.removeLegacySmtpCredentials();
     registerIpc(settings, gmail);
-    stopScheduleWorker = startScheduleWorker(gmail);
+    if (backend) attachRenderChannel(backend.child, mainLog);
     createWindow();
     running = true;
     startupLog.write(
@@ -318,22 +314,6 @@ function registerIpc(settings: SettingsStore, gmail: GmailConnection): void {
     assertTrustedSender(event);
     return gmail.connect();
   });
-  ipcMain.handle("desktop:gmail:connect-smtp", (event, input: unknown) => {
-    assertTrustedSender(event);
-    if (!input || typeof input !== "object") {
-      throw new Error("Enter your Gmail address and app password.");
-    }
-    const values = input as { email?: unknown; appPassword?: unknown };
-    if (
-      typeof values.email !== "string" ||
-      values.email.length > 254 ||
-      typeof values.appPassword !== "string" ||
-      values.appPassword.length > 64
-    ) {
-      throw new Error("Enter your Gmail address and app password.");
-    }
-    return gmail.connectSmtp(values.email, values.appPassword);
-  });
   ipcMain.handle("desktop:gmail:disconnect", (event) => {
     assertTrustedSender(event);
     return gmail.disconnect();
@@ -363,7 +343,7 @@ function registerIpc(settings: SettingsStore, gmail: GmailConnection): void {
       ) {
         throw new Error("Review the recipient and message before saving.");
       }
-      return gmail.save(draft as GmailDraft, confirmedEmail, false, false);
+      return gmail.save(draft as GmailDraft, confirmedEmail, true, false);
     },
   );
   ipcMain.handle("desktop:settings:get", (event) => {
@@ -411,75 +391,6 @@ function registerIpc(settings: SettingsStore, gmail: GmailConnection): void {
     assertTrustedSender(event);
     mainWindow?.close();
   });
-}
-
-function startScheduleWorker(gmail: GmailConnection): () => void {
-  let stopped = false;
-  let polling = false;
-  const poll = async () => {
-    if (stopped || polling || !backendUrl || !desktopToken) return;
-    polling = true;
-    try {
-      const status = await gmail.status();
-      if (!status.email) return;
-      const response = await fetch(`${backendUrl}/api/writing/schedule/due`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${desktopToken}` },
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!response.ok) {
-        throw new Error(`Scheduler returned HTTP ${response.status}.`);
-      }
-      const jobs = (await response.json()) as ScheduledGmailMessage[];
-      for (const job of jobs) {
-        let result:
-          | { status: "sent" }
-          | { status: "failed"; error: string }
-          | { status: "uncertain"; error: string };
-        try {
-          await gmail.sendScheduled(job, status.email);
-          result = { status: "sent" };
-        } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : "Gmail could not send this scheduled email.";
-          result =
-            error instanceof GmailDeliveryUncertainError
-              ? { status: "uncertain", error: message }
-              : { status: "failed", error: message };
-        }
-        const recorded = await fetch(
-          `${backendUrl}/api/writing/schedule/${encodeURIComponent(job.id)}/result`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${desktopToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(result),
-            signal: AbortSignal.timeout(10_000),
-          },
-        );
-        if (!recorded.ok) {
-          throw new Error(`Scheduler result returned HTTP ${recorded.status}.`);
-        }
-      }
-    } catch (error) {
-      mainLog?.write(
-        `[${new Date().toISOString()}] scheduled email worker: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    } finally {
-      polling = false;
-    }
-  };
-  const timer = setInterval(() => void poll(), 15_000);
-  timer.unref();
-  void poll();
-  return () => {
-    stopped = true;
-    clearInterval(timer);
-  };
 }
 
 function windowState(): {
@@ -590,8 +501,6 @@ async function shutdown(exitCode: number, force = false): Promise<void> {
   }
   shuttingDown = true;
   running = false;
-  stopScheduleWorker?.();
-  stopScheduleWorker = null;
   mainLog?.write(`[${new Date().toISOString()}] shutdown requested`);
   try {
     await backend?.stop();

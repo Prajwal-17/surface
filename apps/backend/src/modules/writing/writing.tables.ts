@@ -46,25 +46,6 @@ export const writingMessages = sqliteTable("writing_messages", {
   createdAt: text("created_at").notNull(),
 });
 
-export const scheduledEmails = sqliteTable("scheduled_emails", {
-  id: text("id").primaryKey(),
-  conversationId: text("conversation_id")
-    .notNull()
-    .references(() => writingConversations.id, { onDelete: "cascade" }),
-  recipient: text("recipient").notNull(),
-  subject: text("subject").notNull(),
-  body: text("body").notNull(),
-  scheduledAt: text("scheduled_at").notNull(),
-  timezone: text("timezone").notNull(),
-  status: text("status").notNull().default("queued"),
-  attempts: integer("attempts").notNull().default(0),
-  error: text("error"),
-  sentAt: text("sent_at"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
-
 export type WritingExample = typeof writingExamples.$inferSelect;
 export type WritingConversation = typeof writingConversations.$inferSelect;
 export type WritingMessage = typeof writingMessages.$inferSelect;
-export type ScheduledEmail = typeof scheduledEmails.$inferSelect;

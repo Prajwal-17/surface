@@ -7,28 +7,19 @@ export interface SurfaceWindowState {
 export interface SurfaceDesktopApi {
   gmailStatus(): Promise<{
     email: string | null;
-    connectionType: "oauth" | "smtp" | null;
+    connectionType: "oauth" | null;
     available: boolean;
     error: string | null;
   }>;
   connectGmail(): Promise<{
     email: string | null;
-    connectionType: "oauth" | "smtp" | null;
-    available: boolean;
-    error: string | null;
-  }>;
-  connectGmailSmtp(input: {
-    email: string;
-    appPassword: string;
-  }): Promise<{
-    email: string | null;
-    connectionType: "oauth" | "smtp" | null;
+    connectionType: "oauth" | null;
     available: boolean;
     error: string | null;
   }>;
   disconnectGmail(): Promise<{
     email: string | null;
-    connectionType: "oauth" | "smtp" | null;
+    connectionType: "oauth" | null;
     available: boolean;
     error: string | null;
   }>;

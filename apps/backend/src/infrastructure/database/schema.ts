@@ -7,7 +7,6 @@ export {
   writingExamples,
   writingMessages,
   writingPreferences,
-  scheduledEmails,
 } from "../../modules/writing/writing.tables";
 export {
   companyTags,

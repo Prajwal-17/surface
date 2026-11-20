@@ -1,5 +1,6 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
+import { discoveryCriteriaSchema } from "@surface/contracts";
 import { HttpError } from "../../shared/errors/http-error";
 import { cancelActiveRun, startRunWorker } from "./lead-agent";
 import {
@@ -29,24 +30,6 @@ export const leadRoutes = new Hono();
 
 const optionalText = (max: number) =>
   z.string().trim().max(max).optional().default("");
-
-const discoveryCriteriaSchema = z
-  .object({
-    industry: optionalText(300),
-    geography: optionalText(300),
-    companyType: optionalText(300),
-    signals: optionalText(2000),
-    exclusions: optionalText(2000),
-    limit: z.number().int().min(1).max(15).default(5),
-  })
-  .strict()
-  .refine(
-    (value) =>
-      Boolean(
-        value.industry || value.geography || value.companyType || value.signals,
-      ),
-    "Add at least one search criterion.",
-  );
 
 const researchInputSchema = z
   .object({

@@ -37,26 +37,8 @@ export interface WritingConversation {
   updatedAt: string;
 }
 
-export interface WritingScheduledEmail {
-  id: string;
-  conversationId: string;
-  recipient: string;
-  subject: string;
-  body: string;
-  scheduledAt: string;
-  timezone: string;
-  status:
-    "queued" | "processing" | "sent" | "failed" | "uncertain" | "cancelled";
-  attempts: number;
-  error: string | null;
-  sentAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export const writingContextKey = ["writing-context"] as const;
 export const writingConversationsKey = ["writing-conversations"] as const;
-export const writingScheduleKey = ["writing-schedule"] as const;
 
 export function useWritingContext() {
   return useQuery({
@@ -70,14 +52,6 @@ export function useWritingConversations() {
     queryKey: writingConversationsKey,
     queryFn: () =>
       apiClient<WritingConversation[]>("/api/writing/conversations"),
-  });
-}
-
-export function useWritingSchedule() {
-  return useQuery({
-    queryKey: writingScheduleKey,
-    queryFn: () => apiClient<WritingScheduledEmail[]>("/api/writing/schedule"),
-    refetchInterval: 15_000,
   });
 }
 

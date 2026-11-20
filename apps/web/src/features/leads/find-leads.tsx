@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -19,9 +19,23 @@ import {
   Square,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  companyTypesCatalog,
+  discoveryCriteriaLabels,
+  exclusionsCatalog,
+  geographiesCatalog,
+  industriesCatalog,
+  isDiscoveryCriteria,
+  seedSourcesCatalog,
+  signalsCatalog,
+  type CatalogOption,
+  type DiscoveryCriteria,
+  type SeedSource,
+} from "@surface/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MultiSelect } from "@/components/ui/multiselect";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -32,9 +46,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  type DiscoveryCriteria,
   type DiscoveryRun,
   type RunDetails,
+  type RunEvent,
   type SearxngDockerStatus,
   isRunActive,
   parseRunCriteria,
@@ -51,13 +65,33 @@ import {
 } from "@/features/leads/leads-query";
 
 const blankCriteria: DiscoveryCriteria = {
-  industry: "",
-  geography: "",
-  companyType: "",
-  signals: "",
-  exclusions: "",
+  goal: "",
+  industries: [],
+  geographies: [],
+  companyTypes: [],
+  signals: [],
+  exclusions: [],
+  seedSources: [],
   limit: 5,
 };
+
+const hiddenRowsKey = "surface.leads.hidden-rows";
+
+type RowId = "seeds" | "who" | "signals" | "exclusions" | "goal";
+
+const defaultHiddenRows: Partial<Record<RowId, boolean>> = { goal: true };
+
+function loadHiddenRows(): Partial<Record<RowId, boolean>> {
+  try {
+    const raw = localStorage.getItem(hiddenRowsKey);
+    if (!raw) return defaultHiddenRows;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return defaultHiddenRows;
+    return parsed as Partial<Record<RowId, boolean>>;
+  } catch {
+    return defaultHiddenRows;
+  }
+}
 
 function runStateLabel(state: DiscoveryRun["state"]) {
   switch (state) {
@@ -126,11 +160,24 @@ export function FindLeadsWorkspace() {
   const runsQuery = useLeadRuns();
   const createRun = useCreateDiscoveryRun();
   const [criteria, setCriteria] = useState<DiscoveryCriteria>(blankCriteria);
+  const [hiddenRows, setHiddenRows] = useState<Partial<Record<RowId, boolean>>>(
+    loadHiddenRows,
+  );
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [view, setView] = useState<"form" | "history" | "detail">("form");
   const runs = runsQuery.data ?? [];
-  const effectiveRunId = selectedRunId ?? runs[0]?.id ?? null;
+  const effectiveRunId = selectedRunId;
   const selectedRun = useRunDetails(effectiveRunId);
   const activeRun = runs.find((run) => isRunActive(run));
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(hiddenRowsKey, JSON.stringify(hiddenRows));
+    } catch {
+      // Private-mode storage may reject writes; layout persistence is a
+      // convenience, not a requirement.
+    }
+  }, [hiddenRows]);
 
   const completedRunId = selectedRun.data?.run.id;
   const completedState = selectedRun.data?.run.state;
@@ -140,15 +187,35 @@ export function FindLeadsWorkspace() {
   }, [completedRunId, completedState, queryClient]);
 
   const criteriaComplete = Boolean(
-    criteria.industry.trim() ||
-    criteria.geography.trim() ||
-    criteria.companyType.trim() ||
-    criteria.signals.trim(),
+    criteria.industries.length ||
+      criteria.geographies.length ||
+      criteria.companyTypes.length ||
+      criteria.signals.length,
   );
   const canStart =
     criteriaComplete &&
     Boolean(settingsQuery.data?.searxngUrl.trim()) &&
     !createRun.isPending;
+
+  function toggleRow(rowId: RowId) {
+    setHiddenRows((rows) => ({ ...rows, [rowId]: !rows[rowId] }));
+  }
+
+  function setSeedSources(ids: string[]) {
+    setCriteria((current) => ({
+      ...current,
+      seedSources: ids.slice(0, 5).map((id): SeedSource => {
+        const preset = seedSourcesCatalog.options.find(
+          (option) => option.id === id,
+        );
+        return {
+          domain: preset?.domain ?? id.toLowerCase().replace(/^www\./, ""),
+          mode: preset?.mode ?? "search",
+          id: preset ? preset.id : undefined,
+        };
+      }),
+    }));
+  }
 
   function startRun(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -156,6 +223,7 @@ export function FindLeadsWorkspace() {
     createRun.mutate(criteria, {
       onSuccess: (run) => {
         setSelectedRunId(run.id);
+        setView("detail");
         toast.success("Discovery run started");
       },
       onError: (error) => toast.error(error.message),
@@ -164,41 +232,23 @@ export function FindLeadsWorkspace() {
 
   return (
     <main className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden px-3 pt-4 pb-2 sm:px-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Find leads</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Run a bounded web search and verification pass. Validated companies
-            are added to Companies with a lead tag.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {activeRun ? (
-            <Badge variant="outline" className="status-pill tone-blue gap-1.5">
-              <LoaderCircle className="size-3 animate-spin" />A run is active
-            </Badge>
-          ) : null}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8"
-            onClick={() => void runsQuery.refetch()}
-            disabled={runsQuery.isFetching}
-          >
-            <RefreshCw className={runsQuery.isFetching ? "animate-spin" : ""} />
-            Refresh
-          </Button>
-        </div>
-      </div>
-
       {settingsQuery.isError ? (
         <p role="alert" className="mt-4 text-sm text-destructive">
           Could not load lead settings: {settingsQuery.error.message}
         </p>
       ) : null}
 
-      <div className="mt-4 grid min-h-0 flex-1 gap-4 overflow-y-auto pb-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:overflow-hidden">
-        <div className="min-h-0 space-y-4 lg:overflow-y-auto lg:pr-1">
+      <div className="mt-4 flex gap-5 border-b" aria-label="Discovery views">
+        <button type="button" onClick={() => setView("form")} aria-current={view === "form" ? "page" : undefined} className={`border-b-2 pb-2 text-sm ${view === "form" ? "border-brand font-medium text-foreground" : "border-transparent text-muted-foreground"}`}>New discovery</button>
+        <button type="button" onClick={() => setView("history")} aria-current={view !== "form" ? "page" : undefined} className={`border-b-2 pb-2 text-sm ${view !== "form" ? "border-brand font-medium text-foreground" : "border-transparent text-muted-foreground"}`}>Run history</button>
+        {activeRun ? (
+          <Badge variant="outline" className="status-pill tone-blue ml-auto mb-2 gap-1.5">
+            <LoaderCircle className="size-3 animate-spin" />A run is active
+          </Badge>
+        ) : null}
+      </div>
+      <div className="mt-4 min-h-0 flex-1 overflow-y-auto pb-4">
+        {view === "form" ? <div className="space-y-4">
           {settingsQuery.data ? (
             <LeadSettingsCard settings={settingsQuery.data} />
           ) : settingsQuery.isLoading ? (
@@ -207,146 +257,279 @@ export function FindLeadsWorkspace() {
 
           <form
             onSubmit={startRun}
-            className="rounded-lg border bg-card p-4"
+            className="rounded-lg border bg-card"
             aria-labelledby="discovery-criteria-heading"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2
-                  id="discovery-criteria-heading"
-                  className="flex items-center gap-2 text-sm font-semibold"
-                >
-                  <Search className="size-4 text-brand" />
-                  Discovery criteria
-                </h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Be specific about what makes a company a fit. The agent saves
-                  only companies it can support with fetched sources.
+            <div className="flex items-center gap-2 border-b px-4 py-3">
+              <h2
+                id="discovery-criteria-heading"
+                className="flex items-center gap-2 text-sm font-semibold"
+              >
+                <Search className="size-4 text-brand" />
+                Discovery criteria
+              </h2>
+            </div>
+
+            <div className="grid gap-4 px-4 py-4">
+              <CriteriaRow
+                label="Where to look"
+                hidden={hiddenRows.seeds}
+                summary={
+                  criteria.seedSources.length
+                    ? `${criteria.seedSources.length} source${criteria.seedSources.length === 1 ? "" : "s"}`
+                    : ""
+                }
+                onToggle={() => toggleRow("seeds")}
+              >
+                <MultiSelect
+                  options={seedSourcesCatalog.options.map((option) => ({
+                    id: option.id,
+                    label: option.label,
+                    hint:
+                      option.mode === "search"
+                        ? "Search inside this site"
+                        : "Fetch its listing pages",
+                  }))}
+                  value={criteria.seedSources.map(
+                    (source) => source.id ?? source.domain,
+                  )}
+                  onChange={setSeedSources}
+                  ariaLabel="Seed sources"
+                  placeholder="Add source"
+                  maxValues={5}
+                  align="start"
+                />
+                <p className="text-[11px] leading-4 text-muted-foreground">
+                  Known directories the agent searches or reads first. Leave
+                  empty to let it choose its own searches.
                 </p>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-1.5 text-sm font-medium">
-                Industry
-                <Input
-                  value={criteria.industry}
-                  maxLength={300}
-                  placeholder="e.g. B2B developer tools"
-                  onChange={(event) =>
-                    setCriteria({ ...criteria, industry: event.target.value })
-                  }
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">
-                Geography
-                <Input
-                  value={criteria.geography}
-                  maxLength={300}
-                  placeholder="e.g. United States or remote-first"
-                  onChange={(event) =>
-                    setCriteria({ ...criteria, geography: event.target.value })
-                  }
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">
-                Company size or type
-                <Input
-                  value={criteria.companyType}
-                  maxLength={300}
-                  placeholder="e.g. seed to Series B, 20–200 people"
-                  onChange={(event) =>
-                    setCriteria({
-                      ...criteria,
-                      companyType: event.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">
-                Result limit
-                <Select
-                  value={String(criteria.limit)}
-                  onValueChange={(value) =>
-                    setCriteria({ ...criteria, limit: Number(value) })
-                  }
-                >
-                  <SelectTrigger aria-label="Result limit">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[3, 5, 8, 10, 15].map((limit) => (
-                      <SelectItem key={limit} value={String(limit)}>
-                        {limit} leads
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium sm:col-span-2">
-                Relevant signals
-                <Textarea
+              </CriteriaRow>
+
+              <CriteriaRow
+                label="Who"
+                hidden={hiddenRows.who}
+                summary={whoSummary(criteria)}
+                onToggle={() => toggleRow("who")}
+              >
+                <div className="grid gap-3">
+                  {(
+                    [
+                      ["Industries", "industries", industriesCatalog.options],
+                      ["Geographies", "geographies", geographiesCatalog.options],
+                      ["Company type", "companyTypes", companyTypesCatalog.options],
+                    ] as const
+                  ).map(([label, field, options]) => (
+                    <div key={field} className="grid gap-1">
+                      <span className="text-[11px] text-muted-foreground">
+                        {label}
+                      </span>
+                      <MultiSelect
+                        options={options as readonly CatalogOption[]}
+                        value={criteria[field]}
+                        onChange={(next) =>
+                          setCriteria((current) => ({
+                            ...current,
+                            [field]: next,
+                          }))
+                        }
+                        ariaLabel={label}
+                        placeholder="Add"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </CriteriaRow>
+
+              <CriteriaRow
+                label="Signals"
+                hidden={hiddenRows.signals}
+                summary={
+                  criteria.signals.length
+                    ? `${criteria.signals.length} selected`
+                    : ""
+                }
+                onToggle={() => toggleRow("signals")}
+              >
+                <MultiSelect
+                  options={signalsCatalog.options}
                   value={criteria.signals}
-                  maxLength={2000}
-                  rows={3}
-                  placeholder="Hiring engineers, recently raised funding, launching a developer product…"
-                  onChange={(event) =>
-                    setCriteria({ ...criteria, signals: event.target.value })
+                  onChange={(next) =>
+                    setCriteria((current) => ({ ...current, signals: next }))
                   }
+                  ariaLabel="Relevant signals"
+                  placeholder="Add signal"
                 />
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium sm:col-span-2">
-                Exclusions
-                <Textarea
+              </CriteriaRow>
+
+              <CriteriaRow
+                label="Exclusions"
+                hidden={hiddenRows.exclusions}
+                summary={
+                  criteria.exclusions.length
+                    ? `${criteria.exclusions.length} excluded`
+                    : ""
+                }
+                onToggle={() => toggleRow("exclusions")}
+              >
+                <MultiSelect
+                  options={exclusionsCatalog.options}
                   value={criteria.exclusions}
-                  maxLength={2000}
-                  rows={2}
-                  placeholder="Agencies, consultancies, competitors…"
+                  onChange={(next) =>
+                    setCriteria((current) => ({
+                      ...current,
+                      exclusions: next,
+                    }))
+                  }
+                  ariaLabel="Exclusions"
+                  placeholder="Add exclusion"
+                />
+              </CriteriaRow>
+
+              <CriteriaRow
+                label="Goal (optional)"
+                hidden={hiddenRows.goal}
+                summary={criteria.goal.trim()}
+                onToggle={() => toggleRow("goal")}
+              >
+                <Input
+                  value={criteria.goal}
+                  maxLength={500}
+                  placeholder="What you want these leads for, in one line"
                   onChange={(event) =>
-                    setCriteria({ ...criteria, exclusions: event.target.value })
+                    setCriteria((current) => ({
+                      ...current,
+                      goal: event.target.value,
+                    }))
                   }
                 />
-              </label>
-            </div>
-            {!settingsQuery.data?.searxngUrl.trim() ? (
-              <p className="mt-4 flex items-start gap-2 rounded-md border border-warning/40 bg-warning/5 p-3 text-xs leading-5 text-muted-foreground">
-                <CircleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
-                Add a SearXNG instance URL above before starting a run.
-              </p>
-            ) : null}
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">
-                {criteriaComplete
-                  ? "The agent uses multiple searches and page fetches within a bounded run."
-                  : "Add at least one criterion to start."}
-              </p>
-              <Button type="submit" disabled={!canStart}>
-                {createRun.isPending ? (
-                  <LoaderCircle className="animate-spin" />
-                ) : (
-                  <Sparkles />
-                )}
-                {createRun.isPending ? "Starting…" : "Start discovery run"}
-              </Button>
+              </CriteriaRow>
+
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <label className="grid gap-1.5 text-xs font-medium">
+                  Result limit
+                  <Select
+                    value={String(criteria.limit)}
+                    onValueChange={(value) =>
+                      setCriteria({ ...criteria, limit: Number(value) })
+                    }
+                  >
+                    <SelectTrigger aria-label="Result limit" className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[3, 5, 8, 10, 15].map((limit) => (
+                        <SelectItem key={limit} value={String(limit)}>
+                          {limit} leads
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+                <Button type="submit" disabled={!canStart}>
+                  {createRun.isPending ? (
+                    <LoaderCircle className="animate-spin" />
+                  ) : (
+                    <Sparkles />
+                  )}
+                  {createRun.isPending ? "Starting…" : "Start discovery run"}
+                </Button>
+              </div>
+              {!settingsQuery.data?.searxngUrl.trim() ? (
+                <p className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/5 p-3 text-xs leading-5 text-muted-foreground">
+                  <CircleAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
+                  Add a SearXNG instance URL in the settings above before
+                  starting a run.
+                </p>
+              ) : null}
             </div>
           </form>
 
-          <RunDetailsCard
-            runId={effectiveRunId}
-            details={selectedRun.data}
-            loading={selectedRun.isLoading}
-            error={selectedRun.error}
+        </div> : view === "history" ? (
+          <RunHistory
+            runs={runs}
+            loading={runsQuery.isLoading}
+            error={runsQuery.error}
+            selectedRunId={null}
+            onSelect={(id) => { setSelectedRunId(id); setView("detail"); }}
           />
-        </div>
-
-        <RunHistory
-          runs={runs}
-          loading={runsQuery.isLoading}
-          error={runsQuery.error}
-          selectedRunId={effectiveRunId}
-          onSelect={setSelectedRunId}
-        />
+        ) : (
+          <div className="space-y-4">
+            <Button variant="outline" size="sm" onClick={() => setView("history")}>← Run history</Button>
+            <RunDetailsCard
+              runId={effectiveRunId}
+              details={selectedRun.data}
+              loading={selectedRun.isLoading}
+              error={selectedRun.error}
+            />
+          </div>
+        )}
       </div>
     </main>
+  );
+}
+
+function whoSummary(criteria: DiscoveryCriteria) {
+  const total =
+    criteria.industries.length +
+    criteria.geographies.length +
+    criteria.companyTypes.length;
+  if (!total) return "";
+  return `${total} criteri${total === 1 ? "on" : "a"} selected`;
+}
+
+/**
+ * One form row with a Hide control. A hidden row with values collapses to a
+ * single summary line; a hidden empty row disappears entirely.
+ */
+function CriteriaRow({
+  label,
+  hidden,
+  summary,
+  onToggle,
+  children,
+}: {
+  label: string;
+  hidden: boolean | undefined;
+  summary: string;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  if (hidden && !summary) return null;
+  if (hidden) {
+    return (
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="min-w-0 text-left text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <span className="font-medium text-foreground">{label}</span>
+          <span className="ml-2 truncate text-muted-foreground">{summary}</span>
+        </button>
+        <button
+          type="button"
+          onClick={onToggle}
+          className="shrink-0 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Show
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="grid gap-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-foreground">{label}</span>
+        <button
+          type="button"
+          onClick={onToggle}
+          className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Hide
+        </button>
+      </div>
+      {children}
+    </div>
   );
 }
 
@@ -657,6 +840,15 @@ function RunHistory({
                 run.kind === "research"
                   ? "Sourced brief"
                   : `${run.resultCount} lead${run.resultCount === 1 ? "" : "s"}`;
+              const criteriaLabel =
+                criteria && isDiscoveryCriteria(criteria)
+                  ? (criteria.industries[0] ??
+                    criteria.geographies[0] ??
+                    criteria.companyTypes[0] ??
+                    criteria.signals[0] ??
+                    criteria.seedSources[0]?.domain ??
+                    "criteria")
+                  : null;
               return (
                 <li key={run.id}>
                   <button
@@ -682,10 +874,8 @@ function RunHistory({
                     </span>
                     <span className="mt-1 block truncate text-[11px] text-muted-foreground">
                       {detail}
-                      {criteria &&
-                      "industry" in criteria &&
-                      run.kind === "discovery"
-                        ? ` · ${criteria.industry || criteria.signals || "criteria"}`
+                      {criteriaLabel && run.kind === "discovery"
+                        ? ` · ${criteriaLabel}`
                         : ""}
                     </span>
                     <span className="mt-0.5 block text-[10px] tabular-nums text-muted-foreground">
@@ -699,6 +889,61 @@ function RunHistory({
         )}
       </div>
     </aside>
+  );
+}
+
+function sourceEventRendered(event: RunEvent) {
+  try {
+    return Boolean(
+      (JSON.parse(event.metadata ?? "{}") as { rendered?: boolean })
+        .rendered,
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * One factual line of live counts. Counts come from run events and persisted
+ * counters, never from generated prose.
+ */
+function ProgressStrip({ run, events }: { run: DiscoveryRun; events: RunEvent[] }) {
+  const searches = events.filter((event) => event.kind === "search").length;
+  const pages = events.filter((event) => event.kind === "source").length;
+  const rendered = events.filter(sourceEventRendered).length;
+  const active = isRunActive(run);
+  const stateWord = active
+    ? run.state === "queued"
+      ? "Queued"
+      : "Searching"
+    : runStateLabel(run.state);
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs tabular-nums text-muted-foreground">
+      <span
+        className={`inline-flex items-center gap-1.5 ${active ? "text-brand" : ""}`}
+      >
+        {active ? <LoaderCircle className="size-3 animate-spin" /> : null}
+        {stateWord}
+      </span>
+      <span aria-hidden="true">·</span>
+      <span>
+        {Math.min(searches, 6)}/6 searches
+      </span>
+      <span aria-hidden="true">·</span>
+      <span>{Math.min(pages, 10)}/10 pages</span>
+      <span aria-hidden="true">·</span>
+      <span>
+        {run.resultCount} saved
+      </span>
+      <span aria-hidden="true">·</span>
+      <span>{run.skippedCount} skipped</span>
+      {rendered > 0 ? (
+        <>
+          <span aria-hidden="true">·</span>
+          <span>{rendered} rendered</span>
+        </>
+      ) : null}
+    </p>
   );
 }
 
@@ -746,6 +991,10 @@ function RunDetailsCard({
     run.kind === "research" && criteria && "companyId" in criteria
       ? criteria.companyId
       : null;
+  const criteriaChips =
+    run.kind === "discovery" && criteria && isDiscoveryCriteria(criteria)
+      ? discoveryCriteriaLabels(criteria)
+      : [];
 
   return (
     <section
@@ -804,7 +1053,9 @@ function RunDetailsCard({
       </div>
 
       <div className="grid gap-4 p-4">
-        <div className="grid gap-2 text-sm">
+        {run.kind === "discovery" ? (
+          <ProgressStrip run={run} events={events} />
+        ) : (
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <CheckCircle2 className="size-3.5 text-success" />
@@ -824,39 +1075,32 @@ function RunDetailsCard({
               </span>
             ) : null}
           </div>
-          {run.summary ? (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-              {run.summary}
-            </p>
-          ) : null}
-          {run.error ? (
-            <p
-              role="alert"
-              className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
-            >
-              {run.error}
-            </p>
-          ) : null}
-        </div>
+        )}
+        {run.summary ? (
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+            {run.summary}
+          </p>
+        ) : null}
+        {run.error ? (
+          <p
+            role="alert"
+            className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+          >
+            {run.error}
+          </p>
+        ) : null}
 
-        {run.kind === "discovery" && criteria && "limit" in criteria ? (
+        {criteriaChips.length ? (
           <div className="flex flex-wrap gap-1.5">
-            {[
-              criteria.industry,
-              criteria.geography,
-              criteria.companyType,
-              criteria.signals,
-            ]
-              .filter(Boolean)
-              .map((value, index) => (
-                <Badge
-                  key={`${value}-${index}`}
-                  variant="outline"
-                  className="max-w-full truncate rounded-md py-1 font-normal"
-                >
-                  {value}
-                </Badge>
-              ))}
+            {criteriaChips.map((value) => (
+              <Badge
+                key={value}
+                variant="outline"
+                className="max-w-full truncate rounded-md py-1 font-normal"
+              >
+                {value}
+              </Badge>
+            ))}
           </div>
         ) : null}
 

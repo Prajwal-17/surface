@@ -1,4 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  normalizeDiscoveryCriteria,
+  type DiscoveryCriteria,
+  type RunCriteria,
+} from "@surface/contracts";
 import { apiClient } from "@/lib/api-client";
 
 export type LeadSettings = {
@@ -29,18 +34,21 @@ export type SearxngDockerStatus = {
   error: string | null;
 };
 
-export type DiscoveryCriteria = {
+export type ResearchCriteria = {
+  companyId: string;
+  question: string;
+};
+
+export type { DiscoveryCriteria, SeedSource } from "@surface/contracts";
+
+/** Criteria JSON from before the array-based shape; kept for display. */
+export type LegacyDiscoveryCriteria = {
   industry: string;
   geography: string;
   companyType: string;
   signals: string;
   exclusions: string;
   limit: number;
-};
-
-export type ResearchCriteria = {
-  companyId: string;
-  question: string;
 };
 
 export type RunKind = "discovery" | "research";
@@ -149,11 +157,16 @@ export type CompanyOverview = {
 export const leadSettingsKey = ["leads", "settings"] as const;
 export const leadRunsKey = ["leads", "runs"] as const;
 
-export function parseRunCriteria<T = DiscoveryCriteria | ResearchCriteria>(
+export function parseRunCriteria(
   run: DiscoveryRun,
-): T | null {
+): RunCriteria | LegacyDiscoveryCriteria | null {
   try {
-    return JSON.parse(run.criteria) as T;
+    const parsed: unknown = JSON.parse(run.criteria);
+    if (typeof parsed === "object" && parsed !== null && "companyId" in parsed) {
+      return parsed as ResearchCriteria;
+    }
+    const normalized = normalizeDiscoveryCriteria(parsed);
+    return normalized ?? (parsed as LegacyDiscoveryCriteria);
   } catch {
     return null;
   }

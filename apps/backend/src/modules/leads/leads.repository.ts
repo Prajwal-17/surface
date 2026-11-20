@@ -18,24 +18,22 @@ import {
   type ResearchBrief,
 } from "./leads.tables";
 
+import {
+  normalizeDiscoveryCriteria,
+  type DiscoveryCriteria,
+  type ResearchCriteria,
+  type RunCriteria,
+} from "@surface/contracts";
+
+export type {
+  DiscoveryCriteria,
+  ResearchCriteria,
+  RunCriteria,
+  SeedSource,
+} from "@surface/contracts";
+
 export type CompanyTag = "lead" | "research";
 export const COMPANY_TAGS: readonly CompanyTag[] = ["lead", "research"];
-
-export type DiscoveryCriteria = {
-  industry: string;
-  geography: string;
-  companyType: string;
-  signals: string;
-  exclusions: string;
-  limit: number;
-};
-
-export type ResearchCriteria = {
-  companyId: string;
-  question: string;
-};
-
-export type RunCriteria = DiscoveryCriteria | ResearchCriteria;
 
 export type RunState =
   "queued" | "running" | "completed" | "failed" | "cancelled";
@@ -166,7 +164,13 @@ export async function requireRun(runId: string): Promise<DiscoveryRun> {
 
 export function parseRunCriteria(run: DiscoveryRun): RunCriteria {
   try {
-    return JSON.parse(run.criteria) as RunCriteria;
+    const parsed: unknown = JSON.parse(run.criteria);
+    if (typeof parsed === "object" && parsed !== null && "companyId" in parsed) {
+      return parsed as ResearchCriteria;
+    }
+    const criteria = normalizeDiscoveryCriteria(parsed);
+    if (!criteria) throw new Error("unrecognised criteria shape");
+    return criteria;
   } catch {
     throw new HttpError(409, "This run has no readable criteria.");
   }
@@ -260,6 +264,7 @@ export async function saveFetchedSource(input: {
   title: string;
   excerpt: string;
   retrievedAt: string;
+  rendered?: boolean;
 }): Promise<LeadSource> {
   const [existing] = await db
     .select()
@@ -278,6 +283,7 @@ export async function saveFetchedSource(input: {
       title: input.title,
       excerpt: input.excerpt,
       retrievedAt: input.retrievedAt,
+      rendered: input.rendered ? 1 : 0,
       createdAt: now(),
     })
     .returning();

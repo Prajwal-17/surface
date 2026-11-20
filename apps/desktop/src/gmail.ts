@@ -4,12 +4,10 @@ import { mkdir, readFile, rename, writeFile, unlink } from "node:fs/promises";
 import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import type { AddressInfo } from "node:net";
-import { createTransport } from "nodemailer";
 
 const scope = "https://www.googleapis.com/auth/gmail.compose";
 const googleTokenUrl = "https://oauth2.googleapis.com/token";
 const draftEndpoint = "https://gmail.googleapis.com/gmail/v1/users/me/drafts";
-const messageEndpoint = "https://gmail.googleapis.com/gmail/v1/users/me/messages";
 const storageError =
   "Unlock your OS keyring to connect Gmail. Your local drafts are available.";
 
@@ -20,7 +18,6 @@ type Credentials = {
   sub: string;
   refreshToken: string;
 };
-type SmtpCredentials = { email: string; appPassword: string };
 export type GmailDraft = {
   id: string;
   to: string;
@@ -32,23 +29,14 @@ type RemoteDraft = {
   messageId: string;
   remoteId?: string;
   savedRevision?: string;
-  sendStarted?: boolean;
-  sent?: boolean;
 };
 type DraftMap = Record<string, RemoteDraft>;
 
 export type GmailState = {
   email: string | null;
-  connectionType: "oauth" | "smtp" | null;
+  connectionType: "oauth" | null;
   available: boolean;
   error: string | null;
-};
-export type ScheduledGmailMessage = {
-  id: string;
-  recipient: string;
-  subject: string;
-  body: string;
-  updatedAt?: string;
 };
 
 class GmailError extends Error {
@@ -57,14 +45,6 @@ class GmailError extends Error {
     message: string,
   ) {
     super(message);
-  }
-}
-
-export class GmailDeliveryUncertainError extends Error {
-  constructor() {
-    super(
-      "Gmail may have accepted this message before the connection ended. Check Sent before scheduling it again.",
-    );
   }
 }
 
@@ -302,16 +282,14 @@ async function gmailRequest(
 
 export class GmailConnection {
   private readonly credentialsFile: string;
-  private readonly smtpCredentialsFile: string;
+  private readonly legacySmtpCredentialsFile: string;
   private readonly linksFile: string;
-  private readonly selfOnly: boolean;
   private queue = Promise.resolve<unknown>(null);
 
-  constructor(root: string, selfOnly = false) {
+  constructor(root: string) {
     this.credentialsFile = join(root, "gmail-credentials");
-    this.smtpCredentialsFile = join(root, "gmail-smtp-credentials");
+    this.legacySmtpCredentialsFile = join(root, "gmail-smtp-credentials");
     this.linksFile = join(root, "gmail-drafts.json");
-    this.selfOnly = selfOnly;
   }
 
   private serial<T>(action: () => Promise<T>): Promise<T> {
@@ -328,14 +306,6 @@ export class GmailConnection {
     return JSON.parse(result.result) as Credentials;
   }
 
-  private async smtpCredentials(): Promise<SmtpCredentials | null> {
-    const file = await readOptional(this.smtpCredentialsFile);
-    if (!file) return null;
-    if (!(await protectedStorage())) throw new Error(storageError);
-    const result = await safeStorage.decryptStringAsync(file);
-    return JSON.parse(result.result) as SmtpCredentials;
-  }
-
   async status(): Promise<GmailState> {
     try {
       if (!(await protectedStorage()))
@@ -345,15 +315,6 @@ export class GmailConnection {
           connectionType: null,
           error: storageError,
         };
-      const smtp = await this.smtpCredentials();
-      if (smtp) {
-        return {
-          available: true,
-          email: smtp.email,
-          connectionType: "smtp",
-          error: null,
-        };
-      }
       const credentials = await this.credentials();
       return {
         available: true,
@@ -401,60 +362,18 @@ export class GmailConnection {
         this.credentialsFile,
         await safeStorage.encryptStringAsync(JSON.stringify(connected)),
       );
-      await this.removeSmtpCredentials();
       return this.status();
     });
   }
 
-  connectSmtp(email: string, appPassword: string) {
+  async removeLegacySmtpCredentials() {
     return this.serial(async () => {
-      const normalizedEmail = email.trim();
-      const normalizedPassword = appPassword.replace(/\s/g, "");
-      if (!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(normalizedEmail)) {
-        throw new Error("Enter the Gmail address for this app password.");
-      }
-      if (!/^[a-zA-Z0-9]{16}$/.test(normalizedPassword)) {
-        throw new Error("Enter the 16-character Google app password.");
-      }
-      if (!(await protectedStorage())) throw new Error(storageError);
-
-      const transport = createTransport({
-        host: "smtp.gmail.com",
-        port: 465,
-        secure: true,
-        auth: { user: normalizedEmail, pass: normalizedPassword },
-        connectionTimeout: 15_000,
-        greetingTimeout: 10_000,
-        socketTimeout: 20_000,
-      });
-      try {
-        await transport.verify();
-      } catch {
-        throw new Error(
-          "Gmail sign-in failed. Check the address and app password, and make sure 2-Step Verification and app passwords are available for this account.",
-        );
-      } finally {
-        transport.close();
-      }
-
-      const credentials = {
-        email: normalizedEmail,
-        appPassword: normalizedPassword,
-      };
-      await atomicWrite(
-        this.smtpCredentialsFile,
-        await safeStorage.encryptStringAsync(JSON.stringify(credentials)),
+      await unlink(this.legacySmtpCredentialsFile).catch(
+        (error: NodeJS.ErrnoException) => {
+          if (error.code !== "ENOENT") throw error;
+        },
       );
-      return this.status();
     });
-  }
-
-  private async removeSmtpCredentials() {
-    await unlink(this.smtpCredentialsFile).catch(
-      (error: NodeJS.ErrnoException) => {
-        if (error.code !== "ENOENT") throw error;
-      },
-    );
   }
 
   disconnect() {
@@ -464,18 +383,17 @@ export class GmailConnection {
           if (error.code !== "ENOENT") throw error;
         },
       );
-      await this.removeSmtpCredentials();
+      await unlink(this.legacySmtpCredentialsFile).catch(
+        (error: NodeJS.ErrnoException) => {
+          if (error.code !== "ENOENT") throw error;
+        },
+      );
       return this.status();
     });
   }
 
   draftStatus(id: string) {
     return this.serial(async () => {
-      if (await this.smtpCredentials()) {
-        throw new Error(
-          "Gmail Drafts sync requires OAuth. With SMTP, drafts stay in Surface and scheduled mail can still be sent.",
-        );
-      }
       const credentials = await this.credentials();
       if (!credentials) return null;
       const raw = await readOptional(this.linksFile);
@@ -492,11 +410,6 @@ export class GmailConnection {
     replace: boolean,
   ) {
     return this.serial(async () => {
-      if (await this.smtpCredentials()) {
-        throw new Error(
-          "Gmail Drafts sync requires OAuth. With SMTP, drafts stay in Surface and scheduled mail can still be sent.",
-        );
-      }
       const credentials = await this.credentials();
       if (!credentials) throw new Error("Connect a Gmail account in Settings.");
       if (credentials.email !== confirmedEmail)
@@ -594,213 +507,5 @@ export class GmailConnection {
         );
       return { email: credentials.email, savedRevision: draft.updatedAt };
     });
-  }
-
-  sendScheduled(message: ScheduledGmailMessage, confirmedEmail: string) {
-    return this.serial(async () => {
-      const smtp = await this.smtpCredentials();
-      if (smtp) return this.sendScheduledSmtp(message, confirmedEmail, smtp);
-      const credentials = await this.credentials();
-      if (!credentials) throw new Error("Connect a Gmail account in Settings.");
-      if (credentials.email !== confirmedEmail) {
-        throw new Error(
-          "The connected Gmail account changed. Review the schedule before sending.",
-        );
-      }
-      const to = this.selfOnly ? credentials.email : message.recipient;
-      if (!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(to)) {
-        throw new Error("The scheduled recipient is not a valid email address.");
-      }
-      if (!message.subject.trim() || !message.body.trim()) {
-        throw new Error("The scheduled email needs a subject and message.");
-      }
-
-      const { accessToken } = await exchange(credentials.client, {
-        grant_type: "refresh_token",
-        refresh_token: credentials.refreshToken,
-      });
-      const raw = await readOptional(this.linksFile);
-      const links = raw ? (JSON.parse(raw.toString()) as DraftMap) : {};
-      const key = `${credentials.sub}:scheduled:${message.id}`;
-      let link = links[key];
-      if (!link) {
-        link = {
-          messageId: `surface.${message.id.replaceAll("-", "")}@surface.local`,
-        };
-        links[key] = link;
-        await atomicWrite(this.linksFile, JSON.stringify(links));
-      }
-      if (link.sent) {
-        return { email: credentials.email, recipient: to, alreadySent: true };
-      }
-
-      const search = new URLSearchParams({
-        q: `rfc822msgid:<${link.messageId}>`,
-      });
-      const sent = await gmailRequest(
-        accessToken,
-        `${messageEndpoint}?labelIds=SENT&${search}`,
-      );
-      if (sent.messages?.length) {
-        link.sent = true;
-        links[key] = link;
-        await atomicWrite(this.linksFile, JSON.stringify(links));
-        return { email: credentials.email, recipient: to, alreadySent: true };
-      }
-
-      if (!link.remoteId) {
-        const existingDrafts = await gmailRequest(
-          accessToken,
-          `${draftEndpoint}?${search}`,
-        );
-        if ((existingDrafts.drafts?.length ?? 0) > 1) {
-          throw new Error(
-            "Gmail has multiple matching scheduled drafts. Keep one matching draft and retry.",
-          );
-        }
-        link.remoteId = existingDrafts.drafts?.[0]?.id;
-        links[key] = link;
-        await atomicWrite(this.linksFile, JSON.stringify(links));
-      }
-
-      if (!link.remoteId) {
-        if (link.sendStarted) {
-          throw new Error(
-            "Gmail could not confirm whether this email was sent. Check Sent and Drafts before contacting support.",
-          );
-        }
-        const created = await gmailRequest(
-          accessToken,
-          draftEndpoint,
-          "POST",
-          {
-            message: {
-              raw: mimeMessage(
-                {
-                  id: message.id,
-                  to,
-                  subject: message.subject,
-                  body: message.body,
-                  updatedAt: message.updatedAt ?? new Date().toISOString(),
-                },
-                link.messageId,
-              ),
-            },
-          },
-        );
-        if (!created.id) {
-          throw new Error("Gmail did not confirm the scheduled draft.");
-        }
-        link.remoteId = created.id;
-        links[key] = link;
-        await atomicWrite(this.linksFile, JSON.stringify(links));
-      }
-
-      link.sendStarted = true;
-      links[key] = link;
-      await atomicWrite(this.linksFile, JSON.stringify(links));
-      try {
-        const sentMessage = await gmailRequest(
-          accessToken,
-          `${draftEndpoint}/send`,
-          "POST",
-          { id: link.remoteId },
-        );
-        if (!sentMessage.id) {
-          throw new Error("Gmail did not confirm the scheduled email.");
-        }
-        link.sent = true;
-        links[key] = link;
-        await atomicWrite(this.linksFile, JSON.stringify(links));
-        return { email: credentials.email, recipient: to, alreadySent: false };
-      } catch (error) {
-        if (error instanceof GmailError && error.status === 404) {
-          const check = await gmailRequest(
-            accessToken,
-            `${messageEndpoint}?labelIds=SENT&${search}`,
-          );
-          if (check.messages?.length) {
-            link.sent = true;
-            links[key] = link;
-            await atomicWrite(this.linksFile, JSON.stringify(links));
-            return {
-              email: credentials.email,
-              recipient: to,
-              alreadySent: true,
-            };
-          }
-        }
-        throw error;
-      }
-    });
-  }
-
-  private async sendScheduledSmtp(
-    message: ScheduledGmailMessage,
-    confirmedEmail: string,
-    credentials: SmtpCredentials,
-  ) {
-    if (credentials.email !== confirmedEmail) {
-      throw new Error(
-        "The connected Gmail account changed. Review the schedule before sending.",
-      );
-    }
-    const to = this.selfOnly ? credentials.email : message.recipient;
-    if (!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(to)) {
-      throw new Error("The scheduled recipient is not a valid email address.");
-    }
-    if (!message.subject.trim() || !message.body.trim()) {
-      throw new Error("The scheduled email needs a subject and message.");
-    }
-
-    const key = `smtp:${credentials.email}:${message.id}`;
-    const raw = await readOptional(this.linksFile);
-    const links = raw ? (JSON.parse(raw.toString()) as DraftMap) : {};
-    let link = links[key];
-    if (link?.sent) {
-      return { email: credentials.email, recipient: to, alreadySent: true };
-    }
-    if (link?.sendStarted) throw new GmailDeliveryUncertainError();
-    if (!link) {
-      link = {
-        messageId: `surface.${message.id.replaceAll("-", "")}@surface.local`,
-      };
-      links[key] = link;
-    }
-
-    const transport = createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: { user: credentials.email, pass: credentials.appPassword },
-      connectionTimeout: 15_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 20_000,
-    });
-    try {
-      await transport.verify();
-      link.sendStarted = true;
-      links[key] = link;
-      await atomicWrite(this.linksFile, JSON.stringify(links));
-      try {
-        const result = await transport.sendMail({
-          from: credentials.email,
-          to,
-          subject: message.subject,
-          text: message.body,
-          messageId: link.messageId,
-        });
-        if (result.accepted.length === 0) throw new GmailDeliveryUncertainError();
-        link.sent = true;
-        links[key] = link;
-        await atomicWrite(this.linksFile, JSON.stringify(links));
-        return { email: credentials.email, recipient: to, alreadySent: false };
-      } catch (error) {
-        if (error instanceof GmailDeliveryUncertainError) throw error;
-        throw new GmailDeliveryUncertainError();
-      }
-    } finally {
-      transport.close();
-    }
   }
 }

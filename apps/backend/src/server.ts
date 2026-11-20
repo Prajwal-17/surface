@@ -104,6 +104,15 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
   database.exec(
     `UPDATE tracker_companies SET status='Listed' WHERE status IN ('To research','Outreach')`,
   );
+  // Preserve legacy queue history, but stop every pending Surface-managed
+  // delivery. Drafts are saved to Gmail and scheduled from Gmail itself.
+  database.exec(`
+    UPDATE scheduled_emails
+    SET status = 'cancelled',
+        error = 'Surface automatic delivery is disabled. Schedule this draft in Gmail.',
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    WHERE status IN ('queued', 'processing');
+  `);
   const writingConversationColumns = new Set(
     (
       database.prepare("PRAGMA table_info(writing_conversations)").all() as {

@@ -38,6 +38,7 @@ export const leadSources = sqliteTable("lead_sources", {
   title: text("title").notNull().default(""),
   excerpt: text("excerpt").notNull().default(""),
   retrievedAt: text("retrieved_at").notNull(),
+  rendered: integer("rendered").notNull().default(0),
   createdAt: text("created_at").notNull(),
 });
 
@@ -132,6 +133,7 @@ export function initializeLeadTables(database: DatabaseSync) {
       title TEXT NOT NULL DEFAULT '',
       excerpt TEXT NOT NULL DEFAULT '',
       retrieved_at TEXT NOT NULL,
+      rendered INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_lead_sources_run ON lead_sources(run_id);
@@ -173,6 +175,18 @@ export function initializeLeadTables(database: DatabaseSync) {
       updated_at TEXT NOT NULL
     );
   `);
+  // Databases created before rendered fetch existed keep working: add the
+  // column in place instead of requiring a migration runner.
+  const leadSourceColumns = new Set(
+    (database.prepare("PRAGMA table_info(lead_sources)").all() as {
+      name: string;
+    }[]).map((column) => column.name),
+  );
+  if (!leadSourceColumns.has("rendered")) {
+    database.exec(
+      "ALTER TABLE lead_sources ADD COLUMN rendered INTEGER NOT NULL DEFAULT 0",
+    );
+  }
 }
 
 export type DiscoveryRun = typeof discoveryRuns.$inferSelect;

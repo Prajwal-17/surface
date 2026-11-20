@@ -3,7 +3,6 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { streamText, type UIMessage } from "ai";
 import { z } from "zod";
-import { hasDesktopToken } from "../auth/session";
 import { getWritingModel } from "../../shared/ai/model";
 import {
   createConversation,
@@ -19,14 +18,8 @@ import { pdfText } from "../profile/resume";
 import { HttpError } from "../../shared/errors/http-error";
 import {
   createWritingExample,
-  createScheduledEmail,
-  cancelScheduledEmail,
-  claimDueScheduledEmails,
   deleteWritingExample,
   getWritingContext,
-  listScheduledEmails,
-  recordScheduledEmailResult,
-  retryScheduledEmail,
   reorderWritingExamples,
   saveWritingGuide,
   updateWritingExample,
@@ -80,79 +73,8 @@ const uiMessageSchema = z
       .max(30),
   })
   .passthrough();
-const scheduledEmailSchema = z
-  .object({
-    conversationId: z.uuid(),
-    recipient: z.email().max(254),
-    subject: z.string().trim().min(1).max(500),
-    body: z.string().trim().min(1).max(30000),
-    scheduledAt: z.iso.datetime(),
-    timezone: z.string().trim().min(1).max(100),
-  })
-  .strict();
-
 writingRoutes.get("/context", async (context) =>
   context.json(await getWritingContext()),
-);
-
-writingRoutes.get("/schedule", async (context) =>
-  context.json(await listScheduledEmails()),
-);
-
-writingRoutes.post(
-  "/schedule",
-  zValidator("json", scheduledEmailSchema),
-  async (context) =>
-    context.json(await createScheduledEmail(context.req.valid("json")), 201),
-);
-
-writingRoutes.post("/schedule/:id/cancel", async (context) =>
-  context.json(await cancelScheduledEmail(context.req.param("id"))),
-);
-
-writingRoutes.post("/schedule/:id/retry", async (context) =>
-  context.json(await retryScheduledEmail(context.req.param("id"))),
-);
-
-// These endpoints are called only by the local Electron process. The desktop
-// token keeps the queue worker separate from browser-initiated send requests.
-writingRoutes.post("/schedule/due", async (context) => {
-  if (!hasDesktopToken(context)) {
-    return context.json({ error: "Desktop scheduler access required." }, 403);
-  }
-  return context.json(await claimDueScheduledEmails());
-});
-
-writingRoutes.post(
-  "/schedule/:id/result",
-  zValidator(
-    "json",
-    z
-      .object({
-        status: z.enum(["sent", "failed", "uncertain"]),
-        error: z.string().max(1000).optional(),
-      })
-      .strict()
-      .refine(
-        (value) => value.status === "sent" || Boolean(value.error?.trim()),
-      ),
-  ),
-  async (context) => {
-    if (!hasDesktopToken(context)) {
-      return context.json({ error: "Desktop scheduler access required." }, 403);
-    }
-    const result = context.req.valid("json");
-    return context.json(
-      await recordScheduledEmailResult(
-        context.req.param("id"),
-        result.status === "sent"
-          ? { status: "sent" }
-          : result.status === "uncertain"
-            ? { status: "uncertain", error: result.error! }
-            : { status: "failed", error: result.error! },
-      ),
-    );
-  },
 );
 
 writingRoutes.use(

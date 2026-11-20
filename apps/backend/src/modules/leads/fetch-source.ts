@@ -1,9 +1,12 @@
-import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest, type RequestOptions } from "node:https";
+import { isPrivateAddress, validatedLookup } from "./ssrf";
 
 const MAX_BYTES = 1_500_000;
 const MAX_REDIRECTS = 4;
 const MAX_EXCERPT = 7000;
+const FETCH_TIMEOUT_MS = 15_000;
 
 export type FetchedSource = {
   url: string;
@@ -13,55 +16,18 @@ export type FetchedSource = {
 };
 
 export class SourceFetchError extends Error {
-  constructor(message: string) {
+  /**
+   * Whether retrying through the rendered-browser engine could plausibly
+   * succeed (thin HTML, bot blocks, fetch-level errors). Policy and URL
+   * rejections are not retryable.
+   */
+  readonly retryWithRender: boolean;
+
+  constructor(message: string, retryWithRender = false) {
     super(message);
     this.name = "SourceFetchError";
+    this.retryWithRender = retryWithRender;
   }
-}
-
-function isPrivateIpv4(value: string) {
-  const parts = value.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) {
-    return true;
-  }
-  const [a, b] = parts;
-  if (a === undefined || b === undefined) return true;
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 100 && b >= 64 && b <= 127) ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 0) ||
-    (a === 192 && b === 168) ||
-    (a === 198 && (b === 18 || b === 19)) ||
-    a >= 224
-  );
-}
-
-function isPrivateIpv6(value: string) {
-  const address = value.toLowerCase().replace(/^\[|\]$/g, "");
-  if (address === "::" || address === "::1") return true;
-  if (address.startsWith("::ffff:")) {
-    return isPrivateIpv4(address.slice("::ffff:".length));
-  }
-  return (
-    address.startsWith("fc") ||
-    address.startsWith("fd") ||
-    address.startsWith("fe8") ||
-    address.startsWith("fe9") ||
-    address.startsWith("fea") ||
-    address.startsWith("feb") ||
-    address.startsWith("ff")
-  );
-}
-
-function isPrivateAddress(address: string) {
-  const version = isIP(address);
-  if (version === 4) return isPrivateIpv4(address);
-  if (version === 6) return isPrivateIpv6(address);
-  return true;
 }
 
 /** Rejects non-HTTP(S), credentialed, local, and private-network destinations. */
@@ -91,8 +57,7 @@ export async function assertPublicHttpUrl(raw: string): Promise<URL> {
     throw new SourceFetchError("Local source URLs are not allowed.");
   }
 
-  const literalVersion = isIP(hostname);
-  if (literalVersion) {
+  if (isIP(hostname)) {
     if (isPrivateAddress(hostname)) {
       throw new SourceFetchError(
         "Private network source URLs are not allowed.",
@@ -101,55 +66,87 @@ export async function assertPublicHttpUrl(raw: string): Promise<URL> {
     return url;
   }
 
-  let addresses: { address: string }[];
-  try {
-    addresses = await lookup(hostname, { all: true, verbatim: true });
-  } catch {
-    throw new SourceFetchError(`Could not resolve ${hostname}.`);
-  }
-  if (
-    !addresses.length ||
-    addresses.some(({ address }) => isPrivateAddress(address))
-  ) {
+  const addresses = await validatedLookup(hostname);
+  if (!addresses) {
     throw new SourceFetchError(
-      "Source URLs must resolve to public internet addresses.",
+      `Could not resolve ${hostname}, or it resolved to a private network address.`,
     );
   }
   return url;
 }
 
-async function readLimitedBody(response: Response) {
-  const length = Number(response.headers.get("content-length") ?? "0");
-  if (Number.isFinite(length) && length > MAX_BYTES) {
-    throw new SourceFetchError("The source page is too large to read.");
+type SimpleResponse = {
+  status: number;
+  contentType: string;
+  location: string | null;
+  body: string;
+};
+
+/**
+ * HTTP(S) GET with DNS pinning: the host is resolved once, checked against
+ * private ranges, and the connection only ever uses the approved addresses.
+ * Each redirect hop re-validates, so no hop can bypass the guard.
+ */
+async function pinnedFetch(url: URL, signal: AbortSignal): Promise<SimpleResponse> {
+  const lookup = await validatedLookup(url.hostname);
+  if (!lookup) {
+    throw new SourceFetchError(
+      "Source URLs must resolve to public internet addresses.",
+    );
   }
-  if (!response.body) return "";
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.byteLength;
-      if (total > MAX_BYTES) {
-        await reader.cancel().catch(() => {});
-        throw new SourceFetchError("The source page is too large to read.");
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  const charset = response.headers
-    .get("content-type")
-    ?.match(/charset=["']?([^;"']+)/i)?.[1]
+  const transport = url.protocol === "https:" ? httpsRequest : httpRequest;
+  const options: RequestOptions = {
+    method: "GET",
+    headers: {
+      Accept: "text/html,application/xhtml+xml,text/plain;q=0.9",
+      "User-Agent":
+        "Surface lead discovery (+https://github.com/surface; research assistant)",
+    },
+    lookup,
+    signal,
+  };
+
+  return await new Promise<SimpleResponse>((resolve, reject) => {
+    const request = transport(url, options, (response) => {
+      const status = response.statusCode ?? 0;
+      const contentType = String(response.headers["content-type"] ?? "");
+      const locationHeader = response.headers["location"];
+      const location =
+        typeof locationHeader === "string" ? locationHeader : null;
+      const chunks: Buffer[] = [];
+      let total = 0;
+      let tooLarge = false;
+      response.on("data", (chunk: Buffer) => {
+        if (tooLarge) return;
+        total += chunk.length;
+        if (total > MAX_BYTES) {
+          tooLarge = true;
+          response.destroy(
+            new SourceFetchError("The source page is too large to read."),
+          );
+          return;
+        }
+        chunks.push(Buffer.from(chunk));
+      });
+      response.on("error", (error) => reject(error));
+      response.on("end", () => {
+        if (tooLarge) return; // already rejected via destroy
+        resolve({
+          status,
+          contentType,
+          location,
+          body: decodeBody(Buffer.concat(chunks), contentType),
+        });
+      });
+    });
+    request.on("error", (error) => reject(error));
+    request.end();
+  });
+}
+
+function decodeBody(bytes: Buffer, contentType: string) {
+  const charset = contentType
+    .match(/charset=["']?([^;"']+)/i)?.[1]
     ?.trim()
     ?.toLowerCase();
   try {
@@ -243,43 +240,37 @@ export function extractReadableText(html: string) {
 export async function fetchSourcePage(rawUrl: string): Promise<FetchedSource> {
   let current = await assertPublicHttpUrl(rawUrl);
   for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect++) {
-    let response: Response;
+    let response: SimpleResponse;
     try {
-      response = await fetch(current, {
-        redirect: "manual",
-        headers: {
-          Accept: "text/html,application/xhtml+xml,text/plain;q=0.9",
-          "User-Agent":
-            "Surface lead discovery (+https://github.com/surface; research assistant)",
-        },
-        signal: AbortSignal.timeout(15_000),
-      });
+      response = await pinnedFetch(current, AbortSignal.timeout(FETCH_TIMEOUT_MS));
     } catch (error) {
+      if (error instanceof SourceFetchError) throw error;
       throw new SourceFetchError(
         `Could not fetch ${current.hostname}. ${
           error instanceof Error ? error.message : "The request failed."
         }`,
+        true,
       );
     }
 
     if ([301, 302, 303, 307, 308].includes(response.status)) {
-      const location = response.headers.get("location");
-      if (!location) {
+      if (!response.location) {
         throw new SourceFetchError("The source redirected without a target.");
       }
       current = await assertPublicHttpUrl(
-        new URL(location, current).toString(),
+        new URL(response.location, current).toString(),
       );
       continue;
     }
 
-    if (!response.ok) {
+    if (response.status < 200 || response.status >= 300) {
       throw new SourceFetchError(
         `${current.hostname} returned HTTP ${response.status}.`,
+        response.status === 403 || response.status === 503,
       );
     }
 
-    const contentType = response.headers.get("content-type") ?? "";
+    const contentType = response.contentType;
     if (
       contentType &&
       !/text\/html|application\/xhtml\+xml|text\/plain|application\/json/i.test(
@@ -291,12 +282,12 @@ export async function fetchSourcePage(rawUrl: string): Promise<FetchedSource> {
       );
     }
 
-    const body = await readLimitedBody(response);
-    const isHtml = /html|xml/i.test(contentType) || /<html[\s>]/i.test(body);
+    const isHtml =
+      /html|xml/i.test(contentType) || /<html[\s>]/i.test(response.body);
     if (!isHtml) {
-      const excerpt = body.replace(/\s+/g, " ").trim().slice(0, MAX_EXCERPT);
+      const excerpt = response.body.replace(/\s+/g, " ").trim().slice(0, MAX_EXCERPT);
       if (!excerpt) {
-        throw new SourceFetchError("The source page did not contain text.");
+        throw new SourceFetchError("The source page did not contain text.", true);
       }
       return {
         url: current.toString(),
@@ -306,10 +297,11 @@ export async function fetchSourcePage(rawUrl: string): Promise<FetchedSource> {
       };
     }
 
-    const extracted = extractReadableText(body);
+    const extracted = extractReadableText(response.body);
     if (extracted.excerpt.length < 120) {
       throw new SourceFetchError(
         "The source page did not contain enough readable text.",
+        true,
       );
     }
     return {

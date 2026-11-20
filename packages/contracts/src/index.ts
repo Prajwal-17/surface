@@ -6,6 +6,7 @@ import {
 
 export * from "./profile-catalogs";
 export * from "./resume-contracts";
+export * from "./leads-catalogs";
 
 export const personalContextSchema = z
   .object({
