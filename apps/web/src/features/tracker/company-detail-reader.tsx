@@ -27,7 +27,6 @@ type CompanyDetail = {
   description: string;
   status: string;
   notes: string;
-  tags?: string[];
   applicationCount: number;
   createdAt: string;
   updatedAt: string;
@@ -167,16 +166,6 @@ function ReaderBody({
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <Badge variant="outline">{company.status}</Badge>
-            {(company.tags ?? []).includes("lead") ? (
-              <Badge variant="outline" className="status-pill tone-blue">
-                Lead
-              </Badge>
-            ) : null}
-            {(company.tags ?? []).includes("research") ? (
-              <Badge variant="outline" className="status-pill tone-mint">
-                Research
-              </Badge>
-            ) : null}
             <span className="text-xs text-muted-foreground">
               {company.applicationCount}{" "}
               {company.applicationCount === 1 ? "application" : "applications"}
@@ -235,7 +224,6 @@ function ReaderBody({
         <CompanyResearchPanel
           companyId={company.id}
           companyName={company.name}
-          companyTags={company.tags ?? []}
         />
 
         <section aria-labelledby="company-applications-heading" className="p-4">

@@ -10,13 +10,12 @@ import {
   Tag,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProfileMarkdown } from "@/components/ui/profile-markdown";
 import {
   isRunActive,
   useCompanyOverview,
-  useCompanyTags,
+  useCompanyStatus,
   useResearchCompany,
 } from "./leads-query";
 
@@ -47,32 +46,26 @@ function section(content: string, title: string) {
 export function CompanyResearchPanel({
   companyId,
   companyName,
-  companyTags,
 }: {
   companyId: string;
   companyName: string;
-  companyTags: string[];
 }) {
   const overview = useCompanyOverview(companyId);
-  const saveTags = useCompanyTags(companyId);
+  const saveStatus = useCompanyStatus(companyId);
   const research = useResearchCompany();
-  const tags = overview.data?.company.tags ?? companyTags;
-  const hasResearchTag = tags.includes("research");
+  const status = overview.data?.company.status ?? "";
+  const isResearch = status === "Research";
   const brief = overview.data?.brief ?? null;
   const evidence = overview.data?.evidence ?? [];
   const researchRun = overview.data?.researchRun ?? null;
   const researchActive = isRunActive(researchRun);
 
-  function toggleResearchTag() {
-    const next = hasResearchTag
-      ? tags.filter((tag) => tag !== "research")
-      : [...tags, "research"];
-    saveTags.mutate(next, {
+  function toggleResearchStatus() {
+    const next = isResearch ? "Listed" : "Research";
+    saveStatus.mutate(next, {
       onSuccess: () =>
         toast.success(
-          hasResearchTag
-            ? "Removed research tag"
-            : "Marked company as research",
+          isResearch ? "Moved back to Listed" : "Marked as research",
         ),
       onError: (error) => toast.error(error.message),
     });
@@ -112,20 +105,6 @@ export function CompanyResearchPanel({
           <BookOpen className="size-4 text-brand" />
           Lead research
         </h3>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {tags.includes("lead") ? (
-            <Badge variant="outline" className="status-pill tone-blue gap-1">
-              <Tag className="size-3" />
-              Lead
-            </Badge>
-          ) : null}
-          {hasResearchTag ? (
-            <Badge variant="outline" className="status-pill tone-mint gap-1">
-              <Tag className="size-3" />
-              Research
-            </Badge>
-          ) : null}
-        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -134,15 +113,15 @@ export function CompanyResearchPanel({
           variant="outline"
           size="sm"
           className="h-8"
-          disabled={saveTags.isPending}
-          onClick={toggleResearchTag}
+          disabled={saveStatus.isPending || !status}
+          onClick={toggleResearchStatus}
         >
-          {saveTags.isPending ? (
+          {saveStatus.isPending ? (
             <LoaderCircle className="animate-spin" />
           ) : (
             <Tag />
           )}
-          {hasResearchTag ? "Remove research tag" : "Mark research"}
+          {isResearch ? "Move to Listed" : "Mark research"}
         </Button>
         <Button
           type="button"

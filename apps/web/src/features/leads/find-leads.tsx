@@ -1150,12 +1150,18 @@ function RunDetailsCard({
                     ) : null}
                   </div>
                   <div className="flex items-center gap-2">
-                    {lead.tags.includes("lead") ? (
+                    {lead.status ? (
                       <Badge
                         variant="outline"
-                        className="status-pill tone-blue"
+                        className={`status-pill ${
+                          lead.status === "Lead"
+                            ? "tone-blue"
+                            : lead.status === "Research"
+                              ? "tone-mint"
+                              : ""
+                        }`}
                       >
-                        Lead
+                        {lead.status}
                       </Badge>
                     ) : null}
                     {lead.website ? (

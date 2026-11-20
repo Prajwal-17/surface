@@ -104,6 +104,18 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
   database.exec(
     `UPDATE tracker_companies SET status='Listed' WHERE status IN ('To research','Outreach')`,
   );
+  // Company tags were merged into status: existing lead/research tag rows
+  // become statuses once, then the tag rows are cleared so this never
+  // re-applies to a company the user moved back to Listed.
+  database.exec(`
+    UPDATE tracker_companies SET status='Research'
+     WHERE status='Listed'
+       AND id IN (SELECT company_id FROM company_tags WHERE tag='research');
+    UPDATE tracker_companies SET status='Lead'
+     WHERE status='Listed'
+       AND id IN (SELECT company_id FROM company_tags WHERE tag='lead');
+    DELETE FROM company_tags;
+  `);
   // Preserve legacy queue history, but stop every pending Surface-managed
   // delivery. Drafts are saved to Gmail and scheduled from Gmail itself.
   database.exec(`

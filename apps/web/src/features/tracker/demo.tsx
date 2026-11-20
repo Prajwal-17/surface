@@ -79,7 +79,6 @@ type Company = {
   description: string;
   status: string;
   notes: string;
-  tags: string[];
   applicationCount: number;
   createdAt: string;
   updatedAt: string;
@@ -119,9 +118,7 @@ type StatusTarget = {
   label: string;
   status: string;
 };
-const companyStatuses = ["Listed", "Archived"];
-const companyTagFilters = ["Lead", "Research"];
-const companyFilters = [...companyStatuses, ...companyTagFilters];
+const companyStatuses = ["Listed", "Lead", "Research", "Archived"];
 const applicationStatuses = [
   "To apply",
   "Applied",
@@ -277,17 +274,13 @@ function getPageTokens(currentPage: number, totalPages: number): PageToken[] {
 }
 function statusTone(status: string) {
   if (["Applied", "In conversation"].includes(status)) return "tone-mint";
-  if (status === "To apply") return "tone-blue";
+  if (status === "To apply" || status === "Lead") return "tone-blue";
+  if (status === "Research") return "tone-mint";
   return "tone-muted";
 }
 function companyMatchesFilter(company: Company, filter: string) {
   if (filter === "All statuses") return true;
-  if (filter === "Lead") return company.tags.includes("lead");
-  if (filter === "Research") return company.tags.includes("research");
   return company.status === filter;
-}
-function companyTagLabel(tag: string) {
-  return tag === "lead" ? "Lead" : tag === "research" ? "Research" : tag;
 }
 function dateLabel(value: string | null) {
   if (!value) return "—";
@@ -653,7 +646,7 @@ export function TrackerWorkspace({
     }
 
     return companies.filter((company) => {
-      const searchable = `${company.name} ${company.website} ${company.location} ${company.description} ${company.status} ${company.notes} ${company.tags.join(" ")}`;
+      const searchable = `${company.name} ${company.website} ${company.location} ${company.description} ${company.status} ${company.notes}`;
       return (
         searchable.toLowerCase().includes(normalizedQuery) &&
         companyMatchesFilter(company, view.status)
@@ -663,7 +656,7 @@ export function TrackerWorkspace({
   const filteredCompanies = companies
     .filter(
       (c) =>
-        `${c.name} ${c.website} ${c.location} ${c.description} ${c.status} ${c.notes} ${c.tags.join(" ")}`
+        `${c.name} ${c.website} ${c.location} ${c.description} ${c.status} ${c.notes}`
           .toLowerCase()
           .includes(normalizedQuery) && companyMatchesFilter(c, filter),
     )
@@ -756,7 +749,7 @@ export function TrackerWorkspace({
       ? companyQuery.data === undefined || applicationQuery.data === undefined
       : companyQuery.data === undefined);
   const statuses =
-    page === "applications" ? applicationStatuses : companyFilters;
+    page === "applications" ? applicationStatuses : companyStatuses;
   const columns: {
     label: string;
     width: string;
@@ -779,7 +772,6 @@ export function TrackerWorkspace({
           { label: "Website", width: "min-w-[180px]" },
           { label: "Location", width: "min-w-[180px]" },
           { label: "Status", width: "min-w-[150px]" },
-          { label: "Tags", width: "min-w-[150px]" },
           {
             label: "Applications",
             width: "min-w-[160px]",
@@ -1443,25 +1435,6 @@ export function TrackerWorkspace({
                         </TableCell>
                         <TableCell className={gridCell}>
                           <StatusBadge status={company.status} />
-                        </TableCell>
-                        <TableCell className={gridCell}>
-                          {company.tags.length ? (
-                            <div className="flex flex-wrap gap-1">
-                              {company.tags.map((tag) => (
-                                <Badge
-                                  key={tag}
-                                  variant="outline"
-                                  className={`status-pill ${
-                                    tag === "lead" ? "tone-blue" : "tone-mint"
-                                  }`}
-                                >
-                                  {companyTagLabel(tag)}
-                                </Badge>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
                         </TableCell>
                         <TableCell className={gridCell}>
                           <Link

@@ -11,7 +11,6 @@ import {
 import { stripInjectionLines } from "./injection-guard";
 import { requestRenderFetch } from "../desktop/render-channel";
 import {
-  addCompanyTag,
   addEvidence,
   createLeadCompany,
   findCompanyByDomain,
@@ -23,6 +22,7 @@ import {
   getRunResearchBrief,
   getRunSource,
   listRunSources,
+  markCompanyLead,
   markRunRunning,
   parseRunCriteria,
   recordRunEvent,
@@ -415,7 +415,7 @@ async function runDiscoveryRun(runId: string) {
             notes: "",
           });
 
-      await addCompanyTag(companyId, "lead");
+      await markCompanyLead(companyId);
       let addedEvidence = 0;
       for (const source of sources) {
         if (

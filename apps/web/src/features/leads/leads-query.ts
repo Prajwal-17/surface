@@ -87,7 +87,6 @@ export type RunLead = {
   description: string;
   status: string;
   updatedAt: string;
-  tags: string[];
   matchReason: string;
   sources: Array<{ url: string; title: string }>;
 };
@@ -144,7 +143,6 @@ export type CompanyOverview = {
     description: string;
     notes: string;
     status: string;
-    tags: string[];
     applicationCount: number;
     createdAt: string;
     updatedAt: string;
@@ -332,17 +330,14 @@ export function useResearchCompany() {
   });
 }
 
-export function useCompanyTags(companyId: string) {
+export function useCompanyStatus(companyId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (tags: string[]) =>
-      apiClient<{ tags: string[] }>(
-        `/api/tracker/companies/${encodeURIComponent(companyId)}/tags`,
-        {
-          method: "PUT",
-          body: JSON.stringify({ tags }),
-        },
-      ),
+    mutationFn: (status: string) =>
+      apiClient(`/api/tracker/companies/${encodeURIComponent(companyId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["tracker"] }),

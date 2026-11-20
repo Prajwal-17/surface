@@ -3,7 +3,6 @@ import { db } from "../../infrastructure/database/client";
 import { executeStatement } from "../../infrastructure/database/client";
 import { HttpError } from "../../shared/errors/http-error";
 import {
-  companyTags,
   discoveryRunEvents,
   discoveryRuns,
   leadEvidence,
@@ -32,9 +31,6 @@ export type {
   SeedSource,
 } from "@surface/contracts";
 
-export type CompanyTag = "lead" | "research";
-export const COMPANY_TAGS: readonly CompanyTag[] = ["lead", "research"];
-
 export type RunState =
   "queued" | "running" | "completed" | "failed" | "cancelled";
 
@@ -61,7 +57,6 @@ export type CompanySummary = {
   description: string;
   notes: string;
   status: string;
-  tags: CompanyTag[];
   createdAt: string;
   updatedAt: string;
 };
@@ -83,10 +78,6 @@ export function normalizeDomain(
   } catch {
     return null;
   }
-}
-
-export function isCompanyTag(value: string): value is CompanyTag {
-  return (COMPANY_TAGS as readonly string[]).includes(value);
 }
 
 export async function getLeadSettings(): Promise<LeadSettings> {
@@ -353,43 +344,6 @@ export async function findCompanyById(companyId: string) {
   return rows[0];
 }
 
-export async function listCompanyTags(
-  companyId: string,
-): Promise<CompanyTag[]> {
-  const rows = await db
-    .select({ tag: companyTags.tag })
-    .from(companyTags)
-    .where(eq(companyTags.companyId, companyId));
-  return rows
-    .map((row) => row.tag)
-    .filter((tag): tag is CompanyTag => isCompanyTag(tag));
-}
-
-export async function setCompanyTags(
-  companyId: string,
-  tags: CompanyTag[],
-): Promise<CompanyTag[]> {
-  const unique = [...new Set(tags)];
-  await db.delete(companyTags).where(eq(companyTags.companyId, companyId));
-  if (unique.length) {
-    await db.insert(companyTags).values(
-      unique.map((tag) => ({
-        companyId,
-        tag,
-        createdAt: now(),
-      })),
-    );
-  }
-  return unique;
-}
-
-export async function addCompanyTag(companyId: string, tag: CompanyTag) {
-  await db
-    .insert(companyTags)
-    .values({ companyId, tag, createdAt: now() })
-    .onConflictDoNothing();
-}
-
 export async function addEvidence(input: {
   companyId: string;
   runId: string | null;
@@ -442,13 +396,22 @@ export async function createLeadCompany(input: {
       input.website,
       input.location,
       input.description,
-      "Listed",
+      "Lead",
       input.notes,
       timestamp,
       timestamp,
     ],
   );
   return key;
+}
+
+// Promote an already-tracked company to Lead without overriding an explicit
+// Archived or Research status.
+export async function markCompanyLead(companyId: string) {
+  await executeStatement(
+    `UPDATE tracker_companies SET status='Lead', updated_at=? WHERE id=? AND status='Listed'`,
+    [now(), companyId],
+  );
 }
 
 export async function touchCompany(companyId: string) {
@@ -548,8 +511,7 @@ export async function listCompanyResearchRuns(companyId: string) {
 export async function getCompanyOverview(companyId: string) {
   const company = await findCompanyById(companyId);
   if (!company) throw new HttpError(404, "Company not found.");
-  const [tags, evidence, brief, researchRuns] = await Promise.all([
-    listCompanyTags(companyId),
+  const [evidence, brief, researchRuns] = await Promise.all([
     listCompanyEvidence(companyId),
     getLatestResearchBrief(companyId),
     listCompanyResearchRuns(companyId),
@@ -561,8 +523,6 @@ export async function getCompanyOverview(companyId: string) {
   return {
     company: {
       ...company,
-      tags,
-      tagCount: tags.length,
       applicationCount: applications[0]?.count ?? 0,
     },
     evidence,
@@ -573,13 +533,11 @@ export async function getCompanyOverview(companyId: string) {
 
 export async function getRunLeads(runId: string) {
   const rows = await executeStatement<
-    Record<string, unknown> & { id: string; tags: string | null }
+    Record<string, unknown> & { id: string }
   >(
-    `SELECT c.id,c.name,c.website,c.location,c.description,c.status,c.updated_at AS updatedAt,
-            GROUP_CONCAT(DISTINCT t.tag) AS tags
+    `SELECT c.id,c.name,c.website,c.location,c.description,c.status,c.updated_at AS updatedAt
      FROM lead_evidence e
      JOIN tracker_companies c ON c.id=e.company_id
-     LEFT JOIN company_tags t ON t.company_id=c.id
      WHERE e.run_id=?
      GROUP BY c.id
      ORDER BY c.updated_at DESC`,
@@ -614,9 +572,6 @@ export async function getRunLeads(runId: string) {
     const linked = byCompany.get(row.id);
     return {
       ...row,
-      tags: (row.tags ?? "")
-        .split(",")
-        .filter((tag): tag is CompanyTag => isCompanyTag(tag)),
       matchReason: linked?.claim ?? "",
       sources: linked?.sources ?? [],
     };

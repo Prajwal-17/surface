@@ -2,11 +2,6 @@ import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { executeStatement } from "../../infrastructure/database/client";
 import { HttpError } from "../../shared/errors/http-error";
-import {
-  isCompanyTag,
-  setCompanyTags,
-  type CompanyTag,
-} from "../leads/leads.repository";
 
 export const trackerRoutes = new Hono();
 const applicationStatuses = [
@@ -15,7 +10,7 @@ const applicationStatuses = [
   "In conversation",
   "Closed",
 ] as const;
-const companyStatuses = ["Listed", "Archived"] as const;
+const companyStatuses = ["Listed", "Lead", "Research", "Archived"] as const;
 const optionalText = z.string().trim().max(4000).optional().default("");
 const optionalDescription = z
   .string()
@@ -55,17 +50,6 @@ const companyInput = z.object({
   status: z.enum(companyStatuses).default("Listed"),
   notes: optionalText,
 });
-const companyTagsInput = z
-  .object({
-    tags: z
-      .array(z.string().trim().max(40))
-      .max(10)
-      .refine(
-        (tags) => tags.every((tag) => isCompanyTag(tag)),
-        "Tags must be lead or research.",
-      ),
-  })
-  .strict();
 const applicationInput = z.object({
   title: z.string().trim().min(1).max(200),
   companyId: z.string().min(1),
@@ -119,11 +103,9 @@ async function readBody(context: Context) {
 
 trackerRoutes.get("/companies", async (c) =>
   c.json(
-    (
-      await executeStatement<Record<string, unknown>>(
-        `SELECT c.id,c.name,c.website,c.location,c.description,c.status,c.notes,c.created_at AS createdAt,c.updated_at AS updatedAt,COUNT(a.id) AS applicationCount,COALESCE((SELECT GROUP_CONCAT(t.tag) FROM company_tags t WHERE t.company_id=c.id),'') AS tags FROM tracker_companies c LEFT JOIN tracker_applications a ON a.company_id=c.id GROUP BY c.id ORDER BY c.updated_at DESC, c.id`,
-      )
-    ).map(withCompanyTags),
+    await executeStatement<Record<string, unknown>>(
+      `SELECT c.id,c.name,c.website,c.location,c.description,c.status,c.notes,c.created_at AS createdAt,c.updated_at AS updatedAt,COUNT(a.id) AS applicationCount FROM tracker_companies c LEFT JOIN tracker_applications a ON a.company_id=c.id GROUP BY c.id ORDER BY c.updated_at DESC, c.id`,
+    ),
   ),
 );
 trackerRoutes.get("/companies/:id", async (c) => {
@@ -172,19 +154,6 @@ trackerRoutes.patch("/companies/:id", async (c) => {
     [...entries.map(([, value]) => value), now(), key],
   );
   return c.json(await oneCompany(key));
-});
-trackerRoutes.put("/companies/:id/tags", async (c) => {
-  const key = c.req.param("id");
-  const current = await oneCompany(key);
-  if (!current) throw new HttpError(404, "Company not found.");
-  const input = parse(companyTagsInput, await readBody(c));
-  const tags = await setCompanyTags(
-    key,
-    [...new Set(input.tags)].filter((tag): tag is CompanyTag =>
-      isCompanyTag(tag),
-    ),
-  );
-  return c.json({ ...current, tags });
 });
 trackerRoutes.delete("/companies/:id", async (c) => {
   const key = c.req.param("id");
@@ -288,21 +257,12 @@ trackerRoutes.delete("/applications/:id", async (c) => {
   return c.json({ ok: true });
 });
 async function oneCompany(key: string) {
-  return withCompanyTags(
-    (
-      await executeStatement<Record<string, unknown>>(
-        `SELECT c.id,c.name,c.website,c.location,c.description,c.status,c.notes,c.created_at AS createdAt,c.updated_at AS updatedAt,COUNT(a.id) AS applicationCount,COALESCE((SELECT GROUP_CONCAT(t.tag) FROM company_tags t WHERE t.company_id=c.id),'') AS tags FROM tracker_companies c LEFT JOIN tracker_applications a ON a.company_id=c.id WHERE c.id=? GROUP BY c.id`,
-        [key],
-      )
-    )[0],
-  );
-}
-function withCompanyTags(row: Record<string, unknown> | undefined) {
-  if (!row) return row;
-  const tags = String(row.tags ?? "")
-    .split(",")
-    .filter((tag): tag is CompanyTag => isCompanyTag(tag));
-  return { ...row, tags };
+  return (
+    await executeStatement<Record<string, unknown>>(
+      `SELECT c.id,c.name,c.website,c.location,c.description,c.status,c.notes,c.created_at AS createdAt,c.updated_at AS updatedAt,COUNT(a.id) AS applicationCount FROM tracker_companies c LEFT JOIN tracker_applications a ON a.company_id=c.id WHERE c.id=? GROUP BY c.id`,
+      [key],
+    )
+  )[0];
 }
 async function oneApplication(key: string) {
   return (
