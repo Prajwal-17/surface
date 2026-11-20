@@ -25,6 +25,7 @@ type CompanyDetail = {
   website: string;
   location: string;
   description: string;
+  contacts: string;
   status: string;
   notes: string;
   applicationCount: number;
@@ -62,11 +63,20 @@ export function CompanyDetailReader({
     return () => media.removeEventListener("change", update);
   }, []);
 
+  useEffect(() => {
+    if (isNarrow) return; // the Sheet closes on Escape for narrow screens
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isNarrow, onClose]);
+
   return (
     <>
       <aside
         aria-label="Company details"
-        className="hidden h-full min-h-0 w-[min(440px,42vw)] shrink-0 flex-col border-l border-border bg-card xl:flex"
+        className="absolute inset-y-0 right-0 z-40 hidden w-[min(440px,42vw)] flex-col border-l border-border bg-card shadow-2xl xl:flex"
       >
         <ReaderBody
           company={company}
@@ -218,6 +228,14 @@ function ReaderBody({
             <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
               {company.description}
             </p>
+          ) : null}
+          {company.contacts.trim() ? (
+            <div className="mt-4">
+              <p className="text-xs text-muted-foreground">Contacts</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">
+                {company.contacts}
+              </p>
+            </div>
           ) : null}
         </section>
 

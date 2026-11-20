@@ -1,5 +1,14 @@
 # Changelog
 
+## desktop-v0.3.0 - 20 Nov 2026
+
+### Added
+
+- A Contacts field on tracker companies and a Channels used field on tracker
+  applications. Both are editable in the add/edit sheets, shown in the detail
+  panels, included in search, and stored in dedicated columns that a startup
+  migration adds to existing profiles.
+
 ## desktop-v0.2.0 - 20 Nov 2026
 
 ### Added

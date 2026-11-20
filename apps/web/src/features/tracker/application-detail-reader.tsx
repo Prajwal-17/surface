@@ -8,6 +8,7 @@ import {
   FileText,
   Mail,
   MapPin,
+  Send,
   UserRound,
   X,
 } from "lucide-react";
@@ -40,6 +41,7 @@ type ApplicationDetail = {
   followUpOn: string | null;
   contactName: string;
   contactEmail: string;
+  channels: string;
   outcome: string;
   notes: string;
   createdAt: string;
@@ -68,11 +70,20 @@ export function ApplicationDetailReader({
     return () => media.removeEventListener("change", update);
   }, []);
 
+  useEffect(() => {
+    if (isNarrow) return; // the Sheet closes on Escape for narrow screens
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isNarrow, onClose]);
+
   return (
     <>
       <aside
         aria-label="Application details"
-        className="hidden h-full min-h-0 w-[min(440px,42vw)] shrink-0 flex-col border-l border-border bg-card xl:flex"
+        className="absolute inset-y-0 right-0 z-40 hidden w-[min(440px,42vw)] flex-col border-l border-border bg-card shadow-2xl xl:flex"
       >
         <ReaderBody
           application={application}
@@ -163,7 +174,7 @@ function ReaderBody({
   }
 
   const compensation = compensationLabel(application.compensation);
-  const postingUrl = safeHttpUrl(application.sourceUrl);
+  const postingLinks = postingLinksOf(application.sourceUrl);
   const workMode =
     application.workMode === "unknown" ? "" : capitalize(application.workMode);
 
@@ -192,7 +203,7 @@ function ReaderBody({
               <Building2 aria-hidden="true" className="size-3.5 shrink-0" />
               <span className="truncate">{application.companyName}</span>
             </Link>
-            {postingUrl ? (
+            {postingLinks.length ? (
               <Button
                 asChild
                 variant="ghost"
@@ -200,7 +211,7 @@ function ReaderBody({
                 className="size-7 shrink-0"
               >
                 <a
-                  href={postingUrl}
+                  href={postingLinks[0]!}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`Open ${application.title} posting in browser`}
@@ -209,6 +220,11 @@ function ReaderBody({
                   <ExternalLink aria-hidden="true" className="size-3.5" />
                 </a>
               </Button>
+            ) : null}
+            {postingLinks.length > 1 ? (
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                +{postingLinks.length - 1}
+              </span>
             ) : null}
           </div>
         </div>
@@ -226,6 +242,32 @@ function ReaderBody({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {postingLinks.length ? (
+          <section aria-label="Posting links" className="border-b p-4">
+            <h3 className="mb-3 text-sm font-semibold">Posting links</h3>
+            <div className="grid gap-2">
+              {postingLinks.map((link) => (
+                <a
+                  key={link}
+                  href={link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-w-0 items-center gap-2 text-sm underline decoration-border underline-offset-4 hover:text-brand"
+                >
+                  <ExternalLink
+                    aria-hidden="true"
+                    className="size-3.5 shrink-0 text-muted-foreground"
+                  />
+                  <span className="truncate">
+                    {hostnameOf(link)}
+                    {postingLinks.length > 1 ? ` · ${link}` : ""}
+                  </span>
+                </a>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section aria-label="Role details" className="border-b p-4">
           <div className="grid grid-cols-2 gap-x-4 gap-y-4">
             <DetailField
@@ -247,6 +289,11 @@ function ReaderBody({
               icon={Banknote}
               label="Compensation"
               value={compensation}
+            />
+            <DetailField
+              icon={Send}
+              label="Channels"
+              value={application.channels}
             />
           </div>
         </section>
@@ -319,7 +366,7 @@ function ReaderBody({
           ) : (
             <p className="text-sm leading-6 text-muted-foreground">
               No description was saved for this opportunity.
-              {postingUrl
+              {postingLinks.length
                 ? " Open the posting to view its current details."
                 : ""}
             </p>
@@ -338,9 +385,9 @@ function ReaderBody({
         {application.outcome ? (
           <section aria-label="Outcome" className="border-b p-4">
             <h3 className="mb-2 text-sm font-semibold">Outcome</h3>
-            <p className="text-sm text-muted-foreground">
+            <Badge className={outcomeTone(application.outcome)}>
               {application.outcome}
-            </p>
+            </Badge>
           </section>
         ) : null}
 
@@ -473,6 +520,28 @@ function safeHttpUrl(value: string | null): string | null {
       : null;
   } catch {
     return null;
+  }
+}
+
+function postingLinksOf(value: string | null): string[] {
+  return (value ?? "")
+    .split(/\s+/)
+    .map((link) => safeHttpUrl(link))
+    .filter((link): link is string => Boolean(link));
+}
+
+function outcomeTone(outcome: string): string {
+  if (outcome === "Offer accepted") return "tone-mint";
+  if (outcome === "Offer declined" || outcome === "Withdrew")
+    return "tone-amber";
+  return "tone-muted";
+}
+
+function hostnameOf(value: string): string {
+  try {
+    return new URL(value).hostname.replace(/^www\./, "");
+  } catch {
+    return value;
   }
 }
 

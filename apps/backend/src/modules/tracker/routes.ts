@@ -42,11 +42,28 @@ const httpUrl = z
       return false;
     }
   }, "Use a valid HTTP or HTTPS URL.");
+const postingLinks = z
+  .string()
+  .trim()
+  .max(4000)
+  .optional()
+  .default("")
+  .refine((value) => {
+    if (!value) return true;
+    return value.split(/\s+/).every((link) => {
+      try {
+        return ["http:", "https:"].includes(new URL(link).protocol);
+      } catch {
+        return false;
+      }
+    });
+  }, "Use valid HTTP or HTTPS URLs separated by new lines.");
 const companyInput = z.object({
   name: z.string().trim().min(1).max(200),
   website: httpUrl,
   location: optionalText,
   description: optionalText,
+  contacts: optionalText,
   status: z.enum(companyStatuses).default("Listed"),
   notes: optionalText,
 });
@@ -63,7 +80,7 @@ const applicationInput = z.object({
     .optional()
     .nullable(),
   compensation: z.string().trim().max(500).optional().default(""),
-  sourceUrl: httpUrl,
+  sourceUrl: postingLinks,
   appliedOn: isoDate.optional().nullable(),
   contactedOn: isoDate.optional().nullable(),
   followUpOn: isoDate.optional().nullable(),
@@ -78,6 +95,7 @@ const applicationInput = z.object({
       (value) => !value || z.string().email().safeParse(value).success,
       "Use a valid contact email.",
     ),
+  channels: optionalText,
   outcome: optionalText,
   notes: optionalText,
 });
@@ -104,7 +122,7 @@ async function readBody(context: Context) {
 trackerRoutes.get("/companies", async (c) =>
   c.json(
     await executeStatement<Record<string, unknown>>(
-      `SELECT c.id,c.name,c.website,c.location,c.description,c.status,c.notes,c.created_at AS createdAt,c.updated_at AS updatedAt,COUNT(a.id) AS applicationCount FROM tracker_companies c LEFT JOIN tracker_applications a ON a.company_id=c.id GROUP BY c.id ORDER BY c.updated_at DESC, c.id`,
+      `SELECT c.id,c.name,c.website,c.location,c.description,c.status,c.notes,c.contacts,c.created_at AS createdAt,c.updated_at AS updatedAt,COUNT(a.id) AS applicationCount FROM tracker_companies c LEFT JOIN tracker_applications a ON a.company_id=c.id GROUP BY c.id ORDER BY c.updated_at DESC, c.id`,
     ),
   ),
 );
@@ -118,7 +136,7 @@ trackerRoutes.post("/companies", async (c) => {
   const timestamp = now();
   const key = id();
   await executeStatement(
-    `INSERT INTO tracker_companies(id,name,website,location,description,status,notes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,
+    `INSERT INTO tracker_companies(id,name,website,location,description,status,notes,contacts,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)`,
     [
       key,
       input.name,
@@ -127,6 +145,7 @@ trackerRoutes.post("/companies", async (c) => {
       input.description,
       input.status,
       input.notes,
+      input.contacts,
       timestamp,
       timestamp,
     ],
@@ -145,6 +164,7 @@ trackerRoutes.patch("/companies/:id", async (c) => {
     description: "description",
     status: "status",
     notes: "notes",
+    contacts: "contacts",
   };
   const entries = Object.entries(input).filter(([field]) => field in columns);
   if (!entries.length)
@@ -168,7 +188,7 @@ trackerRoutes.delete("/companies/:id", async (c) => {
 trackerRoutes.get("/applications", async (c) =>
   c.json(
     await executeStatement(
-      `SELECT a.id,a.title,a.company_id AS companyId,c.name AS companyName,a.status,a.type,a.description,a.location,a.employment_type AS employmentType,a.work_mode AS workMode,a.compensation,a.source_url AS sourceUrl,a.applied_on AS appliedOn,a.contacted_on AS contactedOn,a.follow_up_on AS followUpOn,a.contact_name AS contactName,a.contact_email AS contactEmail,a.outcome,a.notes,a.created_at AS createdAt,a.updated_at AS updatedAt FROM tracker_applications a JOIN tracker_companies c ON c.id=a.company_id ORDER BY a.updated_at DESC, a.id`,
+      `SELECT a.id,a.title,a.company_id AS companyId,c.name AS companyName,a.status,a.type,a.description,a.location,a.employment_type AS employmentType,a.work_mode AS workMode,a.compensation,a.source_url AS sourceUrl,a.applied_on AS appliedOn,a.contacted_on AS contactedOn,a.follow_up_on AS followUpOn,a.contact_name AS contactName,a.contact_email AS contactEmail,a.channels,a.outcome,a.notes,a.created_at AS createdAt,a.updated_at AS updatedAt FROM tracker_applications a JOIN tracker_companies c ON c.id=a.company_id ORDER BY a.updated_at DESC, a.id`,
     ),
   ),
 );
@@ -179,7 +199,7 @@ trackerRoutes.post("/applications", async (c) => {
   const key = id(),
     timestamp = now();
   await executeStatement(
-    `INSERT INTO tracker_applications(id,title,company_id,status,type,description,location,employment_type,work_mode,compensation,source_url,applied_on,contacted_on,follow_up_on,contact_name,contact_email,outcome,notes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    `INSERT INTO tracker_applications(id,title,company_id,status,type,description,location,employment_type,work_mode,compensation,source_url,applied_on,contacted_on,follow_up_on,contact_name,contact_email,channels,outcome,notes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       key,
       input.title,
@@ -197,6 +217,7 @@ trackerRoutes.post("/applications", async (c) => {
       input.followUpOn ?? null,
       input.contactName,
       input.contactEmail,
+      input.channels,
       input.outcome,
       input.notes,
       timestamp,
@@ -234,6 +255,7 @@ trackerRoutes.patch("/applications/:id", async (c) => {
     followUpOn: "follow_up_on",
     contactName: "contact_name",
     contactEmail: "contact_email",
+    channels: "channels",
     outcome: "outcome",
     notes: "notes",
   };
@@ -259,7 +281,7 @@ trackerRoutes.delete("/applications/:id", async (c) => {
 async function oneCompany(key: string) {
   return (
     await executeStatement<Record<string, unknown>>(
-      `SELECT c.id,c.name,c.website,c.location,c.description,c.status,c.notes,c.created_at AS createdAt,c.updated_at AS updatedAt,COUNT(a.id) AS applicationCount FROM tracker_companies c LEFT JOIN tracker_applications a ON a.company_id=c.id WHERE c.id=? GROUP BY c.id`,
+      `SELECT c.id,c.name,c.website,c.location,c.description,c.status,c.notes,c.contacts,c.created_at AS createdAt,c.updated_at AS updatedAt,COUNT(a.id) AS applicationCount FROM tracker_companies c LEFT JOIN tracker_applications a ON a.company_id=c.id WHERE c.id=? GROUP BY c.id`,
       [key],
     )
   )[0];
@@ -267,7 +289,7 @@ async function oneCompany(key: string) {
 async function oneApplication(key: string) {
   return (
     await executeStatement<Record<string, unknown>>(
-      `SELECT a.id,a.title,a.company_id AS companyId,c.name AS companyName,a.status,a.type,a.description,a.location,a.employment_type AS employmentType,a.work_mode AS workMode,a.compensation,a.source_url AS sourceUrl,a.applied_on AS appliedOn,a.contacted_on AS contactedOn,a.follow_up_on AS followUpOn,a.contact_name AS contactName,a.contact_email AS contactEmail,a.outcome,a.notes,a.created_at AS createdAt,a.updated_at AS updatedAt FROM tracker_applications a JOIN tracker_companies c ON c.id=a.company_id WHERE a.id=?`,
+      `SELECT a.id,a.title,a.company_id AS companyId,c.name AS companyName,a.status,a.type,a.description,a.location,a.employment_type AS employmentType,a.work_mode AS workMode,a.compensation,a.source_url AS sourceUrl,a.applied_on AS appliedOn,a.contacted_on AS contactedOn,a.follow_up_on AS followUpOn,a.contact_name AS contactName,a.contact_email AS contactEmail,a.channels,a.outcome,a.notes,a.created_at AS createdAt,a.updated_at AS updatedAt FROM tracker_applications a JOIN tracker_companies c ON c.id=a.company_id WHERE a.id=?`,
       [key],
     )
   )[0];

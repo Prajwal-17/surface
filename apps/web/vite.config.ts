@@ -9,11 +9,16 @@ const workspaceDirectory = path.resolve(appDirectory, "../..");
 export default defineConfig(({ mode }) => {
   const appEnv = loadEnv(mode, appDirectory, "");
   const workspaceEnv = loadEnv(mode, workspaceDirectory, "");
+  const webPort =
+    Number(process.env.SURFACE_WEB_PORT ?? "") ||
+    Number(appEnv.SURFACE_WEB_PORT ?? "") ||
+    Number(workspaceEnv.SURFACE_WEB_PORT ?? "") ||
+    17400;
   const backendUrl =
     process.env.BACKEND_URL ??
     appEnv.BACKEND_URL ??
     workspaceEnv.BACKEND_URL ??
-    "http://localhost:4000";
+    "http://localhost:14400";
   const apiProxy = {
     "/api": {
       target: backendUrl,
@@ -30,12 +35,12 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: "0.0.0.0",
-      port: 17000,
+      port: webPort,
       proxy: apiProxy,
     },
     preview: {
       host: "0.0.0.0",
-      port: 17000,
+      port: webPort,
       proxy: apiProxy,
     },
   };

@@ -37,6 +37,7 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
     CREATE TABLE IF NOT EXISTS tracker_companies (
       id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, website TEXT NOT NULL DEFAULT '',
       location TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '',
+      contacts TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'Listed', notes TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );
@@ -47,7 +48,8 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
       location TEXT NOT NULL DEFAULT '', employment_type TEXT NOT NULL DEFAULT '', work_mode TEXT,
       compensation TEXT NOT NULL DEFAULT '', source_url TEXT NOT NULL DEFAULT '', applied_on TEXT,
       contacted_on TEXT, follow_up_on TEXT, contact_name TEXT NOT NULL DEFAULT '',
-      contact_email TEXT NOT NULL DEFAULT '', outcome TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+      contact_email TEXT NOT NULL DEFAULT '', channels TEXT NOT NULL DEFAULT '',
+      outcome TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS job_preferences (
@@ -100,6 +102,74 @@ export async function startSurfaceServer(): Promise<SurfaceServer> {
     database.exec(
       "ALTER TABLE tracker_companies ADD COLUMN description TEXT NOT NULL DEFAULT ''",
     );
+  }
+  if (!companyColumns.has("contacts")) {
+    database.exec(
+      "ALTER TABLE tracker_companies ADD COLUMN contacts TEXT NOT NULL DEFAULT ''",
+    );
+  }
+  const applicationColumns = new Set(
+    (
+      database.prepare("PRAGMA table_info(tracker_applications)").all() as {
+        name: string;
+      }[]
+    ).map((column) => column.name),
+  );
+  if (!applicationColumns.has("channels")) {
+    database.exec(
+      "ALTER TABLE tracker_applications ADD COLUMN channels TEXT NOT NULL DEFAULT ''",
+    );
+  }
+  // Older builds pinned company status to the legacy value list with a
+  // CHECK constraint. Newer statuses ('Lead', 'Research') violate it, so
+  // rebuild the table without the stale constraint once.
+  const legacyCompanyDdl = (
+    database
+      .prepare(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='tracker_companies'",
+      )
+      .get() as { sql?: string } | undefined
+  )?.sql;
+  if (legacyCompanyDdl?.includes("status IN (")) {
+    const existingColumns = new Set(
+      (
+        database.prepare("PRAGMA table_info(tracker_companies)").all() as {
+          name: string;
+        }[]
+      ).map((column) => column.name),
+    );
+    const selectColumns = [
+      "id",
+      "name",
+      "website",
+      "location",
+      "description",
+      "contacts",
+      "status",
+      "notes",
+      "created_at",
+      "updated_at",
+    ]
+      .filter((name) => existingColumns.has(name))
+      .join(", ");
+    database.exec("PRAGMA foreign_keys = OFF");
+    try {
+      database.exec(`
+        CREATE TABLE tracker_companies_rebuilt (
+          id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, website TEXT NOT NULL DEFAULT '',
+          location TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '',
+          contacts TEXT NOT NULL DEFAULT '',
+          status TEXT NOT NULL DEFAULT 'Listed', notes TEXT NOT NULL DEFAULT '',
+          created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        );
+        INSERT INTO tracker_companies_rebuilt (${selectColumns})
+          SELECT ${selectColumns} FROM tracker_companies;
+        DROP TABLE tracker_companies;
+        ALTER TABLE tracker_companies_rebuilt RENAME TO tracker_companies;
+      `);
+    } finally {
+      database.exec("PRAGMA foreign_keys = ON");
+    }
   }
   database.exec(
     `UPDATE tracker_companies SET status='Listed' WHERE status IN ('To research','Outreach')`,

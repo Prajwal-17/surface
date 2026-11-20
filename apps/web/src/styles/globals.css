@@ -2360,6 +2360,12 @@ html[data-desktop="true"] .desktop-caption-spacer {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
+/* Frameless caption buttons float at the top right (z-100) and sit over
+   full-height sheets. Keep the sheet close button clear of them. */
+html[data-desktop="true"] [data-slot="sheet-close"] {
+  top: calc(var(--header-height) + 12px);
+}
+
 .desktop-drag-region {
   display: none;
   position: fixed;

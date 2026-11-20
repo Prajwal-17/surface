@@ -22,7 +22,9 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
-  PORT: z.coerce.number().int().positive().default(4000),
+  PORT: z.coerce.number().int().positive().default(14400),
+  /** Port the Vite dev server listens on; matches the web app's default. */
+  SURFACE_WEB_PORT: z.coerce.number().int().positive().default(17400),
   HOST: z.string().default("127.0.0.1"),
   SQLITE_DATABASE_FILE: z.string().min(1).optional(),
   DATA_DIR: z.string().optional(),

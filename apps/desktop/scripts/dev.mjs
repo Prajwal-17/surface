@@ -27,7 +27,8 @@ const app = fileURLToPath(new URL("../", import.meta.url));
 const web = join(app, "../web");
 const args = process.argv.slice(2);
 const backendPort = await getFreePort();
-const rendererUrl = "http://127.0.0.1:17000";
+const webPort = Number(process.env.SURFACE_WEB_PORT) || 17400;
+const rendererUrl = `http://127.0.0.1:${webPort}`;
 const vite = spawn(
   process.execPath,
   [
@@ -35,7 +36,7 @@ const vite = spawn(
     "--host",
     "127.0.0.1",
     "--port",
-    "17000",
+    String(webPort),
     "--strictPort",
   ],
   {

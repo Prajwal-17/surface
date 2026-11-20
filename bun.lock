@@ -37,7 +37,7 @@
     },
     "apps/desktop": {
       "name": "desktop",
-      "version": "0.1.0",
+      "version": "0.3.0",
       "devDependencies": {
         "@surface/typescript-config": "workspace:*",
         "@types/node": "26.3.0",
