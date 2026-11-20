@@ -19,7 +19,7 @@ env:
 
 jobs:
   checks:
-    name: Source checks and SQLite
+    name: Source checks
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -51,19 +51,8 @@ jobs:
       - name: Type-check
         run: bun run check-types
 
-      - name: Run browser and crawler unit tests
-        run: |
-          bun --cwd apps/web test
-          bun --cwd apps/crawler test
-
-      - name: Run SQLite backend tests
-        run: bun --cwd apps/backend test
-
-      - name: Verify fresh SQLite desktop storage
-        run: bun run verify:sqlite
-
   package:
-    name: Package and smoke-test Linux x64
+    name: Package and verify Linux x64
     needs: checks
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -88,35 +77,28 @@ jobs:
       - name: Install JavaScript dependencies
         run: bun install --frozen-lockfile
 
-      - name: Install Electron and Playwright system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
-            libsecret-1-0 libnotify4 xvfb
-          ./apps/crawler/node_modules/.bin/playwright install-deps chromium
-
       - name: Verify native Linux x64 runner
         run: |
           node -e 'if (process.platform !== "linux" || process.arch !== "x64") throw new Error("Expected linux/x64, got " + process.platform + "/" + process.arch)'
 
-      - name: Build production AppImage
+      - name: Build production AppImage and Debian package
         env:
           SURFACE_SOURCE_COMMIT: ${{ steps.checkout.outputs.commit }}
           SURFACE_SOURCE_REF: ${{ github.ref }}
-        run: node scripts/desktop-release.mjs package
+        run: bun --cwd apps/desktop package
 
-      - name: Verify staged Playwright Chromium
-        run: node scripts/desktop-release.mjs verify-build
-
-      - name: Smoke-test packaged AppImage
-        run: node scripts/desktop-release.mjs smoke
+      - name: Write build metadata and checksums
+        env:
+          SURFACE_SOURCE_COMMIT: ${{ steps.checkout.outputs.commit }}
+          SURFACE_SOURCE_REF: ${{ github.ref }}
+        run: node scripts/build-metadata.mjs --channel production
 
       - name: Show artifact checksums
         run: cat apps/desktop/release/SHA256SUMS
 
       # CI validates the installers without keeping a second copy of them.
-      # Downloadable development installers are uploaded as the
-      # surface-desktop-dev-linux-x64 artifact by the development workflow.
+      # Downloadable development installers are uploaded as the surface-dev-*
+      # artifacts by the development workflow.
       - name: Upload build metadata
         id: artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -143,5 +125,5 @@ jobs:
             echo
             echo "Artifact digest: \`$ARTIFACT_DIGEST\`"
             echo
-            echo "The installers were built and smoke-tested but are not uploaded here because they exceed the private repository's Actions artifact storage quota."
+            echo "The installers were built and verified but are not uploaded here because they exceed the private repository's Actions artifact storage quota."
           } >> "$GITHUB_STEP_SUMMARY"

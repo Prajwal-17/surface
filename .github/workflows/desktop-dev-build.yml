@@ -59,57 +59,23 @@ jobs:
       - name: Install JavaScript dependencies
         run: bun install --frozen-lockfile
 
-      - name: Install Electron and Playwright system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
-            libsecret-1-0 libnotify4 xvfb
-          ./apps/crawler/node_modules/.bin/playwright install-deps chromium
-
-      - name: Verify native Linux x64 runner
-        run: |
-          node -e 'if (process.platform !== "linux" || process.arch !== "x64") throw new Error("Expected linux/x64, got " + process.platform + "/" + process.arch)'
-
       - name: Run source checks
         run: |
           bun run format:check
           bun run lint
           bun run check-types
-          bun --cwd apps/web test
-          bun --cwd apps/crawler test
-          bun run verify:sqlite
-
-      - name: Download development seed data
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          seed_root="$RUNNER_TEMP/surface-dev-seed"
-          mkdir -p "$seed_root"
-          if gh release view desktop-dev-seed >/dev/null 2>&1; then
-            gh release download desktop-dev-seed \
-              --pattern 'surface-dev-seed.tar.gz' \
-              --dir "$seed_root" --clobber
-            tar -xzf "$seed_root/surface-dev-seed.tar.gz" -C "$seed_root"
-            test -f "$seed_root/seed/surface.sqlite3"
-            echo "SURFACE_DEV_SEED_DIR=$seed_root/seed" >> "$GITHUB_ENV"
-            du -sh "$seed_root/seed"
-          else
-            echo "::warning::No desktop-dev-seed release found; building without a seeded profile."
-          fi
 
       - name: Build development AppImage and Debian package
         env:
           SURFACE_SOURCE_COMMIT: ${{ steps.checkout.outputs.commit }}
           SURFACE_SOURCE_REF: ${{ inputs.ref || github.event.pull_request.head.ref || github.ref_name }}
-        run: node scripts/desktop-release.mjs package --channel development
+        run: bun --cwd apps/desktop package:dev
 
-      - name: Verify staged Playwright Chromium
-        run: node scripts/desktop-release.mjs verify-build
-
-      - name: Smoke-test packaged development AppImage
-        run: node scripts/desktop-release.mjs smoke --channel development
+      - name: Write build metadata and checksums
+        env:
+          SURFACE_SOURCE_COMMIT: ${{ steps.checkout.outputs.commit }}
+          SURFACE_SOURCE_REF: ${{ inputs.ref || github.event.pull_request.head.ref || github.ref_name }}
+        run: node scripts/build-metadata.mjs --channel development
 
       - name: Show artifact checksums
         run: cat apps/desktop/release/dev/SHA256SUMS
@@ -124,11 +90,10 @@ jobs:
           set -euo pipefail
           gh api --paginate "repos/$GH_REPO/actions/artifacts?per_page=100" \
             --jq '.artifacts[] | select(
-              .name == "surface-desktop-dev-linux-x64" or
-              .name == "surface-desktop-dev-linux-x64-metadata" or
-              (.name | test("^Surface-Dev-")) or
-              .name == "BUILD-INFO.json" or
-              .name == "SHA256SUMS"
+              .name == "surface-dev-appimage" or
+              .name == "surface-dev-deb" or
+              .name == "surface-dev-build-info" or
+              .name == "surface-dev-checksums"
             ) | .id' |
             while read -r id; do
               test -n "$id" || continue

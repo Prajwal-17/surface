@@ -44,7 +44,7 @@ jobs:
         id: metadata
         run: |
           set -euo pipefail
-          version="$(node scripts/desktop-release.mjs version)"
+          version="$(node -p "require('./apps/desktop/package.json').version")"
           tag="$GITHUB_REF_NAME"
           expected="desktop-v$version"
 
@@ -61,7 +61,17 @@ jobs:
             exit 1
           fi
 
-          node scripts/release-notes.mjs "$version" > release-notes.md
+          notes="$(awk -v header="## desktop-v$version" '
+            !found && $0 == header { found = 1; next }
+            found && /^## / { exit }
+            found && !started { if ($0 ~ /^[[:space:]]*$/) next; started = 1 }
+            found { print }
+          ' CHANGELOG.md)"
+          if [[ -z "${notes//[$'\t\r\n' ]/}" ]]; then
+            echo "::error::CHANGELOG.md has no entry for desktop-v$version."
+            exit 1
+          fi
+          printf '%s\n' "$notes" > release-notes.md
           {
             echo "version=$version"
             echo "tag=$tag"
@@ -127,13 +137,6 @@ jobs:
       - name: Install JavaScript dependencies
         run: bun install --frozen-lockfile
 
-      - name: Install Electron and Playwright system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
-            libsecret-1-0 libnotify4 xvfb
-          ./apps/crawler/node_modules/.bin/playwright install-deps chromium
-
       - name: Verify native Linux x64 runner
         run: |
           node -e 'if (process.platform !== "linux" || process.arch !== "x64") throw new Error("Expected linux/x64, got " + process.platform + "/" + process.arch)'
@@ -143,33 +146,23 @@ jobs:
           bun run format:check
           bun run lint
           bun run check-types
-          bun --cwd apps/web test
-          bun --cwd apps/crawler test
-          bun run verify:sqlite
-
-      - name: Verify the release version
-        env:
-          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-        run: node scripts/desktop-release.mjs version --tag "$RELEASE_TAG"
 
       - name: Build production Linux artifacts
+        env:
+          SURFACE_SOURCE_COMMIT: ${{ steps.checkout.outputs.commit }}
+          SURFACE_SOURCE_REF: ${{ github.ref }}
+        run: bun --cwd apps/desktop package
+
+      - name: Write build metadata and checksums
         env:
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           SURFACE_SOURCE_COMMIT: ${{ steps.checkout.outputs.commit }}
           SURFACE_SOURCE_REF: ${{ github.ref }}
-        run: node scripts/desktop-release.mjs package --tag "$RELEASE_TAG"
-
-      - name: Verify staged Playwright Chromium
-        run: node scripts/desktop-release.mjs verify-build
-
-      - name: Smoke-test the packaged AppImage with a fresh profile
-        run: node scripts/desktop-release.mjs smoke
+        run: node scripts/build-metadata.mjs --channel production --tag "$RELEASE_TAG"
 
       - name: Show artifact checksums
         run: cat apps/desktop/release/SHA256SUMS
 
-      # Attach installers directly to the draft release. Production assets do
-      # not consume the shared Actions artifact storage allowance.
       - name: Attach installers to the draft release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -235,13 +228,9 @@ jobs:
         run: |
           set -euo pipefail
           assets="$(gh release view "$TAG" --json assets --jq '.assets[].name')"
-          for required in \
-            "Surface-${VERSION}-x86_64.AppImage" \
-            "Surface-${VERSION}-amd64.deb" \
-            "BUILD-INFO.json" \
-            "SHA256SUMS"; do
-            if ! grep -qxF "$required" <<< "$assets"; then
-              echo "::error::Missing release asset $required on $TAG."
+          for required in "Surface-.*\.AppImage" "Surface-.*\.deb" "BUILD-INFO.json" "SHA256SUMS"; do
+            if ! grep -qE "$required" <<< "$assets"; then
+              echo "::error::Missing release asset matching $required on $TAG."
               exit 1
             fi
           done

@@ -6,3 +6,4 @@
 data/
 apps/backend/drizzle/meta/
 apps/backend/drizzle-sqlite/meta/
+.impeccable/
